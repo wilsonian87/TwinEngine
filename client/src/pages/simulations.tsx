@@ -1,0 +1,195 @@
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FlaskConical, Clock, ArrowRight, AlertCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { SimulationBuilder } from "@/components/simulation-builder";
+import { apiRequest } from "@/lib/queryClient";
+import type { SimulationResult, InsertSimulationScenario } from "@shared/schema";
+
+export default function Simulations() {
+  const [currentResult, setCurrentResult] = useState<SimulationResult | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: history = [], isLoading: historyLoading, isError: historyError, refetch: refetchHistory } = useQuery<SimulationResult[]>({
+    queryKey: ["/api/simulations/history"],
+  });
+
+  const runSimulation = useMutation({
+    mutationFn: async (scenario: InsertSimulationScenario) => {
+      const response = await apiRequest("POST", "/api/simulations/run", scenario);
+      return response.json() as Promise<SimulationResult>;
+    },
+    onSuccess: (result) => {
+      setCurrentResult(result);
+      queryClient.invalidateQueries({ queryKey: ["/api/simulations/history"] });
+      toast({
+        title: "Simulation Complete",
+        description: `Predicted ${result.predictedRxLift.toFixed(1)}% Rx lift with ${result.predictedEngagementRate.toFixed(1)}% engagement rate.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Simulation Failed",
+        description: "There was an error running the simulation. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  return (
+    <div className="h-full overflow-auto">
+      <div className="sticky top-0 z-10 border-b bg-background px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold" data-testid="text-page-title">Campaign Simulations</h1>
+            <p className="text-sm text-muted-foreground">
+              Build and run what-if scenarios to optimize HCP engagement
+            </p>
+          </div>
+          <Badge variant="outline" className="gap-1">
+            <FlaskConical className="h-3.5 w-3.5" />
+            {history.length} simulations run
+          </Badge>
+        </div>
+      </div>
+
+      <div className="p-6">
+        <Tabs defaultValue="builder" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="builder" data-testid="tab-builder">
+              Scenario Builder
+            </TabsTrigger>
+            <TabsTrigger value="history" data-testid="tab-history">
+              Simulation History
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="builder">
+            <SimulationBuilder
+              onRunSimulation={(scenario) => runSimulation.mutate(scenario)}
+              isRunning={runSimulation.isPending}
+              result={currentResult}
+            />
+          </TabsContent>
+
+          <TabsContent value="history">
+            {historyError ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <Alert variant="destructive" className="max-w-md">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error Loading History</AlertTitle>
+                  <AlertDescription>
+                    Failed to load simulation history. Please try again.
+                  </AlertDescription>
+                </Alert>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => refetchHistory()}
+                  data-testid="button-retry-history"
+                >
+                  Try Again
+                </Button>
+              </div>
+            ) : historyLoading ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-48" data-testid={`skeleton-simulation-${i}`} />
+                ))}
+              </div>
+            ) : history.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="mb-4 rounded-full bg-muted p-6">
+                  <FlaskConical className="h-10 w-10 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold">No simulations yet</h3>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  Build your first campaign scenario to see predicted outcomes and optimize your HCP engagement strategy.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {history.map((result) => (
+                  <Card key={result.id} className="hover-elevate" data-testid={`card-simulation-${result.id}`}>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="text-base">{result.scenarioName}</CardTitle>
+                        <Badge
+                          variant={result.vsBaseline.rxLiftDelta >= 0 ? "default" : "secondary"}
+                        >
+                          {result.vsBaseline.rxLiftDelta >= 0 ? "+" : ""}
+                          {result.vsBaseline.rxLiftDelta.toFixed(1)}%
+                        </Badge>
+                      </div>
+                      <CardDescription className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDate(result.runAt)}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-xs text-muted-foreground">Engagement</span>
+                          <p className="font-mono font-semibold text-chart-1">
+                            {result.predictedEngagementRate.toFixed(1)}%
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground">Response</span>
+                          <p className="font-mono font-semibold">
+                            {result.predictedResponseRate.toFixed(1)}%
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground">Rx Lift</span>
+                          <p className="font-mono font-semibold text-chart-2">
+                            +{result.predictedRxLift.toFixed(1)}%
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground">Reach</span>
+                          <p className="font-mono font-semibold">
+                            {result.predictedReach.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setCurrentResult(result)}
+                          data-testid={`button-view-result-${result.id}`}
+                        >
+                          View Details
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
