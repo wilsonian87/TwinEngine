@@ -130,24 +130,24 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate }: HCPDetailPane
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Yearly Rx Volume</span>
-                    <span className="font-mono font-medium">{hcp.yearlyRxVolume}</span>
+                    <span className="font-mono font-medium" data-testid="text-detail-yearly-rx">{hcp.yearlyRxVolume}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Market Share</span>
-                    <span className="font-mono font-medium">{hcp.marketSharePct}%</span>
+                    <span className="font-mono font-medium" data-testid="text-detail-market-share">{hcp.marketSharePct}%</span>
                   </div>
                   <Separator />
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Conversion Likelihood</span>
-                      <span className="font-medium">{hcp.conversionLikelihood}%</span>
+                      <span className="font-medium" data-testid="text-detail-conversion">{hcp.conversionLikelihood}%</span>
                     </div>
                     <Progress value={hcp.conversionLikelihood} className="h-2" />
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Churn Risk</span>
-                      <span className="font-medium">{hcp.churnRisk}%</span>
+                      <span className="font-medium" data-testid="text-detail-churn">{hcp.churnRisk}%</span>
                     </div>
                     <Progress value={hcp.churnRisk} className="h-2 [&>div]:bg-destructive" />
                   </div>
@@ -194,14 +194,14 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate }: HCPDetailPane
                     {hcp.channelEngagements.map((ce) => {
                       const Icon = channelIcons[ce.channel];
                       return (
-                        <div key={ce.channel} className="flex items-center gap-3">
+                        <div key={ce.channel} className="flex items-center gap-3" data-testid={`channel-detail-${ce.channel}`}>
                           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
                             <Icon className="h-4 w-4" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-medium">{channelLabels[ce.channel]}</span>
-                              <span className="font-mono text-sm">{ce.score}</span>
+                              <span className="font-mono text-sm" data-testid={`text-channel-score-${ce.channel}`}>{ce.score}</span>
                             </div>
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                               <span>{ce.totalTouches} touches</span>

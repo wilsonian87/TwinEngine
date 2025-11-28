@@ -131,7 +131,7 @@ export function HCPProfileCard({
             <span className="text-xs text-muted-foreground">Monthly Rx</span>
           </div>
           <div className="text-center">
-            <span className="block font-mono text-xl font-semibold text-foreground">
+            <span className="block font-mono text-xl font-semibold text-foreground" data-testid={`text-marketshare-${hcp.npi}`}>
               {hcp.marketSharePct}%
             </span>
             <span className="text-xs text-muted-foreground">Mkt Share</span>
@@ -181,7 +181,7 @@ export function HCPProfileCard({
         </div>
 
         <div className="flex items-center justify-between pt-2">
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="outline" className="text-xs" data-testid={`badge-segment-${hcp.npi}`}>
             {hcp.segment}
           </Badge>
           <Button

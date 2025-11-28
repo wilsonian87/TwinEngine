@@ -147,25 +147,25 @@ export default function Simulations() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <span className="text-xs text-muted-foreground">Engagement</span>
-                          <p className="font-mono font-semibold text-chart-1">
+                          <p className="font-mono font-semibold text-chart-1" data-testid={`text-sim-engagement-${result.id}`}>
                             {result.predictedEngagementRate.toFixed(1)}%
                           </p>
                         </div>
                         <div>
                           <span className="text-xs text-muted-foreground">Response</span>
-                          <p className="font-mono font-semibold">
+                          <p className="font-mono font-semibold" data-testid={`text-sim-response-${result.id}`}>
                             {result.predictedResponseRate.toFixed(1)}%
                           </p>
                         </div>
                         <div>
                           <span className="text-xs text-muted-foreground">Rx Lift</span>
-                          <p className="font-mono font-semibold text-chart-2">
+                          <p className="font-mono font-semibold text-chart-2" data-testid={`text-sim-rxlift-${result.id}`}>
                             +{result.predictedRxLift.toFixed(1)}%
                           </p>
                         </div>
                         <div>
                           <span className="text-xs text-muted-foreground">Reach</span>
-                          <p className="font-mono font-semibold">
+                          <p className="font-mono font-semibold" data-testid={`text-sim-reach-${result.id}`}>
                             {result.predictedReach.toLocaleString()}
                           </p>
                         </div>

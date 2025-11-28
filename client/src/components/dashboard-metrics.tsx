@@ -196,15 +196,15 @@ export function DashboardMetricsDisplay({ metrics }: DashboardMetricsProps) {
               </div>
               <div className="flex-1 space-y-2">
                 {segmentChartData.map((segment, i) => (
-                  <div key={segment.name} className="flex items-center justify-between">
+                  <div key={segment.name} className="flex items-center justify-between" data-testid={`segment-item-${i}`}>
                     <div className="flex items-center gap-2">
                       <div
                         className="h-3 w-3 rounded-sm"
                         style={{ backgroundColor: segment.fill }}
                       />
-                      <span className="text-sm">{segment.name}</span>
+                      <span className="text-sm" data-testid={`text-segment-name-${i}`}>{segment.name}</span>
                     </div>
-                    <span className="font-mono text-sm">{segment.percentage.toFixed(1)}%</span>
+                    <span className="font-mono text-sm" data-testid={`text-segment-pct-${i}`}>{segment.percentage.toFixed(1)}%</span>
                   </div>
                 ))}
               </div>
