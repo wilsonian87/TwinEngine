@@ -1,0 +1,59 @@
+%% HCP Digital Twin Engine – Architecture Diagram
+%% Save as .mmd or embed in Markdown fences ```mermaid
+
+flowchart LR
+  %% Data Sources
+  subgraph DS[Data Sources]
+    pl["PLD / Prescribing Data"]
+    promo["Promo Response & Marketing Touches"]
+    omni["Omnichannel Engagement (Email, Web, Events)"]
+    access["Market Access / Payer / Formulary"]
+    other["Other Signals (Medical, Scientific, etc.)"]
+  end
+
+  %% Data Platform / Feature Store
+  subgraph DP[Data Platform & Feature Store]
+    ingest["Ingestion & QC Pipelines"]
+    store["HCP Twin Feature Store (NPI-Keyed)"]
+  end
+
+  %% Modeling Layer
+  subgraph ML[Modeling Layer]
+    resp["Channel & Content Response Models"]
+    seq["Sequence / Uplift / Trajectory Models"]
+    sim["Simulation Engine
+(What-if Scenarios)"]
+  end
+
+  %% Experience Layer
+  subgraph EX[Experience & APIs]
+    ui["Twin Explorer UI
+(Internal Web App/BI)"]
+    api["Simulation & Scoring API"]
+  end
+
+  %% Activation
+  subgraph AC[Activation & Feedback]
+    orch["Omnichannel Orchestration
+(Veeva, CRM, MA Platforms)"]
+    field["Field / Rep Insights
+(Target Lists, Call Planning)"]
+    dash["Dashboards & Reporting"]
+    feedback["Response & Outcome Data
+(Closed-Loop Learning)"]
+  end
+
+  %% Flows
+  DS --> ingest --> store
+  store --> resp
+  store --> seq
+  resp --> sim
+  seq --> sim
+  sim --> api
+  api --> ui
+  api --> orch
+  api --> field
+  orch --> dash
+  field --> dash
+  dash --> feedback
+  feedback --> ingest
