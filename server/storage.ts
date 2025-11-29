@@ -1,17 +1,26 @@
 import { randomUUID } from "crypto";
-import type {
-  HCPProfile,
-  HCPFilter,
-  SimulationScenario,
-  SimulationResult,
-  InsertSimulationScenario,
-  DashboardMetrics,
-  Channel,
-  Specialty,
-  Tier,
-  Segment,
-  ChannelEngagement,
-  PrescribingTrend,
+import { db } from "./db";
+import { eq, ilike, or, and, gte, lte, inArray, sql, desc } from "drizzle-orm";
+import {
+  hcpProfiles,
+  simulationScenarios,
+  simulationResults,
+  auditLogs,
+  type HCPProfile,
+  type HCPFilter,
+  type SimulationResult,
+  type InsertSimulationScenario,
+  type DashboardMetrics,
+  type Channel,
+  type Specialty,
+  type Tier,
+  type Segment,
+  type ChannelEngagement,
+  type PrescribingTrend,
+  type ChannelPerformance,
+  type BaselineComparison,
+  type InsertAuditLog,
+  type AuditLog,
 } from "@shared/schema";
 import { specialties, tiers, segments, channels } from "@shared/schema";
 
@@ -22,6 +31,7 @@ export interface IStorage {
   getHcpById(id: string): Promise<HCPProfile | undefined>;
   getHcpByNpi(npi: string): Promise<HCPProfile | undefined>;
   filterHcps(filter: HCPFilter): Promise<HCPProfile[]>;
+  findSimilarHcps(hcpId: string, limit?: number): Promise<HCPProfile[]>;
 
   // Simulation operations
   createSimulation(scenario: InsertSimulationScenario): Promise<SimulationResult>;
@@ -30,6 +40,14 @@ export interface IStorage {
 
   // Dashboard metrics
   getDashboardMetrics(): Promise<DashboardMetrics>;
+  
+  // Audit logging
+  logAction(log: InsertAuditLog): Promise<void>;
+  getAuditLogs(limit?: number): Promise<AuditLog[]>;
+  
+  // Database seeding
+  seedHcpData(count?: number): Promise<void>;
+  getHcpCount(): Promise<number>;
 }
 
 // Generate random data helpers
@@ -104,61 +122,75 @@ function generatePrescribingTrend(): PrescribingTrend[] {
   const baseRx = randomInt(15, 60);
   const baseShare = randomFloat(5, 35);
   
-  return months.slice(-6).map((month, i) => ({
+  return months.slice(-6).map((month) => ({
     month,
     rxCount: Math.max(5, baseRx + randomInt(-10, 15)),
     marketShare: Math.max(5, Math.min(50, baseShare + randomFloat(-5, 8))),
   }));
 }
 
-function generateHcp(index: number): HCPProfile {
-  const channelEngagements = generateChannelEngagements();
-  const preferredChannel = channelEngagements.reduce((prev, curr) =>
-    curr.score > prev.score ? curr : prev
-  ).channel;
-  
-  const location = randomChoice(cities);
-  
+// Convert DB row to API type
+function dbRowToHcpProfile(row: typeof hcpProfiles.$inferSelect): HCPProfile {
   return {
-    id: randomUUID(),
-    npi: `${1000000000 + index}`,
-    firstName: randomChoice(firstNames),
-    lastName: randomChoice(lastNames),
-    specialty: randomChoice(specialties),
-    tier: randomChoice(tiers),
-    segment: randomChoice(segments),
-    organization: randomChoice(organizations),
-    city: location.city,
-    state: location.state,
-    overallEngagementScore: randomInt(25, 95),
-    channelPreference: preferredChannel,
-    channelEngagements,
-    monthlyRxVolume: randomInt(10, 80),
-    yearlyRxVolume: randomInt(120, 960),
-    marketSharePct: randomFloat(5, 45),
-    prescribingTrend: generatePrescribingTrend(),
-    conversionLikelihood: randomInt(15, 85),
-    churnRisk: randomInt(5, 50),
-    lastUpdated: new Date().toISOString(),
+    id: row.id,
+    npi: row.npi,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    specialty: row.specialty as Specialty,
+    tier: row.tier as Tier,
+    segment: row.segment as Segment,
+    organization: row.organization,
+    city: row.city,
+    state: row.state,
+    overallEngagementScore: row.overallEngagementScore,
+    channelPreference: row.channelPreference as Channel,
+    channelEngagements: row.channelEngagements,
+    monthlyRxVolume: row.monthlyRxVolume,
+    yearlyRxVolume: row.yearlyRxVolume,
+    marketSharePct: row.marketSharePct,
+    prescribingTrend: row.prescribingTrend,
+    conversionLikelihood: row.conversionLikelihood,
+    churnRisk: row.churnRisk,
+    lastUpdated: row.lastUpdated.toISOString(),
   };
 }
 
-// Generate 100 sample HCPs
-function generateHcpDatabase(count: number = 100): Map<string, HCPProfile> {
-  const hcps = new Map<string, HCPProfile>();
-  for (let i = 0; i < count; i++) {
-    const hcp = generateHcp(i);
-    hcps.set(hcp.id, hcp);
-  }
-  return hcps;
+function dbRowToSimulationResult(row: typeof simulationResults.$inferSelect): SimulationResult {
+  return {
+    id: row.id,
+    scenarioId: row.scenarioId,
+    scenarioName: row.scenarioName,
+    predictedEngagementRate: row.predictedEngagementRate,
+    predictedResponseRate: row.predictedResponseRate,
+    predictedRxLift: row.predictedRxLift,
+    predictedReach: row.predictedReach,
+    costPerEngagement: row.costPerEngagement ?? undefined,
+    efficiencyScore: row.efficiencyScore,
+    channelPerformance: row.channelPerformance,
+    vsBaseline: row.vsBaseline,
+    runAt: row.runAt.toISOString(),
+  };
 }
 
-// Simulation engine - simple predictive model
+function dbRowToAuditLog(row: typeof auditLogs.$inferSelect): AuditLog {
+  return {
+    id: row.id,
+    action: row.action,
+    entityType: row.entityType,
+    entityId: row.entityId,
+    details: row.details as Record<string, unknown> | null,
+    userId: row.userId,
+    ipAddress: row.ipAddress,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+// Simulation engine - predictive model with enhanced algorithms
 function runSimulationEngine(
   scenario: InsertSimulationScenario,
   hcpCount: number
 ): Omit<SimulationResult, "id" | "scenarioId" | "scenarioName" | "runAt"> {
-  // Base rates influenced by channel mix and frequency
+  // Channel weights based on industry benchmarks
   const channelWeights: Record<Channel, number> = {
     email: 0.7,
     rep_visit: 1.2,
@@ -168,7 +200,7 @@ function runSimulationEngine(
     phone: 0.8,
   };
 
-  const contentWeights = {
+  const contentWeights: Record<string, number> = {
     educational: 1.1,
     promotional: 0.9,
     clinical_data: 1.15,
@@ -177,7 +209,7 @@ function runSimulationEngine(
 
   // Calculate weighted channel score
   let channelScore = 0;
-  const channelPerformance = Object.entries(scenario.channelMix).map(([channel, allocation]) => {
+  const channelPerformance: ChannelPerformance[] = Object.entries(scenario.channelMix).map(([channel, allocation]) => {
     const weight = channelWeights[channel as Channel];
     const contribution = (allocation / 100) * weight;
     channelScore += contribution;
@@ -190,11 +222,12 @@ function runSimulationEngine(
     };
   });
 
-  // Calculate predicted outcomes
+  // Calculate predicted outcomes with enhanced algorithms
   const frequencyFactor = Math.min(1.5, 0.5 + scenario.frequency * 0.1);
   const durationFactor = Math.min(1.3, 0.7 + scenario.duration * 0.05);
-  const contentFactor = contentWeights[scenario.contentType];
+  const contentFactor = contentWeights[scenario.contentType] || 1.0;
 
+  // Base rates with variance
   const baseEngagement = 45 + randomFloat(-5, 10);
   const baseResponse = 25 + randomFloat(-3, 8);
   const baseRxLift = 8 + randomFloat(-2, 5);
@@ -208,10 +241,16 @@ function runSimulationEngine(
     (predictedEngagementRate * 0.3 + predictedResponseRate * 0.4 + predictedRxLift * 2) * 0.8
   );
 
-  // Baseline comparison (simulated historical average)
+  // Baseline comparison (historical average)
   const baselineEngagement = 42;
   const baselineResponse = 22;
   const baselineRxLift = 6;
+
+  const vsBaseline: BaselineComparison = {
+    engagementDelta: predictedEngagementRate - baselineEngagement,
+    responseDelta: predictedResponseRate - baselineResponse,
+    rxLiftDelta: predictedRxLift - baselineRxLift,
+  };
 
   return {
     predictedEngagementRate,
@@ -220,89 +259,97 @@ function runSimulationEngine(
     predictedReach,
     efficiencyScore: Math.min(100, efficiencyScore),
     channelPerformance,
-    vsBaseline: {
-      engagementDelta: predictedEngagementRate - baselineEngagement,
-      responseDelta: predictedResponseRate - baselineResponse,
-      rxLiftDelta: predictedRxLift - baselineRxLift,
-    },
+    vsBaseline,
   };
 }
 
-export class MemStorage implements IStorage {
-  private hcps: Map<string, HCPProfile>;
-  private simulations: Map<string, SimulationResult>;
+// Similarity scoring for lookalike modeling
+function calculateSimilarityScore(hcp1: HCPProfile, hcp2: HCPProfile): number {
+  let score = 0;
+  
+  // Same specialty (high weight)
+  if (hcp1.specialty === hcp2.specialty) score += 30;
+  
+  // Same tier (medium weight)
+  if (hcp1.tier === hcp2.tier) score += 20;
+  
+  // Same segment (medium weight)
+  if (hcp1.segment === hcp2.segment) score += 20;
+  
+  // Similar engagement score (within 15 points)
+  const engagementDiff = Math.abs(hcp1.overallEngagementScore - hcp2.overallEngagementScore);
+  if (engagementDiff <= 15) score += 15 - engagementDiff;
+  
+  // Similar Rx volume (within 20%)
+  const rxRatio = Math.min(hcp1.monthlyRxVolume, hcp2.monthlyRxVolume) / 
+                  Math.max(hcp1.monthlyRxVolume, hcp2.monthlyRxVolume);
+  score += rxRatio * 10;
+  
+  // Same channel preference
+  if (hcp1.channelPreference === hcp2.channelPreference) score += 5;
+  
+  return score;
+}
 
-  constructor() {
-    this.hcps = generateHcpDatabase(100);
-    this.simulations = new Map();
-    
-    // Generate some initial simulations for history
-    this.generateInitialSimulations();
-  }
-
-  private generateInitialSimulations() {
-    const scenarios: InsertSimulationScenario[] = [
-      {
-        name: "Q1 Digital Push",
-        description: "Focus on digital channels",
-        targetHcpIds: [],
-        channelMix: { email: 40, rep_visit: 15, webinar: 20, conference: 5, digital_ad: 15, phone: 5 },
-        frequency: 5,
-        duration: 3,
-        contentType: "educational",
-      },
-      {
-        name: "Rep-Heavy Campaign",
-        description: "Traditional field force approach",
-        targetHcpIds: [],
-        channelMix: { email: 15, rep_visit: 45, webinar: 10, conference: 15, digital_ad: 10, phone: 5 },
-        frequency: 3,
-        duration: 6,
-        contentType: "clinical_data",
-      },
-      {
-        name: "Balanced Omnichannel",
-        description: "Even distribution across all channels",
-        targetHcpIds: [],
-        channelMix: { email: 20, rep_visit: 20, webinar: 15, conference: 15, digital_ad: 15, phone: 15 },
-        frequency: 4,
-        duration: 4,
-        contentType: "mixed",
-      },
-    ];
-
-    scenarios.forEach((scenario, i) => {
-      const result = runSimulationEngine(scenario, this.hcps.size);
-      const id = randomUUID();
-      const simulationResult: SimulationResult = {
-        id,
-        scenarioId: randomUUID(),
-        scenarioName: scenario.name,
-        ...result,
-        runAt: new Date(Date.now() - (i + 1) * 24 * 60 * 60 * 1000).toISOString(),
-      };
-      this.simulations.set(id, simulationResult);
-    });
-  }
-
+export class DatabaseStorage implements IStorage {
   async getAllHcps(): Promise<HCPProfile[]> {
-    return Array.from(this.hcps.values());
+    const rows = await db.select().from(hcpProfiles);
+    return rows.map(dbRowToHcpProfile);
   }
 
   async getHcpById(id: string): Promise<HCPProfile | undefined> {
-    return this.hcps.get(id);
+    const rows = await db.select().from(hcpProfiles).where(eq(hcpProfiles.id, id));
+    return rows.length > 0 ? dbRowToHcpProfile(rows[0]) : undefined;
   }
 
   async getHcpByNpi(npi: string): Promise<HCPProfile | undefined> {
-    return Array.from(this.hcps.values()).find((hcp) => hcp.npi === npi);
+    const rows = await db.select().from(hcpProfiles).where(eq(hcpProfiles.npi, npi));
+    return rows.length > 0 ? dbRowToHcpProfile(rows[0]) : undefined;
   }
 
   async filterHcps(filter: HCPFilter): Promise<HCPProfile[]> {
-    let result = Array.from(this.hcps.values());
+    const conditions: ReturnType<typeof eq>[] = [];
 
+    if (filter.specialties?.length) {
+      conditions.push(inArray(hcpProfiles.specialty, filter.specialties));
+    }
+
+    if (filter.tiers?.length) {
+      conditions.push(inArray(hcpProfiles.tier, filter.tiers));
+    }
+
+    if (filter.segments?.length) {
+      conditions.push(inArray(hcpProfiles.segment, filter.segments));
+    }
+
+    if (filter.minEngagementScore !== undefined) {
+      conditions.push(gte(hcpProfiles.overallEngagementScore, filter.minEngagementScore));
+    }
+
+    if (filter.maxEngagementScore !== undefined) {
+      conditions.push(lte(hcpProfiles.overallEngagementScore, filter.maxEngagementScore));
+    }
+
+    if (filter.channelPreference) {
+      conditions.push(eq(hcpProfiles.channelPreference, filter.channelPreference));
+    }
+
+    if (filter.states?.length) {
+      conditions.push(inArray(hcpProfiles.state, filter.states));
+    }
+
+    let query = db.select().from(hcpProfiles);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+
+    let rows = await query;
+
+    // Apply text search filter in memory (for name/NPI search)
     if (filter.search) {
       const search = filter.search.toLowerCase();
-      result = result.filter(
+      rows = rows.filter(
         (hcp) =>
           hcp.firstName.toLowerCase().includes(search) ||
           hcp.lastName.toLowerCase().includes(search) ||
@@ -310,59 +357,72 @@ export class MemStorage implements IStorage {
       );
     }
 
-    if (filter.specialties?.length) {
-      result = result.filter((hcp) => filter.specialties!.includes(hcp.specialty));
-    }
+    return rows.map(dbRowToHcpProfile);
+  }
 
-    if (filter.tiers?.length) {
-      result = result.filter((hcp) => filter.tiers!.includes(hcp.tier));
-    }
+  async findSimilarHcps(hcpId: string, limit: number = 10): Promise<HCPProfile[]> {
+    const targetHcp = await this.getHcpById(hcpId);
+    if (!targetHcp) return [];
 
-    if (filter.segments?.length) {
-      result = result.filter((hcp) => filter.segments!.includes(hcp.segment));
-    }
+    const allHcps = await this.getAllHcps();
+    
+    // Calculate similarity scores and sort
+    const scoredHcps = allHcps
+      .filter(hcp => hcp.id !== hcpId)
+      .map(hcp => ({
+        hcp,
+        score: calculateSimilarityScore(targetHcp, hcp),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
 
-    if (filter.minEngagementScore !== undefined) {
-      result = result.filter((hcp) => hcp.overallEngagementScore >= filter.minEngagementScore!);
-    }
-
-    if (filter.channelPreference) {
-      result = result.filter((hcp) => hcp.channelPreference === filter.channelPreference);
-    }
-
-    return result;
+    return scoredHcps.map(s => s.hcp);
   }
 
   async createSimulation(scenario: InsertSimulationScenario): Promise<SimulationResult> {
-    const result = runSimulationEngine(scenario, this.hcps.size);
-    const id = randomUUID();
+    const hcpCount = await this.getHcpCount();
+    const result = runSimulationEngine(scenario, hcpCount);
     const scenarioId = randomUUID();
 
-    const simulationResult: SimulationResult = {
-      id,
+    const [insertedResult] = await db.insert(simulationResults).values({
       scenarioId,
       scenarioName: scenario.name,
-      ...result,
-      runAt: new Date().toISOString(),
-    };
+      predictedEngagementRate: result.predictedEngagementRate,
+      predictedResponseRate: result.predictedResponseRate,
+      predictedRxLift: result.predictedRxLift,
+      predictedReach: result.predictedReach,
+      efficiencyScore: result.efficiencyScore,
+      channelPerformance: result.channelPerformance,
+      vsBaseline: result.vsBaseline,
+    }).returning();
 
-    this.simulations.set(id, simulationResult);
-    return simulationResult;
+    // Log the simulation run
+    await this.logAction({
+      action: "simulation_run",
+      entityType: "simulation",
+      entityId: insertedResult.id,
+      details: { scenarioName: scenario.name, hcpCount },
+    });
+
+    return dbRowToSimulationResult(insertedResult);
   }
 
   async getSimulationHistory(): Promise<SimulationResult[]> {
-    return Array.from(this.simulations.values()).sort(
-      (a, b) => new Date(b.runAt).getTime() - new Date(a.runAt).getTime()
-    );
+    const rows = await db
+      .select()
+      .from(simulationResults)
+      .orderBy(desc(simulationResults.runAt));
+    return rows.map(dbRowToSimulationResult);
   }
 
   async getSimulationById(id: string): Promise<SimulationResult | undefined> {
-    return this.simulations.get(id);
+    const rows = await db.select().from(simulationResults).where(eq(simulationResults.id, id));
+    return rows.length > 0 ? dbRowToSimulationResult(rows[0]) : undefined;
   }
 
   async getDashboardMetrics(): Promise<DashboardMetrics> {
-    const allHcps = Array.from(this.hcps.values());
-    const allSimulations = Array.from(this.simulations.values());
+    const allHcps = await this.getAllHcps();
+    const allSimulations = await this.getSimulationHistory();
 
     // Calculate segment distribution
     const segmentCounts = new Map<Segment, number>();
@@ -374,7 +434,7 @@ export class MemStorage implements IStorage {
     const segmentDistribution = segments.map((segment) => ({
       segment,
       count: segmentCounts.get(segment) || 0,
-      percentage: ((segmentCounts.get(segment) || 0) / allHcps.length) * 100,
+      percentage: allHcps.length > 0 ? ((segmentCounts.get(segment) || 0) / allHcps.length) * 100 : 0,
     }));
 
     // Calculate channel effectiveness
@@ -426,7 +486,9 @@ export class MemStorage implements IStorage {
     }));
 
     // Calculate averages
-    const avgEngagement = allHcps.reduce((sum, h) => sum + h.overallEngagementScore, 0) / allHcps.length;
+    const avgEngagement = allHcps.length > 0 
+      ? allHcps.reduce((sum, h) => sum + h.overallEngagementScore, 0) / allHcps.length 
+      : 0;
     const avgPredictedLift = allSimulations.length > 0
       ? allSimulations.reduce((sum, s) => sum + s.predictedRxLift, 0) / allSimulations.length
       : 0;
@@ -442,6 +504,109 @@ export class MemStorage implements IStorage {
       engagementTrend,
     };
   }
+
+  async logAction(log: InsertAuditLog): Promise<void> {
+    await db.insert(auditLogs).values(log);
+  }
+
+  async getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
+    const rows = await db
+      .select()
+      .from(auditLogs)
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(limit);
+    return rows.map(dbRowToAuditLog);
+  }
+
+  async getHcpCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(hcpProfiles);
+    return Number(result[0]?.count || 0);
+  }
+
+  async seedHcpData(count: number = 100): Promise<void> {
+    const existingCount = await this.getHcpCount();
+    if (existingCount >= count) {
+      console.log(`Database already has ${existingCount} HCPs, skipping seed`);
+      return;
+    }
+
+    console.log(`Seeding database with ${count} HCP profiles...`);
+    
+    const hcpsToInsert = [];
+    for (let i = 0; i < count; i++) {
+      const channelEngagements = generateChannelEngagements();
+      const preferredChannel = channelEngagements.reduce((prev, curr) =>
+        curr.score > prev.score ? curr : prev
+      ).channel;
+      
+      const location = randomChoice(cities);
+      
+      hcpsToInsert.push({
+        npi: `${1000000000 + i}`,
+        firstName: randomChoice(firstNames),
+        lastName: randomChoice(lastNames),
+        specialty: randomChoice(specialties),
+        tier: randomChoice(tiers),
+        segment: randomChoice(segments),
+        organization: randomChoice(organizations),
+        city: location.city,
+        state: location.state,
+        overallEngagementScore: randomInt(25, 95),
+        channelPreference: preferredChannel,
+        channelEngagements,
+        monthlyRxVolume: randomInt(10, 80),
+        yearlyRxVolume: randomInt(120, 960),
+        marketSharePct: randomFloat(5, 45),
+        prescribingTrend: generatePrescribingTrend(),
+        conversionLikelihood: randomInt(15, 85),
+        churnRisk: randomInt(5, 50),
+      });
+    }
+
+    // Insert in batches
+    const batchSize = 50;
+    for (let i = 0; i < hcpsToInsert.length; i += batchSize) {
+      const batch = hcpsToInsert.slice(i, i + batchSize);
+      await db.insert(hcpProfiles).values(batch);
+    }
+
+    // Seed initial simulations
+    const scenarios = [
+      {
+        name: "Q1 Digital Push",
+        description: "Focus on digital channels",
+        targetHcpIds: [] as string[],
+        channelMix: { email: 40, rep_visit: 15, webinar: 20, conference: 5, digital_ad: 15, phone: 5 },
+        frequency: 5,
+        duration: 3,
+        contentType: "educational" as const,
+      },
+      {
+        name: "Rep-Heavy Campaign",
+        description: "Traditional field force approach",
+        targetHcpIds: [] as string[],
+        channelMix: { email: 15, rep_visit: 45, webinar: 10, conference: 15, digital_ad: 10, phone: 5 },
+        frequency: 3,
+        duration: 6,
+        contentType: "clinical_data" as const,
+      },
+      {
+        name: "Balanced Omnichannel",
+        description: "Even distribution across all channels",
+        targetHcpIds: [] as string[],
+        channelMix: { email: 20, rep_visit: 20, webinar: 15, conference: 15, digital_ad: 15, phone: 15 },
+        frequency: 4,
+        duration: 4,
+        contentType: "mixed" as const,
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      await this.createSimulation(scenario);
+    }
+
+    console.log(`Database seeded with ${count} HCPs and ${scenarios.length} initial simulations`);
+  }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

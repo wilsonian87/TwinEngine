@@ -7,10 +7,25 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Seed database on startup
+  try {
+    await storage.seedHcpData(100);
+  } catch (error) {
+    console.error("Error seeding database:", error);
+  }
+
   // HCP endpoints
   app.get("/api/hcps", async (req, res) => {
     try {
       const hcps = await storage.getAllHcps();
+      
+      // Log view action
+      await storage.logAction({
+        action: "view",
+        entityType: "hcp_list",
+        details: { count: hcps.length },
+      });
+      
       res.json(hcps);
     } catch (error) {
       console.error("Error fetching HCPs:", error);
@@ -24,6 +39,15 @@ export async function registerRoutes(
       if (!hcp) {
         return res.status(404).json({ error: "HCP not found" });
       }
+      
+      // Log view action
+      await storage.logAction({
+        action: "view",
+        entityType: "hcp_profile",
+        entityId: hcp.id,
+        details: { npi: hcp.npi, name: `${hcp.firstName} ${hcp.lastName}` },
+      });
+      
       res.json(hcp);
     } catch (error) {
       console.error("Error fetching HCP:", error);
@@ -55,6 +79,27 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error filtering HCPs:", error);
       res.status(500).json({ error: "Failed to filter HCPs" });
+    }
+  });
+
+  // Lookalike/similar HCPs endpoint
+  app.get("/api/hcps/:id/similar", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const similarHcps = await storage.findSimilarHcps(req.params.id, limit);
+      
+      // Log lookalike search
+      await storage.logAction({
+        action: "lookalike_search",
+        entityType: "hcp_profile",
+        entityId: req.params.id,
+        details: { resultCount: similarHcps.length, limit },
+      });
+      
+      res.json(similarHcps);
+    } catch (error) {
+      console.error("Error finding similar HCPs:", error);
+      res.status(500).json({ error: "Failed to find similar HCPs" });
     }
   });
 
@@ -107,6 +152,39 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching dashboard metrics:", error);
       res.status(500).json({ error: "Failed to fetch dashboard metrics" });
+    }
+  });
+
+  // Audit log endpoints
+  app.get("/api/audit-logs", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getAuditLogs(limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+
+  // Export endpoint (for governance/compliance)
+  app.get("/api/export/hcps", async (req, res) => {
+    try {
+      const hcps = await storage.getAllHcps();
+      
+      // Log export action
+      await storage.logAction({
+        action: "export",
+        entityType: "hcp_data",
+        details: { count: hcps.length, format: "json" },
+      });
+      
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Content-Disposition", "attachment; filename=hcp-export.json");
+      res.json(hcps);
+    } catch (error) {
+      console.error("Error exporting HCPs:", error);
+      res.status(500).json({ error: "Failed to export HCP data" });
     }
   });
 
