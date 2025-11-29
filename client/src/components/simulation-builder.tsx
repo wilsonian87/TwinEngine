@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Play, Save, RotateCcw, Info, ChevronRight, Target, Zap, BarChart2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -16,12 +18,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import type { Channel, SimulationResult, InsertSimulationScenario } from "@shared/schema";
-import { channels, segments } from "@shared/schema";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import type { Channel, SimulationResult, InsertSimulationScenario, HCPProfile } from "@shared/schema";
 
 const channelLabels: Record<Channel, string> = {
   email: "Email",
@@ -37,6 +38,7 @@ interface SimulationBuilderProps {
   isRunning?: boolean;
   result?: SimulationResult | null;
   selectedHcpCount?: number;
+  seedHcp?: HCPProfile | null;
 }
 
 export function SimulationBuilder({
@@ -44,6 +46,7 @@ export function SimulationBuilder({
   isRunning = false,
   result,
   selectedHcpCount = 0,
+  seedHcp = null,
 }: SimulationBuilderProps) {
   const [scenarioName, setScenarioName] = useState("New Campaign Scenario");
   const [description, setDescription] = useState("");
@@ -58,6 +61,24 @@ export function SimulationBuilder({
     digital_ad: 15,
     phone: 5,
   });
+  const [expandedAudience, setExpandedAudience] = useState(false);
+  const [includeLookalikes, setIncludeLookalikes] = useState(false);
+
+  const { data: allHcps = [] } = useQuery<HCPProfile[]>({
+    queryKey: ["/api/hcps"],
+  });
+
+  const { data: similarHcps = [], isLoading: loadingSimilar } = useQuery<HCPProfile[]>({
+    queryKey: [`/api/hcps/${seedHcp?.id}/similar`],
+    enabled: !!seedHcp?.id,
+  });
+
+  const topPerformers = useMemo(() => {
+    return allHcps
+      .filter(h => h.overallEngagementScore >= 70)
+      .sort((a, b) => b.overallEngagementScore - a.overallEngagementScore)
+      .slice(0, 5);
+  }, [allHcps]);
 
   const totalAllocation = Object.values(channelMix).reduce((a, b) => a + b, 0);
   const isValidAllocation = totalAllocation === 100;
@@ -85,10 +106,20 @@ export function SimulationBuilder({
   };
 
   const handleRun = () => {
+    const targetIds: string[] = [];
+    
+    if (seedHcp) {
+      targetIds.push(seedHcp.id);
+    }
+    
+    if (includeLookalikes && similarHcps.length > 0) {
+      similarHcps.forEach(hcp => targetIds.push(hcp.id));
+    }
+    
     onRunSimulation({
       name: scenarioName,
       description: description || undefined,
-      targetHcpIds: [],
+      targetHcpIds: targetIds,
       channelMix,
       frequency,
       duration,
@@ -110,7 +141,16 @@ export function SimulationBuilder({
       digital_ad: 15,
       phone: 5,
     });
+    setIncludeLookalikes(false);
   };
+
+  const audienceCount = useMemo(() => {
+    let count = selectedHcpCount > 0 ? selectedHcpCount : allHcps.length;
+    if (includeLookalikes && seedHcp && similarHcps.length > 0) {
+      count += similarHcps.length;
+    }
+    return count;
+  }, [selectedHcpCount, allHcps.length, includeLookalikes, seedHcp, similarHcps.length]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -388,16 +428,147 @@ export function SimulationBuilder({
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between rounded-md bg-muted p-3">
-              <span className="text-sm text-muted-foreground">Selected HCPs</span>
+              <span className="text-sm text-muted-foreground">Total HCPs</span>
               <span className="font-mono font-semibold" data-testid="text-selected-count">
-                {selectedHcpCount > 0 ? selectedHcpCount.toLocaleString() : "All"}
+                {audienceCount.toLocaleString()}
               </span>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               {selectedHcpCount > 0
-                ? "Simulation will run on selected HCPs"
+                ? `${selectedHcpCount} selected + ${includeLookalikes ? similarHcps.length + ' lookalikes' : 'no lookalikes'}`
                 : "Simulation will run on all HCPs in the database"}
             </p>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-audience-expansion-builder">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Sparkles className="h-4 w-4 text-chart-1" />
+              Audience Expansion
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Expand your reach with lookalike HCPs
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {seedHcp ? (
+              <>
+                <div className="rounded-md border p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium">
+                        Dr. {seedHcp.firstName} {seedHcp.lastName}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {seedHcp.specialty} • {seedHcp.tier}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-xs">Seed</Badge>
+                  </div>
+                </div>
+
+                {loadingSimilar ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-12" />
+                    <Skeleton className="h-12" />
+                  </div>
+                ) : similarHcps.length > 0 ? (
+                  <Collapsible open={expandedAudience} onOpenChange={setExpandedAudience}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <UserSearch className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{similarHcps.length} similar HCPs found</span>
+                      </div>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-expand-lookalikes">
+                          {expandedAudience ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </CollapsibleTrigger>
+                    </div>
+
+                    <CollapsibleContent>
+                      <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">
+                        {similarHcps.slice(0, 5).map((hcp) => (
+                          <div
+                            key={hcp.id}
+                            className="flex items-center justify-between rounded border p-2 text-xs"
+                            data-testid={`lookalike-hcp-${hcp.id}`}
+                          >
+                            <span className="truncate">
+                              Dr. {hcp.firstName} {hcp.lastName}
+                            </span>
+                            <span className="font-mono text-muted-foreground">
+                              {hcp.overallEngagementScore}
+                            </span>
+                          </div>
+                        ))}
+                        {similarHcps.length > 5 && (
+                          <div className="text-center text-xs text-muted-foreground">
+                            +{similarHcps.length - 5} more
+                          </div>
+                        )}
+                      </div>
+                    </CollapsibleContent>
+
+                    <div className="mt-3 flex items-center justify-between rounded-md bg-muted/50 p-2">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs">Include lookalikes</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={includeLookalikes ? "default" : "outline"}
+                        className="h-7 text-xs"
+                        onClick={() => setIncludeLookalikes(!includeLookalikes)}
+                        data-testid="button-toggle-lookalikes"
+                      >
+                        {includeLookalikes ? "Included" : "Add to Simulation"}
+                      </Button>
+                    </div>
+                  </Collapsible>
+                ) : (
+                  <div className="text-center text-xs text-muted-foreground py-2">
+                    No similar HCPs found for this profile
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="text-center text-xs text-muted-foreground py-2">
+                  Select an HCP from Explorer to find lookalikes
+                </div>
+                
+                {topPerformers.length > 0 && (
+                  <div className="border-t pt-3">
+                    <div className="mb-2 text-xs font-medium text-muted-foreground">
+                      Suggested seed HCPs (top performers)
+                    </div>
+                    <div className="space-y-2">
+                      {topPerformers.slice(0, 3).map((hcp) => (
+                        <div
+                          key={hcp.id}
+                          className="flex items-center justify-between rounded border p-2 text-xs"
+                          data-testid={`suggested-seed-${hcp.id}`}
+                        >
+                          <div className="truncate">
+                            <span className="font-medium">Dr. {hcp.firstName} {hcp.lastName}</span>
+                            <span className="text-muted-foreground ml-1">• {hcp.specialty}</span>
+                          </div>
+                          <Badge variant="secondary" className="text-xs shrink-0">
+                            {hcp.overallEngagementScore}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

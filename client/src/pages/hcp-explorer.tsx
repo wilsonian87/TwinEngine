@@ -182,6 +182,7 @@ export default function HCPExplorer() {
         hcp={selectedHcp}
         open={!!selectedHcp}
         onClose={() => setSelectedHcp(null)}
+        onSelectHcp={setSelectedHcp}
       />
     </div>
   );

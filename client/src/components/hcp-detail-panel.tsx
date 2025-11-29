@@ -1,4 +1,6 @@
-import { X, Mail, Phone, Video, Globe, Calendar, Users, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
+import { Mail, Phone, Video, Globe, Calendar, Users, ArrowRight, UserSearch, Sparkles } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   LineChart,
   Line,
@@ -48,9 +51,23 @@ interface HCPDetailPanelProps {
   open: boolean;
   onClose: () => void;
   onSimulate?: (hcp: HCPProfile) => void;
+  onSelectHcp?: (hcp: HCPProfile) => void;
 }
 
-export function HCPDetailPanel({ hcp, open, onClose, onSimulate }: HCPDetailPanelProps) {
+export function HCPDetailPanel({ hcp, open, onClose, onSimulate, onSelectHcp }: HCPDetailPanelProps) {
+  const [, setLocation] = useLocation();
+  const { data: similarHcps = [], isLoading: isLoadingSimilar } = useQuery<HCPProfile[]>({
+    queryKey: [`/api/hcps/${hcp?.id}/similar`],
+    enabled: !!hcp?.id && open,
+  });
+
+  const navigateToSimulation = () => {
+    if (hcp) {
+      setLocation(`/simulations?seedHcp=${hcp.id}`);
+      onClose();
+    }
+  };
+
   if (!hcp) return null;
 
   const channelData = hcp.channelEngagements.map((ce) => ({
@@ -104,10 +121,14 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate }: HCPDetailPane
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
               <TabsTrigger value="channels" data-testid="tab-channels">Channels</TabsTrigger>
               <TabsTrigger value="trends" data-testid="tab-trends">Trends</TabsTrigger>
+              <TabsTrigger value="similar" data-testid="tab-similar">
+                <UserSearch className="mr-1 h-3 w-3" />
+                Similar
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="mt-4 space-y-4">
@@ -277,6 +298,104 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate }: HCPDetailPane
                         />
                       </LineChart>
                     </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="similar" className="mt-4 space-y-4" data-testid="tab-content-similar">
+              <Card data-testid="card-lookalike-hcps">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                    <Sparkles className="h-4 w-4 text-chart-1" />
+                    Lookalike HCPs
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    HCPs with similar profiles based on specialty, tier, segment, and engagement patterns
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingSimilar ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Skeleton key={i} className="h-16" />
+                      ))}
+                    </div>
+                  ) : similarHcps.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">
+                      No similar HCPs found
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {similarHcps.map((similarHcp) => (
+                        <div
+                          key={similarHcp.id}
+                          className="flex items-center justify-between rounded-lg border p-3 hover-elevate cursor-pointer"
+                          onClick={() => onSelectHcp?.(similarHcp)}
+                          data-testid={`similar-hcp-${similarHcp.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm truncate">
+                                Dr. {similarHcp.firstName} {similarHcp.lastName}
+                              </span>
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                {similarHcp.tier}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              <span>{similarHcp.specialty}</span>
+                              <span>•</span>
+                              <span>{similarHcp.segment}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 shrink-0 ml-3">
+                            <div className="text-right">
+                              <div className="font-mono text-sm font-semibold text-chart-1">
+                                {similarHcp.overallEngagementScore}
+                              </div>
+                              <div className="text-xs text-muted-foreground">Score</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-mono text-sm font-semibold">
+                                {similarHcp.monthlyRxVolume}
+                              </div>
+                              <div className="text-xs text-muted-foreground">Rx/mo</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card data-testid="card-audience-expansion">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Audience Expansion</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Use similar HCPs to expand your target audience for simulations
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
+                    <div>
+                      <div className="font-medium text-sm" data-testid="text-similar-count">
+                        {similarHcps.length} similar HCPs identified
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1" data-testid="text-combined-rx">
+                        Combined potential reach of {similarHcps.reduce((sum, h) => sum + h.monthlyRxVolume, 0)} Rx/mo
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={navigateToSimulation}
+                      data-testid="button-simulate-with-lookalikes"
+                    >
+                      <Users className="mr-2 h-3 w-3" />
+                      Include in Simulation
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

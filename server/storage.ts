@@ -380,7 +380,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSimulation(scenario: InsertSimulationScenario): Promise<SimulationResult> {
-    const hcpCount = await this.getHcpCount();
+    const targetHcpIds = scenario.targetHcpIds || [];
+    const hasTargetedAudience = targetHcpIds.length > 0;
+    
+    const hcpCount = hasTargetedAudience 
+      ? targetHcpIds.length 
+      : await this.getHcpCount();
+    
     const result = runSimulationEngine(scenario, hcpCount);
     const scenarioId = randomUUID();
 
@@ -396,12 +402,22 @@ export class DatabaseStorage implements IStorage {
       vsBaseline: result.vsBaseline,
     }).returning();
 
-    // Log the simulation run
+    // Log the simulation run with audience details including target IDs
     await this.logAction({
       action: "simulation_run",
       entityType: "simulation",
       entityId: insertedResult.id,
-      details: { scenarioName: scenario.name, hcpCount },
+      details: { 
+        scenarioName: scenario.name, 
+        hcpCount,
+        targetedAudience: hasTargetedAudience,
+        targetHcpCount: targetHcpIds.length,
+        targetHcpIds: hasTargetedAudience ? targetHcpIds : undefined,
+        channelMix: scenario.channelMix,
+        frequency: scenario.frequency,
+        duration: scenario.duration,
+        contentType: scenario.contentType,
+      },
     });
 
     return dbRowToSimulationResult(insertedResult);

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FlaskConical, Clock, ArrowRight, AlertCircle } from "lucide-react";
+import { useSearch, useLocation } from "wouter";
+import { FlaskConical, Clock, ArrowRight, AlertCircle, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,16 +11,45 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { SimulationBuilder } from "@/components/simulation-builder";
 import { apiRequest } from "@/lib/queryClient";
-import type { SimulationResult, InsertSimulationScenario } from "@shared/schema";
+import type { SimulationResult, InsertSimulationScenario, HCPProfile } from "@shared/schema";
 
 export default function Simulations() {
   const [currentResult, setCurrentResult] = useState<SimulationResult | null>(null);
+  const [seedHcp, setSeedHcp] = useState<HCPProfile | null>(null);
+  const [isSeedCleared, setIsSeedCleared] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const searchString = useSearch();
+  const [, setLocation] = useLocation();
 
   const { data: history = [], isLoading: historyLoading, isError: historyError, refetch: refetchHistory } = useQuery<SimulationResult[]>({
     queryKey: ["/api/simulations/history"],
   });
+
+  const seedHcpId = new URLSearchParams(searchString).get("seedHcp");
+  
+  const { data: fetchedSeedHcp } = useQuery<HCPProfile>({
+    queryKey: [`/api/hcps/${seedHcpId}`],
+    enabled: !!seedHcpId && !isSeedCleared,
+  });
+
+  useEffect(() => {
+    if (fetchedSeedHcp && !isSeedCleared) {
+      setSeedHcp(fetchedSeedHcp);
+    }
+  }, [fetchedSeedHcp, isSeedCleared]);
+
+  useEffect(() => {
+    if (seedHcpId) {
+      setIsSeedCleared(false);
+    }
+  }, [seedHcpId]);
+
+  const clearSeedHcp = () => {
+    setSeedHcp(null);
+    setIsSeedCleared(true);
+    setLocation('/simulations');
+  };
 
   const runSimulation = useMutation({
     mutationFn: async (scenario: InsertSimulationScenario) => {
@@ -82,10 +112,31 @@ export default function Simulations() {
           </TabsList>
 
           <TabsContent value="builder">
+            {seedHcp && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/50 p-3">
+                <Badge variant="outline" className="text-xs">Seed HCP</Badge>
+                <span className="text-sm font-medium">
+                  Dr. {seedHcp.firstName} {seedHcp.lastName}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {seedHcp.specialty} • {seedHcp.tier}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="ml-auto h-6 w-6"
+                  onClick={clearSeedHcp}
+                  data-testid="button-clear-seed"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
             <SimulationBuilder
               onRunSimulation={(scenario) => runSimulation.mutate(scenario)}
               isRunning={runSimulation.isPending}
               result={currentResult}
+              seedHcp={seedHcp}
             />
           </TabsContent>
 
