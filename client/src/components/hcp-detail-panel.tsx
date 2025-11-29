@@ -1,4 +1,4 @@
-import { Mail, Phone, Video, Globe, Calendar, Users, ArrowRight, UserSearch, Sparkles } from "lucide-react";
+import { Mail, Phone, Video, Globe, Calendar, Users, ArrowRight, UserSearch, Sparkles, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -20,6 +20,7 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { StimuliPrediction } from "./stimuli-prediction";
 import type { HCPProfile, Channel } from "@shared/schema";
 
 const channelIcons: Record<Channel, typeof Mail> = {
@@ -121,10 +122,14 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate, onSelectHcp }: 
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
               <TabsTrigger value="channels" data-testid="tab-channels">Channels</TabsTrigger>
               <TabsTrigger value="trends" data-testid="tab-trends">Trends</TabsTrigger>
+              <TabsTrigger value="stimuli" data-testid="tab-stimuli">
+                <Zap className="mr-1 h-3 w-3" />
+                Predict
+              </TabsTrigger>
               <TabsTrigger value="similar" data-testid="tab-similar">
                 <UserSearch className="mr-1 h-3 w-3" />
                 Similar
@@ -301,6 +306,10 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate, onSelectHcp }: 
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="stimuli" className="mt-4" data-testid="tab-content-stimuli">
+              <StimuliPrediction hcp={hcp} />
             </TabsContent>
 
             <TabsContent value="similar" className="mt-4 space-y-4" data-testid="tab-content-similar">
