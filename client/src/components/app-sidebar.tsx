@@ -7,6 +7,7 @@ import {
   Database,
   Activity,
   TrendingUp,
+  MessageSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,6 +29,12 @@ const navigationItems = [
     url: "/",
     icon: Users,
     description: "Search & analyze HCP profiles",
+  },
+  {
+    title: "Audience Builder",
+    url: "/audience-builder",
+    icon: MessageSquare,
+    description: "Build cohorts with AI",
   },
   {
     title: "Simulations",

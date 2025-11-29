@@ -12,14 +12,17 @@ import HCPExplorer from "@/pages/hcp-explorer";
 import Simulations from "@/pages/simulations";
 import Dashboard from "@/pages/dashboard";
 import FeatureStore from "@/pages/feature-store";
+import AudienceBuilder from "@/pages/audience-builder";
 import Settings from "@/pages/settings";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={HCPExplorer} />
+      <Route path="/hcp-explorer" component={HCPExplorer} />
       <Route path="/simulations" component={Simulations} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/audience-builder" component={AudienceBuilder} />
       <Route path="/feature-store" component={FeatureStore} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
