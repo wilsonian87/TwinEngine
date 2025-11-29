@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch, useLocation } from "wouter";
-import { FlaskConical, Clock, ArrowRight, AlertCircle, X } from "lucide-react";
+import { FlaskConical, Clock, ArrowRight, AlertCircle, X, GitBranch } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { SimulationBuilder } from "@/components/simulation-builder";
+import { CounterfactualBacktesting } from "@/components/counterfactual-backtesting";
 import { apiRequest } from "@/lib/queryClient";
 import type { SimulationResult, InsertSimulationScenario, HCPProfile } from "@shared/schema";
 
@@ -102,12 +103,16 @@ export default function Simulations() {
 
       <div className="p-6">
         <Tabs defaultValue="builder" className="space-y-6">
-          <TabsList>
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="builder" data-testid="tab-builder">
               Scenario Builder
             </TabsTrigger>
+            <TabsTrigger value="counterfactual" data-testid="tab-counterfactual">
+              <GitBranch className="h-4 w-4 mr-2" />
+              What-If Analysis
+            </TabsTrigger>
             <TabsTrigger value="history" data-testid="tab-history">
-              Simulation History
+              History
             </TabsTrigger>
           </TabsList>
 
@@ -138,6 +143,10 @@ export default function Simulations() {
               result={currentResult}
               seedHcp={seedHcp}
             />
+          </TabsContent>
+
+          <TabsContent value="counterfactual">
+            <CounterfactualBacktesting />
           </TabsContent>
 
           <TabsContent value="history">
