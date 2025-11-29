@@ -8,6 +8,7 @@ import {
   Activity,
   TrendingUp,
   MessageSquare,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -56,6 +57,12 @@ const systemItems = [
     url: "/feature-store",
     icon: Database,
     description: "Data pipeline status",
+  },
+  {
+    title: "Model Evaluation",
+    url: "/model-evaluation",
+    icon: BarChart3,
+    description: "Track prediction accuracy",
   },
   {
     title: "Settings",

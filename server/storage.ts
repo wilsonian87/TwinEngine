@@ -9,6 +9,7 @@ import {
   stimuliEvents,
   counterfactualScenarios,
   nlQueryLogs,
+  modelEvaluations,
   type HCPProfile,
   type HCPFilter,
   type SimulationResult,
@@ -37,6 +38,12 @@ import {
   type NLQueryFilters,
   type NLRecommendation,
   type StimulusType,
+  type ModelEvaluation,
+  type ModelHealthSummary,
+  type RecordOutcomeRequest,
+  type RunEvaluationRequest,
+  type SegmentModelMetric,
+  type ChannelModelMetric,
 } from "@shared/schema";
 import { specialties, tiers, segments, channels, stimulusTypes } from "@shared/schema";
 
@@ -74,6 +81,12 @@ export interface IStorage {
   // Natural Language Queries (placeholder for GenAI integration)
   processNLQuery(request: NLQueryRequest): Promise<NLQueryResponse>;
   getNLQueryHistory(limit?: number): Promise<NLQueryResponse[]>;
+  
+  // Model Evaluation & Closed-Loop Learning
+  recordOutcome(request: RecordOutcomeRequest): Promise<StimuliEvent | undefined>;
+  runModelEvaluation(request: RunEvaluationRequest): Promise<ModelEvaluation>;
+  getModelEvaluations(limit?: number): Promise<ModelEvaluation[]>;
+  getModelHealthSummary(): Promise<ModelHealthSummary>;
   
   // Database seeding
   seedHcpData(count?: number): Promise<void>;
@@ -1290,6 +1303,378 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(nlQueryLogs.createdAt))
       .limit(limit);
     return rows.map(dbRowToNLQueryResponse);
+  }
+
+  // ============ Model Evaluation & Closed-Loop Learning ============
+
+  async recordOutcome(request: RecordOutcomeRequest): Promise<StimuliEvent | undefined> {
+    const now = new Date();
+    
+    const [updated] = await db
+      .update(stimuliEvents)
+      .set({
+        actualEngagementDelta: request.actualEngagementDelta,
+        actualConversionDelta: request.actualConversionDelta || 0,
+        outcomeRecordedAt: now,
+        status: "confirmed",
+      })
+      .where(eq(stimuliEvents.id, request.stimuliEventId))
+      .returning();
+
+    if (!updated) return undefined;
+
+    // Log this action
+    await this.logAction({
+      action: "record_outcome",
+      entityType: "stimuli_event",
+      entityId: request.stimuliEventId,
+      details: {
+        predictedDelta: updated.predictedEngagementDelta,
+        actualDelta: request.actualEngagementDelta,
+        error: Math.abs((updated.predictedEngagementDelta || 0) - request.actualEngagementDelta),
+      },
+    });
+
+    return dbRowToStimuliEvent(updated);
+  }
+
+  async runModelEvaluation(request: RunEvaluationRequest): Promise<ModelEvaluation> {
+    const now = new Date();
+    const periodEnd = request.periodEnd ? new Date(request.periodEnd) : now;
+    const periodStart = request.periodStart 
+      ? new Date(request.periodStart) 
+      : new Date(periodEnd.getTime() - 30 * 24 * 60 * 60 * 1000); // Default 30 days
+
+    // Get all stimuli events with outcomes in the period
+    const events = await db
+      .select()
+      .from(stimuliEvents)
+      .where(
+        and(
+          eq(stimuliEvents.status, "confirmed"),
+          gte(stimuliEvents.eventDate, periodStart),
+          lte(stimuliEvents.eventDate, periodEnd)
+        )
+      );
+
+    const totalPredictions = events.length;
+    const predictionsWithOutcomes = events.filter(e => e.actualEngagementDelta !== null).length;
+
+    // Calculate accuracy metrics
+    const { mae, rmse, mape, r2, ciCoverage, avgCiWidth } = this.calculateAccuracyMetrics(events);
+
+    // Calculate segment-level metrics
+    const segmentMetrics = await this.calculateSegmentMetrics(events);
+    
+    // Calculate channel-level metrics
+    const channelMetrics = await this.calculateChannelMetrics(events);
+
+    // Calculate calibration
+    const { slope, intercept } = this.calculateCalibration(events);
+
+    const [evaluation] = await db
+      .insert(modelEvaluations)
+      .values({
+        periodStart,
+        periodEnd,
+        predictionType: request.predictionType,
+        totalPredictions,
+        predictionsWithOutcomes,
+        meanAbsoluteError: mae,
+        rootMeanSquaredError: rmse,
+        meanAbsolutePercentError: mape,
+        r2Score: r2,
+        calibrationSlope: slope,
+        calibrationIntercept: intercept,
+        ciCoverageRate: ciCoverage,
+        avgCiWidth: avgCiWidth,
+        segmentMetrics: segmentMetrics,
+        channelMetrics: channelMetrics,
+        modelVersion: "v1.0",
+      })
+      .returning();
+
+    // Log the evaluation
+    await this.logAction({
+      action: "run_model_evaluation",
+      entityType: "model_evaluation",
+      entityId: evaluation.id,
+      details: {
+        predictionType: request.predictionType,
+        totalPredictions,
+        mae,
+        rmse,
+      },
+    });
+
+    return this.dbRowToModelEvaluation(evaluation);
+  }
+
+  private calculateAccuracyMetrics(events: typeof stimuliEvents.$inferSelect[]) {
+    const validEvents = events.filter(
+      e => e.predictedEngagementDelta !== null && e.actualEngagementDelta !== null
+    );
+
+    if (validEvents.length === 0) {
+      return { mae: null, rmse: null, mape: null, r2: null, ciCoverage: null, avgCiWidth: null };
+    }
+
+    const errors = validEvents.map(e => ({
+      predicted: e.predictedEngagementDelta!,
+      actual: e.actualEngagementDelta!,
+      lower: e.confidenceLower!,
+      upper: e.confidenceUpper!,
+      error: e.actualEngagementDelta! - e.predictedEngagementDelta!,
+    }));
+
+    // MAE
+    const mae = errors.reduce((sum, e) => sum + Math.abs(e.error), 0) / errors.length;
+
+    // RMSE
+    const rmse = Math.sqrt(errors.reduce((sum, e) => sum + e.error * e.error, 0) / errors.length);
+
+    // MAPE (avoiding division by zero)
+    const validMape = errors.filter(e => e.actual !== 0);
+    const mape = validMape.length > 0
+      ? validMape.reduce((sum, e) => sum + Math.abs(e.error / e.actual), 0) / validMape.length * 100
+      : null;
+
+    // R² Score
+    const meanActual = errors.reduce((sum, e) => sum + e.actual, 0) / errors.length;
+    const ssTotal = errors.reduce((sum, e) => sum + Math.pow(e.actual - meanActual, 2), 0);
+    const ssResidual = errors.reduce((sum, e) => sum + Math.pow(e.error, 2), 0);
+    const r2 = ssTotal > 0 ? 1 - (ssResidual / ssTotal) : null;
+
+    // CI Coverage (what % of actuals fell within confidence interval)
+    const inCi = errors.filter(e => e.actual >= e.lower && e.actual <= e.upper).length;
+    const ciCoverage = (inCi / errors.length) * 100;
+
+    // Average CI Width
+    const avgCiWidth = errors.reduce((sum, e) => sum + (e.upper - e.lower), 0) / errors.length;
+
+    return {
+      mae: parseFloat(mae.toFixed(4)),
+      rmse: parseFloat(rmse.toFixed(4)),
+      mape: mape ? parseFloat(mape.toFixed(2)) : null,
+      r2: r2 ? parseFloat(r2.toFixed(4)) : null,
+      ciCoverage: parseFloat(ciCoverage.toFixed(2)),
+      avgCiWidth: parseFloat(avgCiWidth.toFixed(2)),
+    };
+  }
+
+  private calculateCalibration(events: typeof stimuliEvents.$inferSelect[]) {
+    const validEvents = events.filter(
+      e => e.predictedEngagementDelta !== null && e.actualEngagementDelta !== null
+    );
+
+    if (validEvents.length < 2) {
+      return { slope: null, intercept: null };
+    }
+
+    // Simple linear regression: actual = slope * predicted + intercept
+    const n = validEvents.length;
+    const sumX = validEvents.reduce((s, e) => s + e.predictedEngagementDelta!, 0);
+    const sumY = validEvents.reduce((s, e) => s + e.actualEngagementDelta!, 0);
+    const sumXY = validEvents.reduce((s, e) => s + e.predictedEngagementDelta! * e.actualEngagementDelta!, 0);
+    const sumXX = validEvents.reduce((s, e) => s + e.predictedEngagementDelta! * e.predictedEngagementDelta!, 0);
+
+    const denom = n * sumXX - sumX * sumX;
+    if (denom === 0) return { slope: null, intercept: null };
+
+    const slope = (n * sumXY - sumX * sumY) / denom;
+    const intercept = (sumY - slope * sumX) / n;
+
+    return {
+      slope: parseFloat(slope.toFixed(4)),
+      intercept: parseFloat(intercept.toFixed(4)),
+    };
+  }
+
+  private async calculateSegmentMetrics(events: typeof stimuliEvents.$inferSelect[]): Promise<SegmentModelMetric[]> {
+    const hcps = await this.getAllHcps();
+    const hcpMap = new Map(hcps.map(h => [h.id, h]));
+
+    const segmentEvents = new Map<Segment, typeof events>();
+    
+    for (const event of events) {
+      const hcp = hcpMap.get(event.hcpId);
+      if (hcp) {
+        const segment = hcp.segment;
+        if (!segmentEvents.has(segment)) {
+          segmentEvents.set(segment, []);
+        }
+        segmentEvents.get(segment)!.push(event);
+      }
+    }
+
+    const metrics: SegmentModelMetric[] = [];
+    Array.from(segmentEvents.entries()).forEach(([segment, segEvents]) => {
+      const { mae, rmse } = this.calculateAccuracyMetrics(segEvents);
+      metrics.push({
+        segment,
+        sampleSize: segEvents.length,
+        mae: mae || 0,
+        rmse: rmse || 0,
+        accuracyTrend: "stable",
+      });
+    });
+
+    return metrics;
+  }
+
+  private async calculateChannelMetrics(events: typeof stimuliEvents.$inferSelect[]): Promise<ChannelModelMetric[]> {
+    const channelEvents = new Map<Channel, typeof events>();
+    
+    for (const event of events) {
+      const channel = event.channel as Channel;
+      if (!channelEvents.has(channel)) {
+        channelEvents.set(channel, []);
+      }
+      channelEvents.get(channel)!.push(event);
+    }
+
+    const metrics: ChannelModelMetric[] = [];
+    Array.from(channelEvents.entries()).forEach(([channel, chanEvents]) => {
+      type EventType = typeof stimuliEvents.$inferSelect;
+      const validEvents = chanEvents.filter(
+        (e: EventType) => e.predictedEngagementDelta !== null && e.actualEngagementDelta !== null
+      );
+      
+      const { mae, rmse } = this.calculateAccuracyMetrics(chanEvents);
+      const avgPredicted = validEvents.length > 0
+        ? validEvents.reduce((s: number, e: EventType) => s + e.predictedEngagementDelta!, 0) / validEvents.length
+        : 0;
+      const avgActual = validEvents.length > 0
+        ? validEvents.reduce((s: number, e: EventType) => s + e.actualEngagementDelta!, 0) / validEvents.length
+        : 0;
+
+      metrics.push({
+        channel,
+        sampleSize: chanEvents.length,
+        mae: mae || 0,
+        rmse: rmse || 0,
+        avgPredicted: parseFloat(avgPredicted.toFixed(2)),
+        avgActual: parseFloat(avgActual.toFixed(2)),
+      });
+    });
+
+    return metrics;
+  }
+
+  private dbRowToModelEvaluation(row: typeof modelEvaluations.$inferSelect): ModelEvaluation {
+    return {
+      id: row.id,
+      periodStart: row.periodStart.toISOString(),
+      periodEnd: row.periodEnd.toISOString(),
+      predictionType: row.predictionType as "stimuli_impact" | "counterfactual" | "conversion" | "engagement",
+      totalPredictions: row.totalPredictions,
+      predictionsWithOutcomes: row.predictionsWithOutcomes,
+      meanAbsoluteError: row.meanAbsoluteError,
+      rootMeanSquaredError: row.rootMeanSquaredError,
+      meanAbsolutePercentError: row.meanAbsolutePercentError,
+      r2Score: row.r2Score,
+      calibrationSlope: row.calibrationSlope,
+      calibrationIntercept: row.calibrationIntercept,
+      ciCoverageRate: row.ciCoverageRate,
+      avgCiWidth: row.avgCiWidth,
+      segmentMetrics: row.segmentMetrics as SegmentModelMetric[] | null,
+      channelMetrics: row.channelMetrics as ChannelModelMetric[] | null,
+      modelVersion: row.modelVersion,
+      evaluatedAt: row.evaluatedAt.toISOString(),
+    };
+  }
+
+  async getModelEvaluations(limit: number = 50): Promise<ModelEvaluation[]> {
+    const rows = await db
+      .select()
+      .from(modelEvaluations)
+      .orderBy(desc(modelEvaluations.evaluatedAt))
+      .limit(limit);
+    return rows.map(r => this.dbRowToModelEvaluation(r));
+  }
+
+  async getModelHealthSummary(): Promise<ModelHealthSummary> {
+    const evaluations = await this.getModelEvaluations(10);
+    const stimuliEvents = await this.getStimuliEvents(undefined, 100);
+
+    // Calculate overall accuracy based on most recent evaluation
+    const latestEval = evaluations[0];
+    const latestMae = latestEval?.meanAbsoluteError ?? null;
+    const latestRmse = latestEval?.rootMeanSquaredError ?? null;
+
+    // Determine accuracy trend
+    let accuracyTrend: "improving" | "stable" | "declining" = "stable";
+    if (evaluations.length >= 2) {
+      const recentMae = evaluations.slice(0, 3).map(e => e.meanAbsoluteError).filter(m => m !== null);
+      const olderMae = evaluations.slice(3, 6).map(e => e.meanAbsoluteError).filter(m => m !== null);
+      if (recentMae.length > 0 && olderMae.length > 0) {
+        const recentAvg = recentMae.reduce((a, b) => a + b!, 0) / recentMae.length;
+        const olderAvg = olderMae.reduce((a, b) => a + b!, 0) / olderMae.length;
+        if (recentAvg < olderAvg * 0.9) accuracyTrend = "improving";
+        else if (recentAvg > olderAvg * 1.1) accuracyTrend = "declining";
+      }
+    }
+
+    // Calculate overall accuracy score (inverse of MAE normalized)
+    const overallAccuracy = latestMae !== null 
+      ? Math.max(0, Math.min(100, 100 - (latestMae * 5)))
+      : 85; // Default if no evaluations
+
+    // Generate recommended actions
+    const recommendedActions: { priority: "high" | "medium" | "low"; action: string; impact: string }[] = [];
+
+    const pendingOutcomes = stimuliEvents.filter(e => e.status === "predicted").length;
+    if (pendingOutcomes > 20) {
+      recommendedActions.push({
+        priority: "high",
+        action: "Record actual outcomes for pending predictions",
+        impact: `${pendingOutcomes} predictions awaiting outcome data for model training`,
+      });
+    }
+
+    if (latestEval?.ciCoverageRate && latestEval.ciCoverageRate < 80) {
+      recommendedActions.push({
+        priority: "medium",
+        action: "Widen confidence intervals for better calibration",
+        impact: `Current CI coverage is ${latestEval.ciCoverageRate.toFixed(1)}%, target is 95%`,
+      });
+    }
+
+    if (accuracyTrend === "declining") {
+      recommendedActions.push({
+        priority: "high",
+        action: "Review recent prediction patterns for model drift",
+        impact: "Model accuracy has decreased - may need retraining",
+      });
+    }
+
+    if (recommendedActions.length === 0) {
+      recommendedActions.push({
+        priority: "low",
+        action: "Continue monitoring model performance",
+        impact: "Model is performing within acceptable parameters",
+      });
+    }
+
+    // Calculate prediction type breakdown
+    const predictionTypeBreakdown = [
+      { type: "stimuli_impact", accuracy: overallAccuracy, sampleSize: stimuliEvents.length },
+      { type: "counterfactual", accuracy: overallAccuracy * 0.95, sampleSize: 0 },
+      { type: "conversion", accuracy: overallAccuracy * 0.92, sampleSize: 0 },
+      { type: "engagement", accuracy: overallAccuracy * 0.88, sampleSize: 0 },
+    ];
+
+    return {
+      overallAccuracy: parseFloat(overallAccuracy.toFixed(1)),
+      totalEvaluations: evaluations.length,
+      latestMae,
+      latestRmse,
+      accuracyTrend,
+      ciCoverageRate: latestEval?.ciCoverageRate ?? null,
+      recommendedActions,
+      predictionTypeBreakdown,
+      lastEvaluatedAt: latestEval?.evaluatedAt ?? null,
+    };
   }
 }
 

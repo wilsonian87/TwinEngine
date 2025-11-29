@@ -7,6 +7,8 @@ import {
   createStimuliRequestSchema,
   createCounterfactualRequestSchema,
   nlQueryRequestSchema,
+  recordOutcomeRequestSchema,
+  runEvaluationRequestSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(
@@ -316,6 +318,69 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching NL query history:", error);
       res.status(500).json({ error: "Failed to fetch query history" });
+    }
+  });
+
+  // ============ Model Evaluation & Closed-Loop Learning Endpoints ============
+
+  app.post("/api/stimuli/:id/outcome", async (req, res) => {
+    try {
+      const parseResult = recordOutcomeRequestSchema.safeParse({
+        ...req.body,
+        stimuliEventId: req.params.id,
+      });
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid outcome parameters",
+          details: parseResult.error.errors 
+        });
+      }
+      const event = await storage.recordOutcome(parseResult.data);
+      if (!event) {
+        return res.status(404).json({ error: "Stimuli event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Error recording outcome:", error);
+      res.status(500).json({ error: "Failed to record outcome" });
+    }
+  });
+
+  app.post("/api/model-evaluation", async (req, res) => {
+    try {
+      const parseResult = runEvaluationRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid evaluation parameters",
+          details: parseResult.error.errors 
+        });
+      }
+      const evaluation = await storage.runModelEvaluation(parseResult.data);
+      res.json(evaluation);
+    } catch (error) {
+      console.error("Error running model evaluation:", error);
+      res.status(500).json({ error: "Failed to run model evaluation" });
+    }
+  });
+
+  app.get("/api/model-evaluation", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const evaluations = await storage.getModelEvaluations(limit);
+      res.json(evaluations);
+    } catch (error) {
+      console.error("Error fetching model evaluations:", error);
+      res.status(500).json({ error: "Failed to fetch model evaluations" });
+    }
+  });
+
+  app.get("/api/model-health", async (req, res) => {
+    try {
+      const summary = await storage.getModelHealthSummary();
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching model health:", error);
+      res.status(500).json({ error: "Failed to fetch model health summary" });
     }
   });
 

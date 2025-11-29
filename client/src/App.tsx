@@ -13,6 +13,7 @@ import Simulations from "@/pages/simulations";
 import Dashboard from "@/pages/dashboard";
 import FeatureStore from "@/pages/feature-store";
 import AudienceBuilder from "@/pages/audience-builder";
+import ModelEvaluationPage from "@/pages/model-evaluation";
 import Settings from "@/pages/settings";
 
 function Router() {
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/audience-builder" component={AudienceBuilder} />
       <Route path="/feature-store" component={FeatureStore} />
+      <Route path="/model-evaluation" component={ModelEvaluationPage} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>

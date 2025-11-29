@@ -674,3 +674,141 @@ export const nlQueryRequestSchema = z.object({
 });
 
 export type NLQueryRequest = z.infer<typeof nlQueryRequestSchema>;
+
+// ============ Model Evaluation & Closed-Loop Learning ============
+
+// Model Evaluations Table - tracks prediction accuracy over time
+export const modelEvaluations = pgTable("model_evaluations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Evaluation period
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // Prediction type being evaluated
+  predictionType: varchar("prediction_type", { length: 50 }).notNull(),
+  
+  // Sample size
+  totalPredictions: integer("total_predictions").notNull(),
+  predictionsWithOutcomes: integer("predictions_with_outcomes").notNull(),
+  
+  // Accuracy metrics
+  meanAbsoluteError: real("mean_absolute_error"),
+  rootMeanSquaredError: real("root_mean_squared_error"),
+  meanAbsolutePercentError: real("mean_absolute_percent_error"),
+  r2Score: real("r2_score"),
+  
+  // Calibration metrics (prediction vs actual correlation)
+  calibrationSlope: real("calibration_slope"),
+  calibrationIntercept: real("calibration_intercept"),
+  
+  // Confidence interval accuracy
+  ciCoverageRate: real("ci_coverage_rate"),
+  avgCiWidth: real("avg_ci_width"),
+  
+  // Breakdown by segment
+  segmentMetrics: jsonb("segment_metrics").$type<SegmentModelMetric[]>(),
+  
+  // Breakdown by channel
+  channelMetrics: jsonb("channel_metrics").$type<ChannelModelMetric[]>(),
+  
+  // Model version and metadata
+  modelVersion: varchar("model_version", { length: 50 }),
+  evaluatedAt: timestamp("evaluated_at").notNull().defaultNow(),
+});
+
+// Supporting types for model evaluation
+export const segmentModelMetricSchema = z.object({
+  segment: z.enum(segments),
+  sampleSize: z.number(),
+  mae: z.number(),
+  rmse: z.number(),
+  accuracyTrend: z.enum(["improving", "stable", "declining"]),
+});
+
+export type SegmentModelMetric = z.infer<typeof segmentModelMetricSchema>;
+
+export const channelModelMetricSchema = z.object({
+  channel: z.enum(channels),
+  sampleSize: z.number(),
+  mae: z.number(),
+  rmse: z.number(),
+  avgPredicted: z.number(),
+  avgActual: z.number(),
+});
+
+export type ChannelModelMetric = z.infer<typeof channelModelMetricSchema>;
+
+export const insertModelEvaluationSchema = createInsertSchema(modelEvaluations).omit({
+  id: true,
+  evaluatedAt: true,
+});
+
+export type InsertModelEvaluation = z.infer<typeof insertModelEvaluationSchema>;
+export type ModelEvaluationDB = typeof modelEvaluations.$inferSelect;
+
+// Model Evaluation (API type)
+export const modelEvaluationSchema = z.object({
+  id: z.string(),
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  predictionType: z.enum(["stimuli_impact", "counterfactual", "conversion", "engagement"]),
+  totalPredictions: z.number(),
+  predictionsWithOutcomes: z.number(),
+  meanAbsoluteError: z.number().nullable(),
+  rootMeanSquaredError: z.number().nullable(),
+  meanAbsolutePercentError: z.number().nullable(),
+  r2Score: z.number().nullable(),
+  calibrationSlope: z.number().nullable(),
+  calibrationIntercept: z.number().nullable(),
+  ciCoverageRate: z.number().nullable(),
+  avgCiWidth: z.number().nullable(),
+  segmentMetrics: z.array(segmentModelMetricSchema).nullable(),
+  channelMetrics: z.array(channelModelMetricSchema).nullable(),
+  modelVersion: z.string().nullable(),
+  evaluatedAt: z.string(),
+});
+
+export type ModelEvaluation = z.infer<typeof modelEvaluationSchema>;
+
+// Model Health Summary (aggregated stats for dashboard)
+export const modelHealthSummarySchema = z.object({
+  overallAccuracy: z.number(),
+  totalEvaluations: z.number(),
+  latestMae: z.number().nullable(),
+  latestRmse: z.number().nullable(),
+  accuracyTrend: z.enum(["improving", "stable", "declining"]),
+  ciCoverageRate: z.number().nullable(),
+  recommendedActions: z.array(z.object({
+    priority: z.enum(["high", "medium", "low"]),
+    action: z.string(),
+    impact: z.string(),
+  })),
+  predictionTypeBreakdown: z.array(z.object({
+    type: z.string(),
+    accuracy: z.number(),
+    sampleSize: z.number(),
+  })),
+  lastEvaluatedAt: z.string().nullable(),
+});
+
+export type ModelHealthSummary = z.infer<typeof modelHealthSummarySchema>;
+
+// Request type for recording actual outcomes
+export const recordOutcomeRequestSchema = z.object({
+  stimuliEventId: z.string(),
+  actualEngagementDelta: z.number(),
+  actualConversionDelta: z.number().optional(),
+});
+
+export type RecordOutcomeRequest = z.infer<typeof recordOutcomeRequestSchema>;
+
+// Request type for running model evaluation
+export const runEvaluationRequestSchema = z.object({
+  predictionType: z.enum(["stimuli_impact", "counterfactual", "conversion", "engagement"]),
+  periodStart: z.string().optional(),
+  periodEnd: z.string().optional(),
+  forceReevaluate: z.boolean().optional(),
+});
+
+export type RunEvaluationRequest = z.infer<typeof runEvaluationRequestSchema>;
