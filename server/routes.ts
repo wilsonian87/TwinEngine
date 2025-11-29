@@ -1,7 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertSimulationScenarioSchema, hcpFilterSchema } from "@shared/schema";
+import { 
+  insertSimulationScenarioSchema, 
+  hcpFilterSchema,
+  createStimuliRequestSchema,
+  createCounterfactualRequestSchema,
+  nlQueryRequestSchema,
+} from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -185,6 +191,131 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error exporting HCPs:", error);
       res.status(500).json({ error: "Failed to export HCP data" });
+    }
+  });
+
+  // ============ Stimuli Impact Prediction Endpoints ============
+
+  app.post("/api/stimuli", async (req, res) => {
+    try {
+      const parseResult = createStimuliRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid stimuli parameters",
+          details: parseResult.error.errors 
+        });
+      }
+      const event = await storage.createStimuliEvent(parseResult.data);
+      res.json(event);
+    } catch (error) {
+      console.error("Error creating stimuli event:", error);
+      res.status(500).json({ error: "Failed to create stimuli event" });
+    }
+  });
+
+  app.get("/api/stimuli", async (req, res) => {
+    try {
+      const hcpId = req.query.hcpId as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const events = await storage.getStimuliEvents(hcpId, limit);
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching stimuli events:", error);
+      res.status(500).json({ error: "Failed to fetch stimuli events" });
+    }
+  });
+
+  app.patch("/api/stimuli/:id/outcome", async (req, res) => {
+    try {
+      const { actualEngagementDelta, actualConversionDelta } = req.body;
+      if (typeof actualEngagementDelta !== "number" || typeof actualConversionDelta !== "number") {
+        return res.status(400).json({ error: "Invalid outcome parameters" });
+      }
+      const event = await storage.recordStimuliOutcome(
+        req.params.id,
+        actualEngagementDelta,
+        actualConversionDelta
+      );
+      if (!event) {
+        return res.status(404).json({ error: "Stimuli event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Error recording stimuli outcome:", error);
+      res.status(500).json({ error: "Failed to record outcome" });
+    }
+  });
+
+  // ============ Counterfactual Backtesting Endpoints ============
+
+  app.post("/api/counterfactuals", async (req, res) => {
+    try {
+      const parseResult = createCounterfactualRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid counterfactual parameters",
+          details: parseResult.error.errors 
+        });
+      }
+      const scenario = await storage.createCounterfactual(parseResult.data);
+      res.json(scenario);
+    } catch (error) {
+      console.error("Error creating counterfactual:", error);
+      res.status(500).json({ error: "Failed to create counterfactual analysis" });
+    }
+  });
+
+  app.get("/api/counterfactuals", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const scenarios = await storage.getCounterfactualScenarios(limit);
+      res.json(scenarios);
+    } catch (error) {
+      console.error("Error fetching counterfactuals:", error);
+      res.status(500).json({ error: "Failed to fetch counterfactual scenarios" });
+    }
+  });
+
+  app.get("/api/counterfactuals/:id", async (req, res) => {
+    try {
+      const scenario = await storage.getCounterfactualById(req.params.id);
+      if (!scenario) {
+        return res.status(404).json({ error: "Counterfactual scenario not found" });
+      }
+      res.json(scenario);
+    } catch (error) {
+      console.error("Error fetching counterfactual:", error);
+      res.status(500).json({ error: "Failed to fetch counterfactual scenario" });
+    }
+  });
+
+  // ============ Natural Language Query Endpoints ============
+
+  app.post("/api/nl-query", async (req, res) => {
+    try {
+      const parseResult = nlQueryRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid query parameters",
+          details: parseResult.error.errors 
+        });
+      }
+      const response = await storage.processNLQuery(parseResult.data);
+      res.json(response);
+    } catch (error) {
+      console.error("Error processing NL query:", error);
+      res.status(500).json({ error: "Failed to process natural language query" });
+    }
+  });
+
+  app.get("/api/nl-query/history", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const history = await storage.getNLQueryHistory(limit);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching NL query history:", error);
+      res.status(500).json({ error: "Failed to fetch query history" });
     }
   });
 

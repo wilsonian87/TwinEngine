@@ -350,3 +350,327 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// ============ Advanced Features: Stimuli Events ============
+
+// Stimulus types for new engagement events
+export const stimulusTypes = [
+  "rep_visit",
+  "email_send",
+  "email_open",
+  "email_click",
+  "webinar_invite",
+  "webinar_attend",
+  "conference_meeting",
+  "phone_call",
+  "digital_ad_impression",
+  "digital_ad_click",
+  "sample_delivery",
+  "content_download",
+] as const;
+
+export type StimulusType = (typeof stimulusTypes)[number];
+
+// Stimuli Events Table - tracks individual engagement events for impact prediction
+export const stimuliEvents = pgTable("stimuli_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+  
+  // Event details
+  stimulusType: varchar("stimulus_type", { length: 50 }).notNull(),
+  channel: varchar("channel", { length: 20 }).notNull(),
+  
+  // Event metadata
+  contentType: varchar("content_type", { length: 50 }),
+  messageVariant: varchar("message_variant", { length: 100 }),
+  callToAction: varchar("call_to_action", { length: 200 }),
+  
+  // Predicted impact (computed when event is created)
+  predictedEngagementDelta: real("predicted_engagement_delta"),
+  predictedConversionDelta: real("predicted_conversion_delta"),
+  confidenceLower: real("confidence_lower"),
+  confidenceUpper: real("confidence_upper"),
+  
+  // Actual outcome (filled in later for closed-loop learning)
+  actualEngagementDelta: real("actual_engagement_delta"),
+  actualConversionDelta: real("actual_conversion_delta"),
+  outcomeRecordedAt: timestamp("outcome_recorded_at"),
+  
+  // Status
+  status: varchar("status", { length: 20 }).notNull().default("predicted"),
+  
+  eventDate: timestamp("event_date").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertStimuliEventSchema = createInsertSchema(stimuliEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertStimuliEvent = z.infer<typeof insertStimuliEventSchema>;
+export type StimuliEventDB = typeof stimuliEvents.$inferSelect;
+
+// ============ Advanced Features: Counterfactual Scenarios ============
+
+// Counterfactual Scenarios Table - for "what-if" backtesting
+export const counterfactualScenarios = pgTable("counterfactual_scenarios", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  
+  // Reference to original scenario/campaign being analyzed
+  originalScenarioId: varchar("original_scenario_id"),
+  originalCampaignData: jsonb("original_campaign_data").$type<Record<string, unknown>>(),
+  
+  // Target audience for counterfactual analysis
+  targetHcpIds: jsonb("target_hcp_ids").notNull().$type<string[]>(),
+  
+  // Variables being changed in the counterfactual
+  changedVariables: jsonb("changed_variables").notNull().$type<CounterfactualVariable[]>(),
+  
+  // Original outcomes (baseline)
+  baselineOutcome: jsonb("baseline_outcome").notNull().$type<CounterfactualOutcome>(),
+  
+  // Predicted counterfactual outcomes
+  counterfactualOutcome: jsonb("counterfactual_outcome").notNull().$type<CounterfactualOutcome>(),
+  
+  // Analysis results
+  upliftDelta: jsonb("uplift_delta").$type<UpliftDelta>(),
+  confidenceInterval: jsonb("confidence_interval").$type<ConfidenceInterval>(),
+  
+  // Per-HCP breakdown (for 1:1 analysis)
+  hcpLevelResults: jsonb("hcp_level_results").$type<HCPCounterfactualResult[]>(),
+  
+  analysisType: varchar("analysis_type", { length: 20 }).notNull().default("aggregate"),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Supporting types for counterfactual analysis
+export const counterfactualVariableSchema = z.object({
+  variableName: z.string(),
+  originalValue: z.union([z.string(), z.number(), z.record(z.number())]),
+  counterfactualValue: z.union([z.string(), z.number(), z.record(z.number())]),
+  variableType: z.enum(["channel_mix", "content_type", "call_to_action", "frequency", "timing", "budget", "messaging"]),
+});
+
+export type CounterfactualVariable = z.infer<typeof counterfactualVariableSchema>;
+
+export const counterfactualOutcomeSchema = z.object({
+  engagementRate: z.number(),
+  responseRate: z.number(),
+  conversionRate: z.number(),
+  rxLift: z.number(),
+  totalReach: z.number(),
+});
+
+export type CounterfactualOutcome = z.infer<typeof counterfactualOutcomeSchema>;
+
+export const upliftDeltaSchema = z.object({
+  engagementDelta: z.number(),
+  responseDelta: z.number(),
+  conversionDelta: z.number(),
+  rxLiftDelta: z.number(),
+  percentageImprovement: z.number(),
+});
+
+export type UpliftDelta = z.infer<typeof upliftDeltaSchema>;
+
+export const confidenceIntervalSchema = z.object({
+  lower: z.number(),
+  upper: z.number(),
+  confidenceLevel: z.number(),
+});
+
+export type ConfidenceInterval = z.infer<typeof confidenceIntervalSchema>;
+
+export const hcpCounterfactualResultSchema = z.object({
+  hcpId: z.string(),
+  baselineScore: z.number(),
+  counterfactualScore: z.number(),
+  delta: z.number(),
+  confidenceLower: z.number(),
+  confidenceUpper: z.number(),
+});
+
+export type HCPCounterfactualResult = z.infer<typeof hcpCounterfactualResultSchema>;
+
+export const insertCounterfactualScenarioSchema = createInsertSchema(counterfactualScenarios).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
+export type InsertCounterfactualScenario = z.infer<typeof insertCounterfactualScenarioSchema>;
+export type CounterfactualScenarioDB = typeof counterfactualScenarios.$inferSelect;
+
+// ============ Advanced Features: Natural Language Query Logs ============
+
+// NL Query Logs Table - for auditing and learning from GenAI queries
+export const nlQueryLogs = pgTable("nl_query_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // The natural language query
+  query: text("query").notNull(),
+  
+  // Parsed intent and parameters
+  parsedIntent: varchar("parsed_intent", { length: 100 }),
+  extractedFilters: jsonb("extracted_filters").$type<NLQueryFilters>(),
+  
+  // Generated SQL or filter criteria
+  generatedCriteria: jsonb("generated_criteria").$type<Record<string, unknown>>(),
+  
+  // Results summary
+  resultCount: integer("result_count"),
+  resultHcpIds: jsonb("result_hcp_ids").$type<string[]>(),
+  
+  // Recommendations generated
+  recommendations: jsonb("recommendations").$type<NLRecommendation[]>(),
+  
+  // User feedback for learning
+  userApproved: integer("user_approved"),
+  userFeedback: text("user_feedback"),
+  
+  // Execution details
+  executionTimeMs: integer("execution_time_ms"),
+  modelUsed: varchar("model_used", { length: 50 }),
+  promptTokens: integer("prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  
+  // Audit trail
+  userId: varchar("user_id", { length: 100 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Supporting types for NL queries
+export const nlQueryFiltersSchema = z.object({
+  tiers: z.array(z.enum(tiers)).optional(),
+  segments: z.array(z.enum(segments)).optional(),
+  specialties: z.array(z.enum(specialties)).optional(),
+  engagementRange: z.object({
+    min: z.number().optional(),
+    max: z.number().optional(),
+  }).optional(),
+  channels: z.array(z.enum(channels)).optional(),
+  states: z.array(z.string()).optional(),
+  customCriteria: z.record(z.unknown()).optional(),
+});
+
+export type NLQueryFilters = z.infer<typeof nlQueryFiltersSchema>;
+
+export const nlRecommendationSchema = z.object({
+  type: z.enum(["channel", "timing", "content", "frequency", "audience"]),
+  recommendation: z.string(),
+  predictedImpact: z.number(),
+  confidence: z.number(),
+  rationale: z.string(),
+});
+
+export type NLRecommendation = z.infer<typeof nlRecommendationSchema>;
+
+export const insertNlQueryLogSchema = createInsertSchema(nlQueryLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertNLQueryLog = z.infer<typeof insertNlQueryLogSchema>;
+export type NLQueryLogDB = typeof nlQueryLogs.$inferSelect;
+
+// ============ API Types for Advanced Features ============
+
+// Stimuli Event (API type)
+export const stimuliEventSchema = z.object({
+  id: z.string(),
+  hcpId: z.string(),
+  stimulusType: z.enum(stimulusTypes),
+  channel: z.enum(channels),
+  contentType: z.string().nullable(),
+  messageVariant: z.string().nullable(),
+  callToAction: z.string().nullable(),
+  predictedEngagementDelta: z.number().nullable(),
+  predictedConversionDelta: z.number().nullable(),
+  confidenceLower: z.number().nullable(),
+  confidenceUpper: z.number().nullable(),
+  actualEngagementDelta: z.number().nullable(),
+  actualConversionDelta: z.number().nullable(),
+  outcomeRecordedAt: z.string().nullable(),
+  status: z.enum(["predicted", "confirmed", "rejected"]),
+  eventDate: z.string(),
+  createdAt: z.string(),
+});
+
+export type StimuliEvent = z.infer<typeof stimuliEventSchema>;
+
+// Counterfactual Scenario (API type)
+export const counterfactualScenarioSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  originalScenarioId: z.string().nullable(),
+  originalCampaignData: z.record(z.unknown()).nullable(),
+  targetHcpIds: z.array(z.string()),
+  changedVariables: z.array(counterfactualVariableSchema),
+  baselineOutcome: counterfactualOutcomeSchema,
+  counterfactualOutcome: counterfactualOutcomeSchema,
+  upliftDelta: upliftDeltaSchema.nullable(),
+  confidenceInterval: confidenceIntervalSchema.nullable(),
+  hcpLevelResults: z.array(hcpCounterfactualResultSchema).nullable(),
+  analysisType: z.enum(["aggregate", "individual", "both"]),
+  status: z.enum(["pending", "running", "completed", "failed"]),
+  createdAt: z.string(),
+  completedAt: z.string().nullable(),
+});
+
+export type CounterfactualScenario = z.infer<typeof counterfactualScenarioSchema>;
+
+// NL Query Response (API type)
+export const nlQueryResponseSchema = z.object({
+  id: z.string(),
+  query: z.string(),
+  parsedIntent: z.string().nullable(),
+  filters: nlQueryFiltersSchema.nullable(),
+  resultCount: z.number(),
+  results: z.array(hcpProfileSchema).optional(),
+  recommendations: z.array(nlRecommendationSchema).optional(),
+  executionTimeMs: z.number(),
+  createdAt: z.string(),
+});
+
+export type NLQueryResponse = z.infer<typeof nlQueryResponseSchema>;
+
+// Request type for creating stimuli
+export const createStimuliRequestSchema = z.object({
+  hcpId: z.string(),
+  stimulusType: z.enum(stimulusTypes),
+  channel: z.enum(channels),
+  contentType: z.string().optional(),
+  messageVariant: z.string().optional(),
+  callToAction: z.string().optional(),
+  eventDate: z.string().optional(),
+});
+
+export type CreateStimuliRequest = z.infer<typeof createStimuliRequestSchema>;
+
+// Request type for counterfactual analysis
+export const createCounterfactualRequestSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  originalScenarioId: z.string().optional(),
+  targetHcpIds: z.array(z.string()),
+  changedVariables: z.array(counterfactualVariableSchema),
+  analysisType: z.enum(["aggregate", "individual", "both"]).optional(),
+});
+
+export type CreateCounterfactualRequest = z.infer<typeof createCounterfactualRequestSchema>;
+
+// Request type for NL query
+export const nlQueryRequestSchema = z.object({
+  query: z.string().min(5).max(500),
+  includeRecommendations: z.boolean().optional(),
+  maxResults: z.number().min(1).max(100).optional(),
+});
+
+export type NLQueryRequest = z.infer<typeof nlQueryRequestSchema>;
