@@ -9,11 +9,32 @@ HCP Digital Twin Simulation Engine - an enterprise analytics platform for pharma
 ## Development Commands
 
 ```bash
-npm run dev          # Start development server (runs on PORT env var or 5000)
+npm run dev          # Start development server (runs on PORT env var or 3000)
 npm run build        # Build for production (client via Vite, server via esbuild)
 npm run start        # Run production build
 npm run check        # TypeScript type checking
 npm run db:push      # Push schema changes to PostgreSQL via Drizzle
+```
+
+## Local Development Setup
+
+```bash
+# Install PostgreSQL (macOS)
+brew install postgresql@16
+brew services start postgresql@16
+
+# Create database
+/opt/homebrew/opt/postgresql@16/bin/createdb twinengine
+
+# Copy environment file and install dependencies
+cp .env.example .env
+npm install
+
+# Push database schema
+npm run db:push
+
+# Start dev server (auto-seeds 100 HCP profiles on first run)
+npm run dev
 ```
 
 ## Architecture
@@ -44,8 +65,8 @@ The project is organized into three main directories with shared types:
 ### Backend Stack
 
 - Express.js with TypeScript
-- PostgreSQL via Neon serverless (`@neondatabase/serverless`)
-- Drizzle ORM for type-safe database queries
+- PostgreSQL with standard `pg` driver
+- Drizzle ORM for type-safe database queries (`drizzle-orm/node-postgres`)
 - Schema-first approach: all types flow from `shared/schema.ts`
 
 ### Data Flow
@@ -58,7 +79,8 @@ The project is organized into three main directories with shared types:
 ## Key Files
 
 - **shared/schema.ts** - Single source of truth for all types. Contains PostgreSQL table definitions (Drizzle), Zod validation schemas, and TypeScript types. Add new data models here.
-- **server/storage.ts** - Database operations layer implementing `IStorage` interface. Currently uses in-memory storage with mock data; designed for easy swap to real database.
+- **server/db.ts** - Database connection using `pg` Pool and Drizzle ORM.
+- **server/storage.ts** - Database operations layer implementing `IStorage` interface. Auto-seeds mock HCP data on first startup.
 - **server/routes.ts** - RESTful API endpoints. All request validation uses schemas from `shared/schema.ts`.
 - **client/src/App.tsx** - Root component with routing, providers (Query, Theme, Tooltip), and layout.
 
@@ -84,6 +106,6 @@ Follows Carbon Design System (IBM) principles:
 
 ## Environment Variables
 
-- `DATABASE_URL` - PostgreSQL connection string (required for db:push)
-- `PORT` - Server port (defaults to 5000)
+- `DATABASE_URL` - PostgreSQL connection string (required)
+- `PORT` - Server port (defaults to 3000)
 - `NODE_ENV` - development or production
