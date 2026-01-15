@@ -2,6 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { setupAuth } from "./auth";
+import { initializeGenAI } from "./services/genai-service";
 
 const app = express();
 const httpServer = createServer(app);
@@ -21,6 +23,13 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// Set up authentication (session + passport)
+setupAuth(app);
+
+// Initialize GenAI service (Claude-powered NL processing)
+// Will use rule-based fallback if ANTHROPIC_API_KEY is not set
+initializeGenAI();
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {

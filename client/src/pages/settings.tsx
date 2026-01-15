@@ -58,8 +58,8 @@ function AuditLogViewer() {
     return true;
   });
 
-  const uniqueActions = [...new Set((logs ?? []).map((l) => l.action))];
-  const uniqueEntities = [...new Set((logs ?? []).map((l) => l.entityType))];
+  const uniqueActions = Array.from(new Set((logs ?? []).map((l) => l.action)));
+  const uniqueEntities = Array.from(new Set((logs ?? []).map((l) => l.entityType)));
 
   if (isLoading) {
     return (
@@ -91,7 +91,7 @@ function AuditLogViewer() {
               <SelectItem value="all">All Actions</SelectItem>
               {uniqueActions.map((action) => (
                 <SelectItem key={action} value={action}>
-                  {action.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                  {action.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -105,7 +105,7 @@ function AuditLogViewer() {
             <SelectItem value="all">All Entities</SelectItem>
             {uniqueEntities.map((entity) => (
               <SelectItem key={entity} value={entity}>
-                {entity.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                {entity.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
               </SelectItem>
             ))}
           </SelectContent>

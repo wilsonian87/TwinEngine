@@ -1,14 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import passport from "passport";
 import { storage } from "./storage";
-import { 
-  insertSimulationScenarioSchema, 
+import { hashPassword } from "./auth";
+import {
+  insertSimulationScenarioSchema,
   hcpFilterSchema,
   createStimuliRequestSchema,
   createCounterfactualRequestSchema,
   nlQueryRequestSchema,
   recordOutcomeRequestSchema,
   runEvaluationRequestSchema,
+  insertUserSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(
@@ -22,7 +25,129 @@ export async function registerRoutes(
     console.error("Error seeding database:", error);
   }
 
-  // HCP endpoints
+  // ============ Authentication Endpoints ============
+
+  // Register a new user
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const parseResult = insertUserSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid registration data",
+          details: parseResult.error.errors,
+        });
+      }
+
+      const { username, password } = parseResult.data;
+
+      // Check if user already exists
+      const existing = await storage.getUserByUsername(username);
+      if (existing) {
+        return res.status(409).json({ error: "Username already exists" });
+      }
+
+      // Hash password and create user
+      const hashedPassword = await hashPassword(password);
+      const user = await storage.createUser({
+        username,
+        password: hashedPassword,
+      });
+
+      // Log registration
+      await storage.logAction({
+        action: "user_registered",
+        entityType: "user",
+        entityId: user.id,
+        details: { username },
+      });
+
+      // Auto-login after registration
+      req.login({ id: user.id, username: user.username }, (err) => {
+        if (err) {
+          console.error("Error logging in after registration:", err);
+          return res.status(500).json({ error: "Registration succeeded but login failed" });
+        }
+        res.status(201).json({
+          id: user.id,
+          username: user.username,
+        });
+      });
+    } catch (error) {
+      console.error("Error registering user:", error);
+      res.status(500).json({ error: "Failed to register user" });
+    }
+  });
+
+  // Login
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
+      if (err) {
+        console.error("Error during login:", err);
+        return res.status(500).json({ error: "Login failed" });
+      }
+      if (!user) {
+        return res.status(401).json({ error: info?.message || "Invalid credentials" });
+      }
+      req.login(user, async (loginErr) => {
+        if (loginErr) {
+          console.error("Error establishing session:", loginErr);
+          return res.status(500).json({ error: "Failed to establish session" });
+        }
+
+        // Log login
+        await storage.logAction({
+          action: "user_login",
+          entityType: "user",
+          entityId: user.id,
+          details: { username: user.username },
+        });
+
+        res.json({
+          id: user.id,
+          username: user.username,
+        });
+      });
+    })(req, res, next);
+  });
+
+  // Logout
+  app.post("/api/auth/logout", (req, res) => {
+    const userId = req.user?.id;
+    const username = req.user?.username;
+
+    req.logout((err) => {
+      if (err) {
+        console.error("Error during logout:", err);
+        return res.status(500).json({ error: "Logout failed" });
+      }
+
+      // Log logout if user was authenticated
+      if (userId) {
+        storage.logAction({
+          action: "user_logout",
+          entityType: "user",
+          entityId: userId,
+          details: { username },
+        }).catch(console.error);
+      }
+
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  // Get current user
+  app.get("/api/auth/user", (req, res) => {
+    if (req.isAuthenticated() && req.user) {
+      res.json({
+        id: req.user.id,
+        username: req.user.username,
+      });
+    } else {
+      res.status(401).json({ error: "Not authenticated" });
+    }
+  });
+
+  // ============ HCP endpoints (protected) ============
   app.get("/api/hcps", async (req, res) => {
     try {
       const hcps = await storage.getAllHcps();
@@ -111,7 +236,7 @@ export async function registerRoutes(
     }
   });
 
-  // Simulation endpoints
+  // Simulation endpoints (protected)
   app.post("/api/simulations/run", async (req, res) => {
     try {
       const parseResult = insertSimulationScenarioSchema.safeParse(req.body);
@@ -152,7 +277,7 @@ export async function registerRoutes(
     }
   });
 
-  // Dashboard endpoints
+  // Dashboard endpoints (protected)
   app.get("/api/dashboard/metrics", async (req, res) => {
     try {
       const metrics = await storage.getDashboardMetrics();
@@ -163,7 +288,7 @@ export async function registerRoutes(
     }
   });
 
-  // Audit log endpoints
+  // Audit log endpoints (protected)
   app.get("/api/audit-logs", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 100;
@@ -175,7 +300,7 @@ export async function registerRoutes(
     }
   });
 
-  // Export endpoint (for governance/compliance)
+  // Export endpoint (for governance/compliance, protected)
   app.get("/api/export/hcps", async (req, res) => {
     try {
       const hcps = await storage.getAllHcps();
@@ -196,7 +321,7 @@ export async function registerRoutes(
     }
   });
 
-  // ============ Stimuli Impact Prediction Endpoints ============
+  // ============ Stimuli Impact Prediction Endpoints (protected) ============
 
   app.post("/api/stimuli", async (req, res) => {
     try {
@@ -248,7 +373,7 @@ export async function registerRoutes(
     }
   });
 
-  // ============ Counterfactual Backtesting Endpoints ============
+  // ============ Counterfactual Backtesting Endpoints (protected) ============
 
   app.post("/api/counterfactuals", async (req, res) => {
     try {
@@ -291,7 +416,7 @@ export async function registerRoutes(
     }
   });
 
-  // ============ Natural Language Query Endpoints ============
+  // ============ Natural Language Query Endpoints (protected) ============
 
   app.post("/api/nl-query", async (req, res) => {
     try {
@@ -321,7 +446,7 @@ export async function registerRoutes(
     }
   });
 
-  // ============ Model Evaluation & Closed-Loop Learning Endpoints ============
+  // ============ Model Evaluation & Closed-Loop Learning Endpoints (protected) ============
 
   app.post("/api/stimuli/:id/outcome", async (req, res) => {
     try {

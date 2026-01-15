@@ -82,19 +82,27 @@ The project is organized into three main directories with shared types:
 - **server/db.ts** - Database connection using `pg` Pool and Drizzle ORM.
 - **server/storage.ts** - Database operations layer implementing `IStorage` interface. Auto-seeds mock HCP data on first startup.
 - **server/routes.ts** - RESTful API endpoints. All request validation uses schemas from `shared/schema.ts`.
+- **server/auth.ts** - Authentication module with Passport.js local strategy, session management, and password hashing.
+- **server/services/** - Extracted service modules:
+  - `prediction-engine.ts` - Stimuli impact prediction, simulation engine, counterfactual analysis
+  - `nl-query-parser.ts` - Rule-based NL query parsing and intent detection
+  - `genai-service.ts` - Claude-powered NL query parsing with rate limiting and fallback
 - **client/src/App.tsx** - Root component with routing, providers (Query, Theme, Tooltip), and layout.
 
 ## API Domains
 
 The API is organized by domain:
+- `/api/auth` - Authentication (register, login, logout, user session)
 - `/api/hcps` - HCP profiles (CRUD, filtering, lookalike search)
 - `/api/simulations` - Campaign simulation scenarios
 - `/api/dashboard` - Aggregated metrics
 - `/api/stimuli` - Stimuli impact prediction events
 - `/api/counterfactuals` - What-if backtesting analysis
-- `/api/nl-query` - Natural language query processing
+- `/api/nl-query` - Natural language query processing (Claude-powered with rule-based fallback)
 - `/api/model-evaluation` - Model accuracy tracking
 - `/api/audit-logs` - Governance/compliance logging
+
+All API endpoints except `/api/auth/*` require authentication.
 
 ## Design System
 
@@ -109,3 +117,4 @@ Follows Carbon Design System (IBM) principles:
 - `DATABASE_URL` - PostgreSQL connection string (required)
 - `PORT` - Server port (defaults to 3000)
 - `NODE_ENV` - development or production
+- `ANTHROPIC_API_KEY` - Anthropic API key for GenAI-powered NL query processing (optional, falls back to rule-based parsing if not set)
