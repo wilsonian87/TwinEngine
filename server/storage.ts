@@ -11,8 +11,14 @@ import {
   nlQueryLogs,
   modelEvaluations,
   users,
+  inviteCodes,
+  savedAudiences,
   type User,
   type InsertUser,
+  type InviteCode,
+  type InsertInviteCode,
+  type SavedAudience,
+  type InsertSavedAudience,
   type HCPProfile,
   type HCPFilter,
   type SimulationResult,
@@ -119,6 +125,20 @@ export interface IStorage {
   getUserById(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+
+  // Invite code operations
+  validateInviteCode(code: string, email: string): Promise<{ valid: boolean; error?: string; inviteCode?: InviteCode }>;
+  useInviteCode(code: string, email: string): Promise<InviteCode | undefined>;
+  createInviteCode(invite: InsertInviteCode): Promise<InviteCode>;
+  listInviteCodes(): Promise<InviteCode[]>;
+  deleteInviteCode(id: string): Promise<boolean>;
+
+  // Saved audiences operations
+  createAudience(audience: InsertSavedAudience): Promise<SavedAudience>;
+  getAudience(id: string): Promise<SavedAudience | undefined>;
+  listAudiences(): Promise<SavedAudience[]>;
+  updateAudience(id: string, updates: Partial<InsertSavedAudience>): Promise<SavedAudience | undefined>;
+  deleteAudience(id: string): Promise<boolean>;
 }
 
 // Generate random data helpers
@@ -1269,6 +1289,129 @@ export class DatabaseStorage implements IStorage {
   async createUser(user: InsertUser): Promise<User> {
     const [inserted] = await db.insert(users).values(user).returning();
     return inserted;
+  }
+
+  // ============ Invite Code Operations ============
+
+  async validateInviteCode(code: string, email: string): Promise<{ valid: boolean; error?: string; inviteCode?: InviteCode }> {
+    const [invite] = await db
+      .select()
+      .from(inviteCodes)
+      .where(eq(inviteCodes.code, code));
+
+    if (!invite) {
+      return { valid: false, error: "Invalid invite code" };
+    }
+
+    if (invite.email.toLowerCase() !== email.toLowerCase()) {
+      return { valid: false, error: "Email does not match invite" };
+    }
+
+    if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
+      return { valid: false, error: "Invite code has expired" };
+    }
+
+    if (invite.maxUses && invite.useCount !== null && invite.useCount >= invite.maxUses) {
+      return { valid: false, error: "Invite code has reached maximum uses" };
+    }
+
+    return { valid: true, inviteCode: invite };
+  }
+
+  async useInviteCode(code: string, email: string): Promise<InviteCode | undefined> {
+    const validation = await this.validateInviteCode(code, email);
+    if (!validation.valid || !validation.inviteCode) {
+      return undefined;
+    }
+
+    const [updated] = await db
+      .update(inviteCodes)
+      .set({
+        useCount: (validation.inviteCode.useCount || 0) + 1,
+        lastUsedAt: new Date(),
+      })
+      .where(eq(inviteCodes.code, code))
+      .returning();
+
+    await this.logAction({
+      action: "invite_code_used",
+      entityType: "invite_code",
+      entityId: updated.id,
+      details: { email, label: updated.label },
+    });
+
+    return updated;
+  }
+
+  async createInviteCode(invite: InsertInviteCode): Promise<InviteCode> {
+    const [inserted] = await db.insert(inviteCodes).values(invite).returning();
+
+    await this.logAction({
+      action: "invite_code_created",
+      entityType: "invite_code",
+      entityId: inserted.id,
+      details: { email: invite.email, label: invite.label },
+    });
+
+    return inserted;
+  }
+
+  async listInviteCodes(): Promise<InviteCode[]> {
+    return db.select().from(inviteCodes).orderBy(desc(inviteCodes.createdAt));
+  }
+
+  async deleteInviteCode(id: string): Promise<boolean> {
+    const result = await db.delete(inviteCodes).where(eq(inviteCodes.id, id));
+    return true;
+  }
+
+  // ============ Saved Audiences Operations ============
+
+  async createAudience(audience: InsertSavedAudience): Promise<SavedAudience> {
+    const [inserted] = await db.insert(savedAudiences).values(audience).returning();
+
+    await this.logAction({
+      action: "audience_created",
+      entityType: "saved_audience",
+      entityId: inserted.id,
+      details: { name: audience.name, hcpCount: audience.hcpCount, source: audience.source },
+    });
+
+    return inserted;
+  }
+
+  async getAudience(id: string): Promise<SavedAudience | undefined> {
+    const [audience] = await db
+      .select()
+      .from(savedAudiences)
+      .where(eq(savedAudiences.id, id));
+    return audience;
+  }
+
+  async listAudiences(): Promise<SavedAudience[]> {
+    return db.select().from(savedAudiences).orderBy(desc(savedAudiences.createdAt));
+  }
+
+  async updateAudience(id: string, updates: Partial<InsertSavedAudience>): Promise<SavedAudience | undefined> {
+    const [updated] = await db
+      .update(savedAudiences)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(savedAudiences.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAudience(id: string): Promise<boolean> {
+    await db.delete(savedAudiences).where(eq(savedAudiences.id, id));
+
+    await this.logAction({
+      action: "audience_deleted",
+      entityType: "saved_audience",
+      entityId: id,
+      details: {},
+    });
+
+    return true;
   }
 }
 

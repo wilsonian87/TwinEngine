@@ -351,6 +351,63 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// ============ Invite Codes (access control) ============
+
+export const inviteCodes = pgTable("invite_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 20 }).notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull(),
+  label: varchar("label", { length: 100 }), // "Pfizer Demo", "Portfolio Review"
+  maxUses: integer("max_uses").default(1),
+  useCount: integer("use_count").default(0),
+  expiresAt: timestamp("expires_at"),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertInviteCodeSchema = createInsertSchema(inviteCodes).pick({
+  code: true,
+  email: true,
+  label: true,
+  maxUses: true,
+  expiresAt: true,
+});
+
+export const validateInviteCodeSchema = z.object({
+  code: z.string().min(1).max(20),
+  email: z.string().email(),
+});
+
+export type InsertInviteCode = z.infer<typeof insertInviteCodeSchema>;
+export type InviteCode = typeof inviteCodes.$inferSelect;
+export type ValidateInviteCode = z.infer<typeof validateInviteCodeSchema>;
+
+// ============ Saved Audiences (cross-feature portability) ============
+
+export const savedAudiences = pgTable("saved_audiences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  hcpIds: jsonb("hcp_ids").notNull().$type<string[]>(),
+  hcpCount: integer("hcp_count").notNull(),
+  filters: jsonb("filters").$type<Record<string, unknown>>(), // Original query/filters used
+  source: varchar("source", { length: 50 }).notNull(), // "explorer", "audience_builder", "import"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertSavedAudienceSchema = createInsertSchema(savedAudiences).pick({
+  name: true,
+  description: true,
+  hcpIds: true,
+  hcpCount: true,
+  filters: true,
+  source: true,
+});
+
+export type InsertSavedAudience = z.infer<typeof insertSavedAudienceSchema>;
+export type SavedAudience = typeof savedAudiences.$inferSelect;
+
 // ============ Advanced Features: Stimuli Events ============
 
 // Stimulus types for new engagement events

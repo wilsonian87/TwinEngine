@@ -12,6 +12,9 @@ import {
   recordOutcomeRequestSchema,
   runEvaluationRequestSchema,
   insertUserSchema,
+  validateInviteCodeSchema,
+  insertInviteCodeSchema,
+  insertSavedAudienceSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(
@@ -144,6 +147,190 @@ export async function registerRoutes(
       });
     } else {
       res.status(401).json({ error: "Not authenticated" });
+    }
+  });
+
+  // ============ Invite Code Endpoints ============
+
+  // Validate invite code (public - used on splash page)
+  app.post("/api/invite/validate", async (req, res) => {
+    try {
+      const parseResult = validateInviteCodeSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid request",
+          details: parseResult.error.errors,
+        });
+      }
+
+      const { code, email } = parseResult.data;
+      const result = await storage.validateInviteCode(code, email);
+
+      if (!result.valid) {
+        return res.status(401).json({ error: result.error });
+      }
+
+      // Use the invite code (increment counter)
+      const inviteCode = await storage.useInviteCode(code, email);
+      if (!inviteCode) {
+        return res.status(500).json({ error: "Failed to process invite code" });
+      }
+
+      // Set session to mark user as authenticated via invite code
+      (req.session as any).inviteCodeId = inviteCode.id;
+      (req.session as any).inviteEmail = email;
+      (req.session as any).inviteLabel = inviteCode.label;
+
+      res.json({
+        success: true,
+        label: inviteCode.label,
+        email: email,
+      });
+    } catch (error) {
+      console.error("Error validating invite code:", error);
+      res.status(500).json({ error: "Failed to validate invite code" });
+    }
+  });
+
+  // Check if session has valid invite
+  app.get("/api/invite/session", (req, res) => {
+    const session = req.session as any;
+    if (session.inviteCodeId) {
+      res.json({
+        authenticated: true,
+        email: session.inviteEmail,
+        label: session.inviteLabel,
+      });
+    } else {
+      res.json({ authenticated: false });
+    }
+  });
+
+  // Admin: Create invite code (protected by env secret)
+  app.post("/api/admin/codes", async (req, res) => {
+    const adminSecret = process.env.ADMIN_SECRET || "admin-secret-change-me";
+    const authHeader = req.headers["x-admin-secret"];
+
+    if (authHeader !== adminSecret) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const parseResult = insertInviteCodeSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid request",
+          details: parseResult.error.errors,
+        });
+      }
+
+      const inviteCode = await storage.createInviteCode(parseResult.data);
+      res.json(inviteCode);
+    } catch (error) {
+      console.error("Error creating invite code:", error);
+      res.status(500).json({ error: "Failed to create invite code" });
+    }
+  });
+
+  // Admin: List invite codes
+  app.get("/api/admin/codes", async (req, res) => {
+    const adminSecret = process.env.ADMIN_SECRET || "admin-secret-change-me";
+    const authHeader = req.headers["x-admin-secret"];
+
+    if (authHeader !== adminSecret) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const codes = await storage.listInviteCodes();
+      res.json(codes);
+    } catch (error) {
+      console.error("Error listing invite codes:", error);
+      res.status(500).json({ error: "Failed to list invite codes" });
+    }
+  });
+
+  // Admin: Delete invite code
+  app.delete("/api/admin/codes/:id", async (req, res) => {
+    const adminSecret = process.env.ADMIN_SECRET || "admin-secret-change-me";
+    const authHeader = req.headers["x-admin-secret"];
+
+    if (authHeader !== adminSecret) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    try {
+      await storage.deleteInviteCode(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting invite code:", error);
+      res.status(500).json({ error: "Failed to delete invite code" });
+    }
+  });
+
+  // ============ Saved Audiences Endpoints ============
+
+  app.post("/api/audiences", async (req, res) => {
+    try {
+      const parseResult = insertSavedAudienceSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid request",
+          details: parseResult.error.errors,
+        });
+      }
+
+      const audience = await storage.createAudience(parseResult.data);
+      res.json(audience);
+    } catch (error) {
+      console.error("Error creating audience:", error);
+      res.status(500).json({ error: "Failed to create audience" });
+    }
+  });
+
+  app.get("/api/audiences", async (req, res) => {
+    try {
+      const audiences = await storage.listAudiences();
+      res.json(audiences);
+    } catch (error) {
+      console.error("Error listing audiences:", error);
+      res.status(500).json({ error: "Failed to list audiences" });
+    }
+  });
+
+  app.get("/api/audiences/:id", async (req, res) => {
+    try {
+      const audience = await storage.getAudience(req.params.id);
+      if (!audience) {
+        return res.status(404).json({ error: "Audience not found" });
+      }
+      res.json(audience);
+    } catch (error) {
+      console.error("Error getting audience:", error);
+      res.status(500).json({ error: "Failed to get audience" });
+    }
+  });
+
+  app.patch("/api/audiences/:id", async (req, res) => {
+    try {
+      const audience = await storage.updateAudience(req.params.id, req.body);
+      if (!audience) {
+        return res.status(404).json({ error: "Audience not found" });
+      }
+      res.json(audience);
+    } catch (error) {
+      console.error("Error updating audience:", error);
+      res.status(500).json({ error: "Failed to update audience" });
+    }
+  });
+
+  app.delete("/api/audiences/:id", async (req, res) => {
+    try {
+      await storage.deleteAudience(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting audience:", error);
+      res.status(500).json({ error: "Failed to delete audience" });
     }
   });
 
