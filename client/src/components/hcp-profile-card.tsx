@@ -48,6 +48,8 @@ interface HCPProfileCardProps {
   hcp: HCPProfile;
   onSelect?: (hcp: HCPProfile) => void;
   isSelected?: boolean;
+  isMultiSelected?: boolean;
+  onMultiSelectClick?: (hcp: HCPProfile, event: React.MouseEvent) => void;
   compact?: boolean;
 }
 
@@ -55,14 +57,25 @@ export function HCPProfileCard({
   hcp,
   onSelect,
   isSelected = false,
+  isMultiSelected = false,
+  onMultiSelectClick,
   compact = false,
 }: HCPProfileCardProps) {
   const PreferredIcon = channelIcons[hcp.channelPreference];
-  
+
   const getEngagementColor = (score: number) => {
     if (score >= 70) return "text-chart-1";
     if (score >= 40) return "text-chart-3";
     return "text-muted-foreground";
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (onMultiSelectClick && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      onMultiSelectClick(hcp, e);
+    } else {
+      onSelect?.(hcp);
+    }
   };
 
   if (compact) {
@@ -70,8 +83,8 @@ export function HCPProfileCard({
       <Card
         className={`cursor-pointer transition-all hover-elevate ${
           isSelected ? "ring-2 ring-primary" : ""
-        }`}
-        onClick={() => onSelect?.(hcp)}
+        } ${isMultiSelected ? "ring-2 ring-chart-1 bg-chart-1/5" : ""}`}
+        onClick={handleClick}
         data-testid={`card-hcp-${hcp.npi}`}
       >
         <CardContent className="p-4">
@@ -108,8 +121,8 @@ export function HCPProfileCard({
     <Card
       className={`cursor-pointer transition-all hover-elevate relative overflow-hidden ${
         isSelected ? "ring-2 ring-primary" : ""
-      }`}
-      onClick={() => onSelect?.(hcp)}
+      } ${isMultiSelected ? "ring-2 ring-chart-1 bg-chart-1/5" : ""}`}
+      onClick={handleClick}
       data-testid={`card-hcp-${hcp.npi}`}
     >
       {/* Specialty accent */}

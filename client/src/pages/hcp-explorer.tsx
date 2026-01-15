@@ -1,21 +1,70 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { LayoutGrid, List, RefreshCw, AlertCircle } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { LayoutGrid, List, RefreshCw, AlertCircle, Download, Save, X, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { HCPProfileCard } from "@/components/hcp-profile-card";
 import { HCPFilterSidebar } from "@/components/hcp-filter-sidebar";
 import { HCPDetailPanel } from "@/components/hcp-detail-panel";
+import { useToast } from "@/hooks/use-toast";
 import type { HCPProfile, HCPFilter } from "@shared/schema";
 
 export default function HCPExplorer() {
   const [filter, setFilter] = useState<HCPFilter>({});
   const [selectedHcp, setSelectedHcp] = useState<HCPProfile | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [audienceName, setAudienceName] = useState("");
+  const [audienceDescription, setAudienceDescription] = useState("");
+
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: hcps = [], isLoading, isError, error, refetch, isRefetching } = useQuery<HCPProfile[]>({
     queryKey: ["/api/hcps"],
+  });
+
+  const saveAudienceMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string; hcpIds: string[] }) => {
+      const response = await fetch("/api/audiences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name,
+          description: data.description,
+          hcpIds: data.hcpIds,
+          hcpCount: data.hcpIds.length,
+          filters: filter,
+          source: "explorer",
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to save audience");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/audiences"] });
+      toast({ title: "Audience Saved", description: `"${audienceName}" saved with ${selectedIds.size} HCPs` });
+      setSaveDialogOpen(false);
+      setAudienceName("");
+      setAudienceDescription("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   const filteredHcps = useMemo(() => {
@@ -43,8 +92,16 @@ export default function HCPExplorer() {
       result = result.filter((hcp) => filter.segments!.includes(hcp.segment));
     }
 
+    if (filter.states?.length) {
+      result = result.filter((hcp) => filter.states!.includes(hcp.state));
+    }
+
     if (filter.minEngagementScore !== undefined) {
       result = result.filter((hcp) => hcp.overallEngagementScore >= filter.minEngagementScore!);
+    }
+
+    if (filter.maxEngagementScore !== undefined) {
+      result = result.filter((hcp) => hcp.overallEngagementScore <= filter.maxEngagementScore!);
     }
 
     if (filter.channelPreference) {
@@ -53,6 +110,79 @@ export default function HCPExplorer() {
 
     return result;
   }, [hcps, filter]);
+
+  // Multi-select handlers
+  const handleCardClick = useCallback((hcp: HCPProfile, event: React.MouseEvent) => {
+    const isShiftClick = event.shiftKey;
+    const isCtrlClick = event.ctrlKey || event.metaKey;
+
+    if (isShiftClick && lastClickedId) {
+      // Range selection
+      const startIdx = filteredHcps.findIndex((h) => h.id === lastClickedId);
+      const endIdx = filteredHcps.findIndex((h) => h.id === hcp.id);
+      if (startIdx !== -1 && endIdx !== -1) {
+        const [start, end] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
+        const rangeIds = filteredHcps.slice(start, end + 1).map((h) => h.id);
+        setSelectedIds((prev) => {
+          const newSet = new Set(prev);
+          rangeIds.forEach((id) => newSet.add(id));
+          return newSet;
+        });
+      }
+    } else if (isCtrlClick) {
+      // Toggle individual selection
+      setSelectedIds((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(hcp.id)) {
+          newSet.delete(hcp.id);
+        } else {
+          newSet.add(hcp.id);
+        }
+        return newSet;
+      });
+    } else {
+      // Open detail panel (single click behavior)
+      setSelectedHcp(hcp);
+    }
+    setLastClickedId(hcp.id);
+  }, [filteredHcps, lastClickedId]);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(filteredHcps.map((h) => h.id)));
+  }, [filteredHcps]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const exportToCsv = useCallback(() => {
+    const selectedHcps = filteredHcps.filter((h) => selectedIds.has(h.id));
+    const headers = ["NPI", "First Name", "Last Name", "Specialty", "Tier", "Segment", "Organization", "City", "State", "Engagement Score", "Channel Preference", "Monthly Rx Volume", "Market Share %"];
+    const rows = selectedHcps.map((h) => [
+      h.npi, h.firstName, h.lastName, h.specialty, h.tier, h.segment,
+      h.organization, h.city, h.state, h.overallEngagementScore,
+      h.channelPreference, h.monthlyRxVolume, h.marketSharePct
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `hcp-export-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export Complete", description: `Exported ${selectedHcps.length} HCPs to CSV` });
+  }, [filteredHcps, selectedIds, toast]);
+
+  const handleSaveAudience = useCallback(() => {
+    if (!audienceName.trim()) return;
+    saveAudienceMutation.mutate({
+      name: audienceName.trim(),
+      description: audienceDescription.trim(),
+      hcpIds: Array.from(selectedIds),
+    });
+  }, [audienceName, audienceDescription, selectedIds, saveAudienceMutation]);
 
   return (
     <div className="flex h-full">
@@ -73,6 +203,16 @@ export default function HCPExplorer() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={selectAll}
+              className="text-xs"
+              data-testid="button-select-all"
+            >
+              <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
+              Select All ({filteredHcps.length})
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -104,6 +244,49 @@ export default function HCPExplorer() {
             </div>
           </div>
         </div>
+
+        {/* Floating action bar for selection */}
+        {selectedIds.size > 0 && (
+          <div className="sticky top-[65px] z-20 mx-6 mt-3 flex items-center justify-between rounded-lg border bg-primary text-primary-foreground px-4 py-2 shadow-lg">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium" data-testid="text-selection-count">
+                {selectedIds.size} HCP{selectedIds.size !== 1 ? "s" : ""} selected
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearSelection}
+                className="h-7 text-xs text-primary-foreground hover:text-primary-foreground hover:bg-primary/80"
+                data-testid="button-clear-selection"
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Clear
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={exportToCsv}
+                className="h-7 text-xs"
+                data-testid="button-export-csv"
+              >
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+                Export CSV
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setSaveDialogOpen(true)}
+                className="h-7 text-xs"
+                data-testid="button-save-audience"
+              >
+                <Save className="h-3.5 w-3.5 mr-1.5" />
+                Save as Audience
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="h-[calc(100%-64px)] overflow-auto p-6">
           {isError ? (
@@ -159,6 +342,8 @@ export default function HCPExplorer() {
                   hcp={hcp}
                   onSelect={setSelectedHcp}
                   isSelected={selectedHcp?.id === hcp.id}
+                  isMultiSelected={selectedIds.has(hcp.id)}
+                  onMultiSelectClick={handleCardClick}
                 />
               ))}
             </div>
@@ -170,6 +355,8 @@ export default function HCPExplorer() {
                   hcp={hcp}
                   onSelect={setSelectedHcp}
                   isSelected={selectedHcp?.id === hcp.id}
+                  isMultiSelected={selectedIds.has(hcp.id)}
+                  onMultiSelectClick={handleCardClick}
                   compact
                 />
               ))}
@@ -184,6 +371,53 @@ export default function HCPExplorer() {
         onClose={() => setSelectedHcp(null)}
         onSelectHcp={setSelectedHcp}
       />
+
+      {/* Save Audience Dialog */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Save as Audience</DialogTitle>
+            <DialogDescription>
+              Save {selectedIds.size} selected HCP{selectedIds.size !== 1 ? "s" : ""} as a reusable audience for simulations and campaigns.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="audience-name">Audience Name</Label>
+              <Input
+                id="audience-name"
+                placeholder="e.g., High-Value Oncologists Q1"
+                value={audienceName}
+                onChange={(e) => setAudienceName(e.target.value)}
+                data-testid="input-audience-name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="audience-description">Description (optional)</Label>
+              <Textarea
+                id="audience-description"
+                placeholder="Describe this audience segment..."
+                value={audienceDescription}
+                onChange={(e) => setAudienceDescription(e.target.value)}
+                rows={3}
+                data-testid="input-audience-description"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveAudience}
+              disabled={!audienceName.trim() || saveAudienceMutation.isPending}
+              data-testid="button-confirm-save-audience"
+            >
+              {saveAudienceMutation.isPending ? "Saving..." : "Save Audience"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
