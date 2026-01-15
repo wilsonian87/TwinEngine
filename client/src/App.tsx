@@ -1,6 +1,6 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -15,6 +15,7 @@ import FeatureStore from "@/pages/feature-store";
 import AudienceBuilder from "@/pages/audience-builder";
 import ModelEvaluationPage from "@/pages/model-evaluation";
 import Settings from "@/pages/settings";
+import Landing from "@/pages/landing";
 
 function Router() {
   return (
@@ -56,12 +57,38 @@ function AppLayout() {
   );
 }
 
+function AuthenticatedApp() {
+  const { data: session, isLoading } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const response = await fetch("/api/invite/session");
+      return response.json();
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!session?.authenticated) {
+    return <Landing />;
+  }
+
+  return <AppLayout />;
+}
+
 function App() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="hcp-twin-theme">
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <AppLayout />
+          <AuthenticatedApp />
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
