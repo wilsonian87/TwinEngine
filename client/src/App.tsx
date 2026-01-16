@@ -13,6 +13,8 @@ import Simulations from "@/pages/simulations";
 import Dashboard from "@/pages/dashboard";
 import FeatureStore from "@/pages/feature-store";
 import AudienceBuilder from "@/pages/audience-builder";
+import ActionQueuePage from "@/pages/action-queue";
+import CohortCompare from "@/pages/cohort-compare";
 import ModelEvaluationPage from "@/pages/model-evaluation";
 import Settings from "@/pages/settings";
 import Landing from "@/pages/landing";
@@ -25,6 +27,8 @@ function Router() {
       <Route path="/simulations" component={Simulations} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/audience-builder" component={AudienceBuilder} />
+      <Route path="/action-queue" component={ActionQueuePage} />
+      <Route path="/cohort-compare" component={CohortCompare} />
       <Route path="/feature-store" component={FeatureStore} />
       <Route path="/model-evaluation" component={ModelEvaluationPage} />
       <Route path="/settings" component={Settings} />

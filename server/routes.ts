@@ -4,6 +4,7 @@ import passport from "passport";
 import { storage } from "./storage";
 import { hashPassword } from "./auth";
 import { classifyChannelHealth, classifyCohortChannelHealth, getHealthSummary } from "./services/channel-health";
+import { generateNBA, generateNBAs, prioritizeNBAs, getNBASummary } from "./services/nba-engine";
 import {
   insertSimulationScenarioSchema,
   hcpFilterSchema,
@@ -475,6 +476,95 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error getting cohort channel health:", error);
       res.status(500).json({ error: "Failed to get cohort channel health" });
+    }
+  });
+
+  // ============ Next Best Action (NBA) Endpoints ============
+
+  // Get NBA recommendation for a single HCP
+  app.get("/api/hcps/:id/nba", async (req, res) => {
+    try {
+      const hcp = await storage.getHcpById(req.params.id);
+      if (!hcp) {
+        return res.status(404).json({ error: "HCP not found" });
+      }
+
+      // Get channel health first
+      const channelHealth = classifyChannelHealth(hcp);
+      const nba = generateNBA(hcp, channelHealth);
+
+      // Log NBA generation
+      await storage.logAction({
+        action: "nba_generated",
+        entityType: "hcp_profile",
+        entityId: hcp.id,
+        details: {
+          recommendedChannel: nba.recommendedChannel,
+          actionType: nba.actionType,
+          urgency: nba.urgency,
+        },
+      });
+
+      res.json(nba);
+    } catch (error) {
+      console.error("Error generating NBA:", error);
+      res.status(500).json({ error: "Failed to generate NBA" });
+    }
+  });
+
+  // Generate NBAs for multiple HCPs (cohort)
+  app.post("/api/nba/generate", async (req, res) => {
+    try {
+      const { hcpIds, prioritize, limit } = req.body as {
+        hcpIds?: string[];
+        prioritize?: boolean;
+        limit?: number;
+      };
+
+      if (!hcpIds || !Array.isArray(hcpIds) || hcpIds.length === 0) {
+        return res.status(400).json({ error: "hcpIds array required" });
+      }
+
+      // Fetch all HCPs by IDs
+      const allHcps = await storage.getAllHcps();
+      const cohort = allHcps.filter((h) => hcpIds.includes(h.id));
+
+      if (cohort.length === 0) {
+        return res.status(404).json({ error: "No HCPs found for given IDs" });
+      }
+
+      // Generate NBAs for all HCPs
+      let nbas = generateNBAs(cohort);
+
+      // Optionally prioritize
+      if (prioritize !== false) {
+        nbas = prioritizeNBAs(nbas, limit);
+      } else if (limit) {
+        nbas = nbas.slice(0, limit);
+      }
+
+      // Get summary statistics
+      const summary = getNBASummary(nbas);
+
+      // Log batch NBA generation
+      await storage.logAction({
+        action: "nba_batch_generated",
+        entityType: "cohort",
+        details: {
+          inputCount: hcpIds.length,
+          outputCount: nbas.length,
+          summary,
+        },
+      });
+
+      res.json({
+        nbas,
+        summary,
+        totalProcessed: cohort.length,
+      });
+    } catch (error) {
+      console.error("Error generating batch NBAs:", error);
+      res.status(500).json({ error: "Failed to generate batch NBAs" });
     }
   });
 

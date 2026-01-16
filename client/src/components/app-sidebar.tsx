@@ -9,6 +9,8 @@ import {
   TrendingUp,
   MessageSquare,
   BarChart3,
+  ListTodo,
+  GitCompare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -36,6 +38,18 @@ const navigationItems = [
     url: "/audience-builder",
     icon: MessageSquare,
     description: "Build cohorts with AI",
+  },
+  {
+    title: "Action Queue",
+    url: "/action-queue",
+    icon: ListTodo,
+    description: "Next best actions",
+  },
+  {
+    title: "Compare Cohorts",
+    url: "/cohort-compare",
+    icon: GitCompare,
+    description: "Side-by-side comparison",
   },
   {
     title: "Simulations",
