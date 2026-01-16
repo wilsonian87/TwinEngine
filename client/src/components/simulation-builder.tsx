@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X, TrendingUp, Save, RefreshCw, HelpCircle, Info, Mail, Phone, Video, Globe, Calendar, FolderOpen, Database, Check } from "lucide-react";
+import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X, TrendingUp, Save, RefreshCw, HelpCircle, Info, Mail, Phone, Video, Globe, Calendar, FolderOpen, Database, Check, ArrowRightLeft, Lightbulb, ArrowRight, Wand2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,6 +177,67 @@ export function SimulationBuilder({
   const [selectedSavedAudience, setSelectedSavedAudience] = useState<SavedAudience | null>(null);
   const [showAudiencePicker, setShowAudiencePicker] = useState(false);
 
+  // Reverse simulation state
+  const [showReverseMode, setShowReverseMode] = useState(false);
+  const [targetRxLift, setTargetRxLift] = useState(10);
+  const [reverseRecommendation, setReverseRecommendation] = useState<{
+    preset: Exclude<PresetKey, "custom">;
+    frequency: number;
+    duration: number;
+    confidence: number;
+    rationale: string;
+  } | null>(null);
+
+  // Compute reverse simulation recommendation based on target
+  const computeReverseRecommendation = () => {
+    // Heuristic-based recommendation engine
+    // In production, this would call a backend API with an ML model
+    let recommendedPreset: Exclude<PresetKey, "custom">;
+    let recommendedFrequency: number;
+    let recommendedDuration: number;
+    let confidence: number;
+    let rationale: string;
+
+    if (targetRxLift <= 5) {
+      // Low lift target - mature strategy is efficient
+      recommendedPreset = "mature";
+      recommendedFrequency = 3;
+      recommendedDuration = 4;
+      confidence = 85;
+      rationale = "A maintenance strategy with moderate touchpoints should achieve this modest lift with high efficiency.";
+    } else if (targetRxLift <= 12) {
+      // Medium lift target - launching strategy
+      recommendedPreset = "launching";
+      recommendedFrequency = Math.min(6 + Math.floor(targetRxLift / 3), 10);
+      recommendedDuration = 4;
+      confidence = 72;
+      rationale = "An active engagement strategy with multi-channel presence is recommended to achieve this growth target.";
+    } else {
+      // High lift target - aggressive pre-launch style
+      recommendedPreset = "pre_launch";
+      recommendedFrequency = Math.min(8 + Math.floor(targetRxLift / 5), 15);
+      recommendedDuration = Math.min(6 + Math.floor(targetRxLift / 10), 9);
+      confidence = Math.max(55 - (targetRxLift - 15) * 2, 35);
+      rationale = "Achieving high lift requires intensive relationship-building through webinars and rep visits. Note: targets above 15% have lower confidence.";
+    }
+
+    setReverseRecommendation({
+      preset: recommendedPreset,
+      frequency: recommendedFrequency,
+      duration: recommendedDuration,
+      confidence,
+      rationale,
+    });
+  };
+
+  const applyReverseRecommendation = () => {
+    if (!reverseRecommendation) return;
+    applyPreset(reverseRecommendation.preset);
+    setFrequency(reverseRecommendation.frequency);
+    setDuration(reverseRecommendation.duration);
+    setShowReverseMode(false);
+  };
+
   // Fetch saved audiences for import
   const { data: savedAudiences = [] } = useQuery<SavedAudience[]>({
     queryKey: ["/api/audiences"],
@@ -282,6 +343,9 @@ export function SimulationBuilder({
     setShowPresetRationale(false);
     setSelectedSavedAudience(null);
     setShowAudiencePicker(false);
+    setShowReverseMode(false);
+    setTargetRxLift(10);
+    setReverseRecommendation(null);
   };
 
   const audienceCount = useMemo(() => {
@@ -426,6 +490,120 @@ export function SimulationBuilder({
               </div>
             </div>
           </CardContent>
+        </Card>
+
+        {/* Reverse Simulation Mode - "How To" Feature */}
+        <Card className="border-dashed">
+          <Collapsible open={showReverseMode} onOpenChange={setShowReverseMode}>
+            <CardHeader className="pb-3">
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-md bg-chart-2/10 p-1.5">
+                      <Wand2 className="h-4 w-4 text-chart-2" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-medium">How Do I Achieve...?</CardTitle>
+                      <CardDescription className="text-xs">
+                        Set a target and get strategy recommendations
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-8" data-testid="button-toggle-reverse-mode">
+                    {showReverseMode ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </CollapsibleTrigger>
+            </CardHeader>
+
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
+                {/* Target Input */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <LabelWithTooltip
+                      label="Target Rx Lift"
+                      tooltip="The percentage increase in prescriptions you want to achieve compared to baseline"
+                    />
+                    <span className="font-mono text-lg font-semibold text-chart-2">+{targetRxLift}%</span>
+                  </div>
+                  <Slider
+                    value={[targetRxLift]}
+                    onValueChange={([v]) => {
+                      setTargetRxLift(v);
+                      setReverseRecommendation(null);
+                    }}
+                    min={1}
+                    max={25}
+                    step={1}
+                    data-testid="slider-target-rx-lift"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {targetRxLift <= 5 ? "Conservative target - high achievability" :
+                     targetRxLift <= 12 ? "Moderate target - requires active engagement" :
+                     "Ambitious target - requires intensive strategy"}
+                  </p>
+                </div>
+
+                {/* Get Recommendation Button */}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={computeReverseRecommendation}
+                  data-testid="button-get-recommendation"
+                >
+                  <Lightbulb className="h-4 w-4 mr-2" />
+                  Get Strategy Recommendation
+                </Button>
+
+                {/* Recommendation Display */}
+                {reverseRecommendation && (
+                  <div className="rounded-lg border bg-gradient-to-br from-chart-2/5 to-chart-1/5 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className="h-5 w-5 text-chart-2" />
+                        <span className="font-medium">Recommended Strategy</span>
+                      </div>
+                      <Badge
+                        variant={reverseRecommendation.confidence >= 70 ? "default" : "secondary"}
+                        className="text-xs"
+                      >
+                        {reverseRecommendation.confidence}% confidence
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-md bg-background p-2">
+                        <div className="text-xs text-muted-foreground">Preset</div>
+                        <div className="font-medium text-sm">{channelPresets[reverseRecommendation.preset].label}</div>
+                      </div>
+                      <div className="rounded-md bg-background p-2">
+                        <div className="text-xs text-muted-foreground">Frequency</div>
+                        <div className="font-medium text-sm">{reverseRecommendation.frequency}/mo</div>
+                      </div>
+                      <div className="rounded-md bg-background p-2">
+                        <div className="text-xs text-muted-foreground">Duration</div>
+                        <div className="font-medium text-sm">{reverseRecommendation.duration} mo</div>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      {reverseRecommendation.rationale}
+                    </p>
+
+                    <Button
+                      className="w-full"
+                      onClick={applyReverseRecommendation}
+                      data-testid="button-apply-recommendation"
+                    >
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      Apply This Strategy
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
 
         <Card>
