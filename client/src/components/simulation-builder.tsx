@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X, TrendingUp, Save, RefreshCw, HelpCircle, Info, Mail, Phone, Video, Globe, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -33,8 +34,51 @@ const channelLabels: Record<Channel, string> = {
   phone: "Phone",
 };
 
+const channelIcons: Record<Channel, typeof Mail> = {
+  email: Mail,
+  rep_visit: Users,
+  webinar: Video,
+  conference: Calendar,
+  digital_ad: Globe,
+  phone: Phone,
+};
+
+const channelTooltips: Record<Channel, string> = {
+  email: "Direct email campaigns with personalized content",
+  rep_visit: "In-person visits from pharmaceutical representatives",
+  webinar: "Online educational sessions and product presentations",
+  conference: "Industry conferences, symposiums, and medical meetings",
+  digital_ad: "Targeted online advertising across platforms",
+  phone: "Telephone outreach and follow-up calls",
+};
+
+const contentTypeTooltips: Record<string, string> = {
+  educational: "Focus on disease education and treatment protocols",
+  promotional: "Product-focused messaging with promotional offers",
+  clinical_data: "Evidence-based content with clinical trial results",
+  mixed: "Balanced approach combining all content types",
+};
+
+// Helper component for parameter labels with tooltips
+function LabelWithTooltip({ label, tooltip }: { label: string; tooltip: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <Label>{label}</Label>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[250px]">
+          <p className="text-xs">{tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
 interface SimulationBuilderProps {
   onRunSimulation: (scenario: InsertSimulationScenario) => void;
+  onSaveResult?: (result: SimulationResult, name: string) => void;
   isRunning?: boolean;
   result?: SimulationResult | null;
   selectedHcpCount?: number;
@@ -43,6 +87,7 @@ interface SimulationBuilderProps {
 
 export function SimulationBuilder({
   onRunSimulation,
+  onSaveResult,
   isRunning = false,
   result,
   selectedHcpCount = 0,
@@ -178,16 +223,39 @@ export function SimulationBuilder({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="content-type">Content Strategy</Label>
+                <LabelWithTooltip
+                  label="Content Strategy"
+                  tooltip="The type of messaging and content used in your campaign communications"
+                />
                 <Select value={contentType} onValueChange={(v) => setContentType(v as typeof contentType)}>
                   <SelectTrigger id="content-type" data-testid="select-content-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="educational">Educational</SelectItem>
-                    <SelectItem value="promotional">Promotional</SelectItem>
-                    <SelectItem value="clinical_data">Clinical Data</SelectItem>
-                    <SelectItem value="mixed">Mixed</SelectItem>
+                    <SelectItem value="educational">
+                      <div className="flex flex-col items-start">
+                        <span>Educational</span>
+                        <span className="text-xs text-muted-foreground">{contentTypeTooltips.educational}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="promotional">
+                      <div className="flex flex-col items-start">
+                        <span>Promotional</span>
+                        <span className="text-xs text-muted-foreground">{contentTypeTooltips.promotional}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="clinical_data">
+                      <div className="flex flex-col items-start">
+                        <span>Clinical Data</span>
+                        <span className="text-xs text-muted-foreground">{contentTypeTooltips.clinical_data}</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="mixed">
+                      <div className="flex flex-col items-start">
+                        <span>Mixed</span>
+                        <span className="text-xs text-muted-foreground">{contentTypeTooltips.mixed}</span>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -209,7 +277,10 @@ export function SimulationBuilder({
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label>Contact Frequency</Label>
+                  <LabelWithTooltip
+                    label="Contact Frequency"
+                    tooltip="How often each HCP receives communications. Higher frequency increases engagement but may cause fatigue."
+                  />
                   <span className="font-mono text-sm font-medium">{frequency}/month</span>
                 </div>
                 <Slider
@@ -221,13 +292,18 @@ export function SimulationBuilder({
                   data-testid="slider-frequency"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Number of touchpoints per month per HCP
+                  {frequency <= 4 ? "Low frequency - optimal for busy specialists" :
+                   frequency <= 8 ? "Moderate frequency - balanced approach" :
+                   "High frequency - aggressive outreach"}
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label>Campaign Duration</Label>
+                  <LabelWithTooltip
+                    label="Campaign Duration"
+                    tooltip="Length of the campaign. Longer campaigns build awareness but require sustained engagement."
+                  />
                   <span className="font-mono text-sm font-medium">{duration} months</span>
                 </div>
                 <Slider
@@ -239,7 +315,9 @@ export function SimulationBuilder({
                   data-testid="slider-duration"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Total campaign length in months
+                  {duration <= 3 ? "Short burst campaign" :
+                   duration <= 6 ? "Standard campaign cycle" :
+                   "Extended awareness campaign"}
                 </p>
               </div>
             </div>
@@ -276,22 +354,35 @@ export function SimulationBuilder({
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2">
-              {(Object.entries(channelMix) as [Channel, number][]).map(([channel, value]) => (
-                <div key={channel} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm">{channelLabels[channel]}</Label>
-                    <span className="font-mono text-sm">{value}%</span>
+              {(Object.entries(channelMix) as [Channel, number][]).map(([channel, value]) => {
+                const Icon = channelIcons[channel];
+                return (
+                  <div key={channel} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2 cursor-help">
+                            <Icon className="h-4 w-4 text-muted-foreground" />
+                            <Label className="text-sm cursor-help">{channelLabels[channel]}</Label>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px]">
+                          <p className="text-xs">{channelTooltips[channel]}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <span className="font-mono text-sm">{value}%</span>
+                    </div>
+                    <Slider
+                      value={[value]}
+                      onValueChange={([v]) => handleChannelChange(channel, v)}
+                      min={0}
+                      max={100}
+                      step={5}
+                      data-testid={`slider-channel-${channel}`}
+                    />
                   </div>
-                  <Slider
-                    value={[value]}
-                    onValueChange={([v]) => handleChannelChange(channel, v)}
-                    min={0}
-                    max={100}
-                    step={5}
-                    data-testid={`slider-channel-${channel}`}
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -334,56 +425,54 @@ export function SimulationBuilder({
           <CardContent>
             {result ? (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Engagement Rate</span>
-                    <span className="font-mono font-medium text-chart-1" data-testid="text-pred-engagement">
+                {/* Headline metric - leads with the key insight */}
+                <div className="rounded-lg bg-gradient-to-br from-chart-1/10 to-chart-2/10 border border-chart-1/20 p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <TrendingUp className="h-5 w-5 text-chart-1" />
+                    <span className="text-sm font-medium text-muted-foreground">Projected Impact</span>
+                  </div>
+                  <div className="text-3xl font-bold text-chart-1" data-testid="text-headline-lift">
+                    +{result.predictedRxLift.toFixed(1)}% Rx Lift
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    vs. no campaign baseline
+                  </p>
+                </div>
+
+                {/* Key metrics grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-md bg-muted p-3 text-center">
+                    <span className="block text-lg font-bold" data-testid="text-pred-engagement">
                       {result.predictedEngagementRate.toFixed(1)}%
                     </span>
+                    <span className="text-xs text-muted-foreground">Engagement</span>
                   </div>
-                  <Progress value={result.predictedEngagementRate} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Response Rate</span>
-                    <span className="font-mono font-medium" data-testid="text-pred-response">
+                  <div className="rounded-md bg-muted p-3 text-center">
+                    <span className="block text-lg font-bold" data-testid="text-pred-response">
                       {result.predictedResponseRate.toFixed(1)}%
                     </span>
+                    <span className="text-xs text-muted-foreground">Response</span>
                   </div>
-                  <Progress value={result.predictedResponseRate} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Predicted Rx Lift</span>
-                    <span className="font-mono font-medium text-chart-2" data-testid="text-pred-lift">
-                      +{result.predictedRxLift.toFixed(1)}%
+                  <div className="rounded-md bg-muted p-3 text-center">
+                    <span className="block text-lg font-bold" data-testid="text-pred-reach">
+                      {result.predictedReach.toLocaleString()}
                     </span>
+                    <span className="text-xs text-muted-foreground">HCPs Reached</span>
                   </div>
-                  <Progress value={Math.min(result.predictedRxLift * 5, 100)} className="h-2" />
-                </div>
-
-                <div className="rounded-md bg-muted p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Reach</span>
-                    <span className="font-mono font-semibold" data-testid="text-pred-reach">
-                      {result.predictedReach.toLocaleString()} HCPs
+                  <div className="rounded-md bg-muted p-3 text-center">
+                    <span className="block text-lg font-bold" data-testid="text-efficiency">
+                      {result.efficiencyScore}
                     </span>
+                    <span className="text-xs text-muted-foreground">Efficiency</span>
                   </div>
                 </div>
 
-                <div className="rounded-md bg-muted p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Efficiency Score</span>
-                    <span className="font-mono font-semibold" data-testid="text-efficiency">
-                      {result.efficiencyScore}/100
-                    </span>
-                  </div>
-                </div>
-
+                {/* vs. Baseline comparison */}
                 <div className="border-t pt-4">
-                  <h4 className="mb-3 text-sm font-medium">vs. Baseline</h4>
+                  <h4 className="mb-3 text-sm font-medium flex items-center gap-2">
+                    <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                    Compared to Baseline
+                  </h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Engagement</span>
@@ -408,6 +497,32 @@ export function SimulationBuilder({
                     </div>
                   </div>
                 </div>
+
+                {/* Action CTAs */}
+                <div className="border-t pt-4 flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={resetForm}
+                    data-testid="button-run-another"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                    Run Another
+                  </Button>
+                  {onSaveResult && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => onSaveResult(result, scenarioName)}
+                      data-testid="button-save-results"
+                    >
+                      <Save className="h-3.5 w-3.5 mr-1.5" />
+                      Save Results
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -416,6 +531,9 @@ export function SimulationBuilder({
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Configure your scenario and run a simulation to see predicted outcomes
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Hover over parameter labels for help
                 </p>
               </div>
             )}
