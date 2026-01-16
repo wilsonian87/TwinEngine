@@ -13,6 +13,14 @@ import {
   users,
   inviteCodes,
   savedAudiences,
+  // Phase 6: Integration tables
+  integrationConfigs,
+  actionExports,
+  // Phase 6: Agent tables
+  agentDefinitions,
+  agentRuns,
+  agentActions,
+  alerts,
   type User,
   type InsertUser,
   type InviteCode,
@@ -53,6 +61,24 @@ import {
   type RunEvaluationRequest,
   type SegmentModelMetric,
   type ChannelModelMetric,
+  // Phase 6: Integration types
+  type IntegrationConfig,
+  type InsertIntegrationConfig,
+  type ActionExport,
+  type InsertActionExport,
+  type IntegrationType,
+  type IntegrationStatus,
+  // Phase 6: Agent types
+  type AgentDefinition,
+  type InsertAgentDefinition,
+  type AgentRun,
+  type InsertAgentRun,
+  type AgentAction,
+  type InsertAgentAction,
+  type AgentRunStatus,
+  type AgentActionStatus,
+  type Alert,
+  type InsertAlert,
 } from "@shared/schema";
 import { specialties, tiers, segments, channels, stimulusTypes } from "@shared/schema";
 
@@ -139,6 +165,21 @@ export interface IStorage {
   listAudiences(): Promise<SavedAudience[]>;
   updateAudience(id: string, updates: Partial<InsertSavedAudience>): Promise<SavedAudience | undefined>;
   deleteAudience(id: string): Promise<boolean>;
+
+  // Phase 6: Integration operations
+  createIntegration(config: InsertIntegrationConfig): Promise<IntegrationConfig>;
+  getIntegration(id: string): Promise<IntegrationConfig | undefined>;
+  getIntegrationByType(type: IntegrationType): Promise<IntegrationConfig | undefined>;
+  listIntegrations(): Promise<IntegrationConfig[]>;
+  updateIntegration(id: string, updates: Partial<InsertIntegrationConfig>): Promise<IntegrationConfig | undefined>;
+  updateIntegrationStatus(id: string, status: IntegrationStatus, error?: string): Promise<IntegrationConfig | undefined>;
+  deleteIntegration(id: string): Promise<boolean>;
+
+  // Phase 6: Action export operations
+  createActionExport(actionExport: InsertActionExport): Promise<ActionExport>;
+  getActionExport(id: string): Promise<ActionExport | undefined>;
+  listActionExports(sourceType?: string, limit?: number): Promise<ActionExport[]>;
+  updateActionExportStatus(id: string, status: string, destinationRef?: string, destinationUrl?: string, error?: string): Promise<ActionExport | undefined>;
 }
 
 // Generate random data helpers
@@ -1412,6 +1453,524 @@ export class DatabaseStorage implements IStorage {
     });
 
     return true;
+  }
+
+  // ============ Phase 6: Integration Operations ============
+
+  async createIntegration(config: InsertIntegrationConfig): Promise<IntegrationConfig> {
+    const [inserted] = await db.insert(integrationConfigs).values(config).returning();
+
+    await this.logAction({
+      action: "integration_created",
+      entityType: "integration",
+      entityId: inserted.id,
+      details: { type: config.type, name: config.name },
+    });
+
+    return inserted;
+  }
+
+  async getIntegration(id: string): Promise<IntegrationConfig | undefined> {
+    const [integration] = await db
+      .select()
+      .from(integrationConfigs)
+      .where(eq(integrationConfigs.id, id));
+    return integration;
+  }
+
+  async getIntegrationByType(type: IntegrationType): Promise<IntegrationConfig | undefined> {
+    const [integration] = await db
+      .select()
+      .from(integrationConfigs)
+      .where(
+        and(
+          eq(integrationConfigs.type, type),
+          eq(integrationConfigs.status, "active")
+        )
+      );
+    return integration;
+  }
+
+  async listIntegrations(): Promise<IntegrationConfig[]> {
+    return db.select().from(integrationConfigs).orderBy(desc(integrationConfigs.createdAt));
+  }
+
+  async updateIntegration(id: string, updates: Partial<InsertIntegrationConfig>): Promise<IntegrationConfig | undefined> {
+    const [updated] = await db
+      .update(integrationConfigs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(integrationConfigs.id, id))
+      .returning();
+
+    if (updated) {
+      await this.logAction({
+        action: "integration_updated",
+        entityType: "integration",
+        entityId: id,
+        details: { updates: Object.keys(updates) },
+      });
+    }
+
+    return updated;
+  }
+
+  async updateIntegrationStatus(id: string, status: IntegrationStatus, error?: string): Promise<IntegrationConfig | undefined> {
+    const [updated] = await db
+      .update(integrationConfigs)
+      .set({
+        status,
+        lastError: error || null,
+        lastHealthCheck: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(integrationConfigs.id, id))
+      .returning();
+
+    if (updated) {
+      await this.logAction({
+        action: "integration_status_changed",
+        entityType: "integration",
+        entityId: id,
+        details: { status, error },
+      });
+    }
+
+    return updated;
+  }
+
+  async deleteIntegration(id: string): Promise<boolean> {
+    await db.delete(integrationConfigs).where(eq(integrationConfigs.id, id));
+
+    await this.logAction({
+      action: "integration_deleted",
+      entityType: "integration",
+      entityId: id,
+      details: {},
+    });
+
+    return true;
+  }
+
+  // ============ Phase 6: Action Export Operations ============
+
+  async createActionExport(actionExport: InsertActionExport): Promise<ActionExport> {
+    const [inserted] = await db.insert(actionExports).values(actionExport).returning();
+
+    await this.logAction({
+      action: "action_exported",
+      entityType: "action_export",
+      entityId: inserted.id,
+      details: {
+        sourceType: actionExport.sourceType,
+        sourceId: actionExport.sourceId,
+        destinationType: actionExport.destinationType,
+      },
+    });
+
+    return inserted;
+  }
+
+  async getActionExport(id: string): Promise<ActionExport | undefined> {
+    const [actionExport] = await db
+      .select()
+      .from(actionExports)
+      .where(eq(actionExports.id, id));
+    return actionExport;
+  }
+
+  async listActionExports(sourceType?: string, limit: number = 50): Promise<ActionExport[]> {
+    let query = db.select().from(actionExports).orderBy(desc(actionExports.exportedAt)).limit(limit);
+
+    if (sourceType) {
+      query = query.where(eq(actionExports.sourceType, sourceType)) as typeof query;
+    }
+
+    return query;
+  }
+
+  async updateActionExportStatus(
+    id: string,
+    status: string,
+    destinationRef?: string,
+    destinationUrl?: string,
+    error?: string
+  ): Promise<ActionExport | undefined> {
+    const updates: Record<string, unknown> = { status };
+
+    if (destinationRef) updates.destinationRef = destinationRef;
+    if (destinationUrl) updates.destinationUrl = destinationUrl;
+    if (error) updates.errorMessage = error;
+    if (status === "success" || status === "failed") {
+      updates.completedAt = new Date();
+    }
+
+    const [updated] = await db
+      .update(actionExports)
+      .set(updates)
+      .where(eq(actionExports.id, id))
+      .returning();
+
+    return updated;
+  }
+
+  // ============ Agent Definitions ============
+
+  async createAgentDefinition(definition: InsertAgentDefinition): Promise<AgentDefinition> {
+    const [inserted] = await db.insert(agentDefinitions).values(definition).returning();
+
+    await this.logAction({
+      action: "create_agent_definition",
+      entityType: "agent_definition",
+      entityId: inserted.id,
+      details: { name: definition.name, type: definition.type },
+    });
+
+    return inserted;
+  }
+
+  async getAgentDefinition(id: string): Promise<AgentDefinition | undefined> {
+    const [definition] = await db
+      .select()
+      .from(agentDefinitions)
+      .where(eq(agentDefinitions.id, id));
+    return definition;
+  }
+
+  async getAgentDefinitionByType(type: string): Promise<AgentDefinition | undefined> {
+    const [definition] = await db
+      .select()
+      .from(agentDefinitions)
+      .where(eq(agentDefinitions.type, type));
+    return definition;
+  }
+
+  async listAgentDefinitions(): Promise<AgentDefinition[]> {
+    return db.select().from(agentDefinitions).orderBy(desc(agentDefinitions.createdAt));
+  }
+
+  async updateAgentDefinition(id: string, updates: Partial<InsertAgentDefinition>): Promise<AgentDefinition | undefined> {
+    const [updated] = await db
+      .update(agentDefinitions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(agentDefinitions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateAgentLastRun(id: string, status: AgentRunStatus): Promise<void> {
+    await db
+      .update(agentDefinitions)
+      .set({ lastRunAt: new Date(), lastRunStatus: status })
+      .where(eq(agentDefinitions.id, id));
+  }
+
+  async deleteAgentDefinition(id: string): Promise<boolean> {
+    const result = await db.delete(agentDefinitions).where(eq(agentDefinitions.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // ============ Agent Runs ============
+
+  async createAgentRun(run: InsertAgentRun): Promise<AgentRun> {
+    const [inserted] = await db.insert(agentRuns).values(run).returning();
+
+    await this.logAction({
+      action: "create_agent_run",
+      entityType: "agent_run",
+      entityId: inserted.id,
+      details: { agentId: run.agentId, agentType: run.agentType, triggerType: run.triggerType },
+    });
+
+    return inserted;
+  }
+
+  async getAgentRun(id: string): Promise<AgentRun | undefined> {
+    const [run] = await db.select().from(agentRuns).where(eq(agentRuns.id, id));
+    return run;
+  }
+
+  async listAgentRuns(agentId?: string, limit: number = 50): Promise<AgentRun[]> {
+    let query = db.select().from(agentRuns).orderBy(desc(agentRuns.createdAt)).limit(limit);
+
+    if (agentId) {
+      query = query.where(eq(agentRuns.agentId, agentId)) as typeof query;
+    }
+
+    return query;
+  }
+
+  async updateAgentRun(id: string, updates: Partial<InsertAgentRun>): Promise<AgentRun | undefined> {
+    const [updated] = await db
+      .update(agentRuns)
+      .set(updates)
+      .where(eq(agentRuns.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getAgentRunsByStatus(status: AgentRunStatus, limit: number = 50): Promise<AgentRun[]> {
+    return db
+      .select()
+      .from(agentRuns)
+      .where(eq(agentRuns.status, status))
+      .orderBy(desc(agentRuns.createdAt))
+      .limit(limit);
+  }
+
+  // ============ Agent Actions (Approval Queue) ============
+
+  async createAgentAction(action: InsertAgentAction): Promise<AgentAction> {
+    const [inserted] = await db.insert(agentActions).values(action).returning();
+
+    await this.logAction({
+      action: "create_agent_action",
+      entityType: "agent_action",
+      entityId: inserted.id,
+      details: {
+        agentId: action.agentId,
+        actionType: action.actionType,
+        actionName: action.actionName,
+        requiresApproval: action.status === "pending",
+      },
+    });
+
+    return inserted;
+  }
+
+  async getAgentAction(id: string): Promise<AgentAction | undefined> {
+    const [action] = await db.select().from(agentActions).where(eq(agentActions.id, id));
+    return action;
+  }
+
+  async listAgentActions(status?: AgentActionStatus, limit: number = 50): Promise<AgentAction[]> {
+    let query = db.select().from(agentActions).orderBy(desc(agentActions.createdAt)).limit(limit);
+
+    if (status) {
+      query = query.where(eq(agentActions.status, status)) as typeof query;
+    }
+
+    return query;
+  }
+
+  async getPendingAgentActions(): Promise<AgentAction[]> {
+    return db
+      .select()
+      .from(agentActions)
+      .where(eq(agentActions.status, "pending"))
+      .orderBy(desc(agentActions.createdAt));
+  }
+
+  async updateAgentAction(id: string, updates: Partial<InsertAgentAction>): Promise<AgentAction | undefined> {
+    const [updated] = await db
+      .update(agentActions)
+      .set(updates)
+      .where(eq(agentActions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async approveAgentAction(
+    id: string,
+    approvedBy: string,
+    modifiedAction?: Record<string, unknown>
+  ): Promise<AgentAction | undefined> {
+    const updates: Record<string, unknown> = {
+      status: modifiedAction ? "modified" : "approved",
+      reviewedBy: approvedBy,
+      reviewedAt: new Date(),
+    };
+
+    if (modifiedAction) {
+      updates.modifiedAction = modifiedAction;
+    }
+
+    const [updated] = await db
+      .update(agentActions)
+      .set(updates)
+      .where(eq(agentActions.id, id))
+      .returning();
+
+    if (updated) {
+      await this.logAction({
+        action: modifiedAction ? "modify_agent_action" : "approve_agent_action",
+        entityType: "agent_action",
+        entityId: id,
+        userId: approvedBy,
+        details: { actionType: updated.actionType, actionName: updated.actionName },
+      });
+    }
+
+    return updated;
+  }
+
+  async rejectAgentAction(id: string, rejectedBy: string, reason?: string): Promise<AgentAction | undefined> {
+    const [updated] = await db
+      .update(agentActions)
+      .set({
+        status: "rejected",
+        reviewedBy: rejectedBy,
+        reviewedAt: new Date(),
+        reviewNotes: reason,
+      })
+      .where(eq(agentActions.id, id))
+      .returning();
+
+    if (updated) {
+      await this.logAction({
+        action: "reject_agent_action",
+        entityType: "agent_action",
+        entityId: id,
+        userId: rejectedBy,
+        details: { actionType: updated.actionType, reason },
+      });
+    }
+
+    return updated;
+  }
+
+  async executeAgentAction(id: string, result: { success: boolean; destinationRef?: string; destinationUrl?: string; responseData?: unknown; executionTimeMs?: number }): Promise<AgentAction | undefined> {
+    const [updated] = await db
+      .update(agentActions)
+      .set({
+        status: "executed",
+        executedAt: new Date(),
+        executionResult: result,
+      })
+      .where(eq(agentActions.id, id))
+      .returning();
+
+    if (updated) {
+      await this.logAction({
+        action: "execute_agent_action",
+        entityType: "agent_action",
+        entityId: id,
+        details: { actionType: updated.actionType, success: true },
+      });
+    }
+
+    return updated;
+  }
+
+  async failAgentAction(id: string, error: string): Promise<AgentAction | undefined> {
+    const [updated] = await db
+      .update(agentActions)
+      .set({
+        status: "failed",
+        executedAt: new Date(),
+        executionError: error,
+      })
+      .where(eq(agentActions.id, id))
+      .returning();
+
+    return updated;
+  }
+
+  // ============ Alerts ============
+
+  async createAlert(alert: InsertAlert): Promise<Alert> {
+    const [inserted] = await db.insert(alerts).values(alert).returning();
+
+    await this.logAction({
+      action: "create_alert",
+      entityType: "alert",
+      entityId: inserted.id,
+      details: { severity: alert.severity, title: alert.title },
+    });
+
+    return inserted;
+  }
+
+  async getAlert(id: string): Promise<Alert | undefined> {
+    const [alert] = await db.select().from(alerts).where(eq(alerts.id, id));
+    return alert;
+  }
+
+  async listAlerts(status?: string, limit: number = 50): Promise<Alert[]> {
+    let query = db.select().from(alerts).orderBy(desc(alerts.createdAt)).limit(limit);
+
+    if (status) {
+      query = query.where(eq(alerts.status, status)) as typeof query;
+    }
+
+    return query;
+  }
+
+  async acknowledgeAlert(id: string, acknowledgedBy: string): Promise<Alert | undefined> {
+    const [updated] = await db
+      .update(alerts)
+      .set({
+        status: "acknowledged",
+        acknowledgedBy,
+        acknowledgedAt: new Date(),
+      })
+      .where(eq(alerts.id, id))
+      .returning();
+
+    if (updated) {
+      await this.logAction({
+        action: "acknowledge_alert",
+        entityType: "alert",
+        entityId: id,
+        userId: acknowledgedBy,
+        details: { title: updated.title },
+      });
+    }
+
+    return updated;
+  }
+
+  async dismissAlert(id: string, dismissedBy: string): Promise<Alert | undefined> {
+    const [updated] = await db
+      .update(alerts)
+      .set({
+        status: "dismissed",
+        dismissedBy,
+        dismissedAt: new Date(),
+      })
+      .where(eq(alerts.id, id))
+      .returning();
+
+    if (updated) {
+      await this.logAction({
+        action: "dismiss_alert",
+        entityType: "alert",
+        entityId: id,
+        userId: dismissedBy,
+        details: { title: updated.title },
+      });
+    }
+
+    return updated;
+  }
+
+  async resolveAlert(id: string): Promise<Alert | undefined> {
+    const [updated] = await db
+      .update(alerts)
+      .set({
+        status: "resolved",
+        resolvedAt: new Date(),
+      })
+      .where(eq(alerts.id, id))
+      .returning();
+
+    if (updated) {
+      await this.logAction({
+        action: "resolve_alert",
+        entityType: "alert",
+        entityId: id,
+        details: { title: updated.title },
+      });
+    }
+
+    return updated;
+  }
+
+  async getActiveAlertCount(): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(alerts)
+      .where(eq(alerts.status, "active"));
+    return result[0]?.count ?? 0;
   }
 }
 

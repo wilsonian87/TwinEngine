@@ -11,6 +11,7 @@ import {
   BarChart3,
   ListTodo,
   GitCompare,
+  Bot,
 } from "lucide-react";
 import {
   Sidebar,
@@ -77,6 +78,12 @@ const systemItems = [
     url: "/model-evaluation",
     icon: BarChart3,
     description: "Track prediction accuracy",
+  },
+  {
+    title: "Agents",
+    url: "/agents",
+    icon: Bot,
+    description: "Autonomous agents & alerts",
   },
   {
     title: "Settings",

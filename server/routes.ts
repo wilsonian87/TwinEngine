@@ -17,7 +17,36 @@ import {
   validateInviteCodeSchema,
   insertInviteCodeSchema,
   insertSavedAudienceSchema,
+  // Phase 6: Integration schemas
+  createIntegrationRequestSchema,
+  slackSendRequestSchema,
+  jiraCreateTicketRequestSchema,
+  jiraTemplateTicketRequestSchema,
+  jiraUpdateIssueRequestSchema,
 } from "@shared/schema";
+import {
+  SlackIntegration,
+  createSlackIntegration,
+  getSlackIntegration,
+  isSlackConfigured,
+  JiraIntegration,
+  createJiraIntegration,
+  getJiraIntegration,
+  isJiraConfigured,
+  defaultTicketTemplates,
+} from "./services/integrations";
+import {
+  initializeAgents,
+  getAgent,
+  getAllAgents,
+  channelHealthMonitor,
+  insightSynthesizer,
+  orchestrator,
+  approvalWorkflow,
+  agentScheduler,
+  initializeScheduler,
+  type AgentType,
+} from "./services/agents";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -856,6 +885,1223 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching model health:", error);
       res.status(500).json({ error: "Failed to fetch model health summary" });
+    }
+  });
+
+  // ============ Phase 6: Integration Endpoints ============
+
+  // List all integrations
+  app.get("/api/integrations", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const integrations = await storage.listIntegrations();
+      // Mask credentials in response
+      const safeIntegrations = integrations.map(i => ({
+        ...i,
+        credentials: i.credentials ? { type: (i.credentials as any).type, configured: true } : null,
+      }));
+      res.json(safeIntegrations);
+    } catch (error) {
+      console.error("Error listing integrations:", error);
+      res.status(500).json({ error: "Failed to list integrations" });
+    }
+  });
+
+  // Get a specific integration
+  app.get("/api/integrations/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const integration = await storage.getIntegration(req.params.id);
+      if (!integration) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+      // Mask credentials
+      const safeIntegration = {
+        ...integration,
+        credentials: integration.credentials ? { type: (integration.credentials as any).type, configured: true } : null,
+      };
+      res.json(safeIntegration);
+    } catch (error) {
+      console.error("Error fetching integration:", error);
+      res.status(500).json({ error: "Failed to fetch integration" });
+    }
+  });
+
+  // Create a new integration
+  app.post("/api/integrations", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parseResult = createIntegrationRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid integration configuration",
+          details: parseResult.error.errors,
+        });
+      }
+
+      const config = parseResult.data;
+      const integration = await storage.createIntegration({
+        type: config.type,
+        name: config.name,
+        description: config.description,
+        credentials: config.credentials,
+        defaultSettings: config.defaultSettings,
+        status: "pending_auth",
+      });
+
+      // Mask credentials in response
+      res.status(201).json({
+        ...integration,
+        credentials: { type: config.type, configured: true },
+      });
+    } catch (error) {
+      console.error("Error creating integration:", error);
+      res.status(500).json({ error: "Failed to create integration" });
+    }
+  });
+
+  // Update an integration
+  app.patch("/api/integrations/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const integration = await storage.getIntegration(req.params.id);
+      if (!integration) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+
+      const updated = await storage.updateIntegration(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+
+      res.json({
+        ...updated,
+        credentials: updated.credentials ? { type: (updated.credentials as any).type, configured: true } : null,
+      });
+    } catch (error) {
+      console.error("Error updating integration:", error);
+      res.status(500).json({ error: "Failed to update integration" });
+    }
+  });
+
+  // Delete an integration
+  app.delete("/api/integrations/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      await storage.deleteIntegration(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting integration:", error);
+      res.status(500).json({ error: "Failed to delete integration" });
+    }
+  });
+
+  // Test integration connection / health check
+  app.post("/api/integrations/:id/test", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const integration = await storage.getIntegration(req.params.id);
+      if (!integration) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+
+      if (integration.type === "slack") {
+        const slackIntegration = createSlackIntegration(integration);
+        const health = await slackIntegration.healthCheck();
+        res.json(health);
+      } else {
+        // Generic response for other integration types (to be implemented)
+        res.json({
+          healthy: false,
+          error: `Health check not implemented for ${integration.type}`,
+          lastCheck: new Date(),
+        });
+      }
+    } catch (error) {
+      console.error("Error testing integration:", error);
+      res.status(500).json({ error: "Failed to test integration" });
+    }
+  });
+
+  // ============ Slack-Specific Endpoints ============
+
+  // Send message to Slack
+  app.post("/api/integrations/slack/send", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parseResult = slackSendRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid Slack message request",
+          details: parseResult.error.errors,
+        });
+      }
+
+      const request = parseResult.data;
+
+      // Get the integration
+      const integration = await storage.getIntegration(request.integrationId);
+      if (!integration) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+
+      if (integration.type !== "slack") {
+        return res.status(400).json({ error: "Integration is not a Slack integration" });
+      }
+
+      // Send the message
+      const slackIntegration = createSlackIntegration(integration);
+      const result = await slackIntegration.sendMessage(request);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          messageTs: result.messageTs,
+          channel: result.channel,
+          actionExportId: result.actionExportId,
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.error,
+          actionExportId: result.actionExportId,
+        });
+      }
+    } catch (error) {
+      console.error("Error sending Slack message:", error);
+      res.status(500).json({ error: "Failed to send Slack message" });
+    }
+  });
+
+  // Check if Slack is configured
+  app.get("/api/integrations/slack/status", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const configured = await isSlackConfigured();
+      const integration = await storage.getIntegrationByType("slack");
+
+      res.json({
+        configured,
+        status: integration?.status || "not_configured",
+        integrationId: integration?.id,
+      });
+    } catch (error) {
+      console.error("Error checking Slack status:", error);
+      res.status(500).json({ error: "Failed to check Slack status" });
+    }
+  });
+
+  // ============ Jira-Specific Endpoints ============
+
+  // Create a Jira ticket
+  app.post("/api/integrations/jira/create-ticket", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      // Try template-based request first
+      const templateParseResult = jiraTemplateTicketRequestSchema.safeParse(req.body);
+
+      if (templateParseResult.success) {
+        // Template-based ticket creation
+        const request = templateParseResult.data;
+
+        // Get the integration
+        const integration = await storage.getIntegration(request.integrationId);
+        if (!integration) {
+          return res.status(404).json({ error: "Integration not found" });
+        }
+        if (integration.type !== "jira") {
+          return res.status(400).json({ error: "Integration is not a Jira integration" });
+        }
+
+        const jiraIntegration = createJiraIntegration(integration);
+        const template = { ...defaultTicketTemplates[request.templateType], projectKey: request.projectKey };
+
+        let issueRequest;
+
+        if (request.templateType === "nba_action" && request.nba) {
+          // Format NBA as issue request
+          issueRequest = jiraIntegration.formatNBAAsIssue(
+            request.nba as Parameters<typeof jiraIntegration.formatNBAAsIssue>[0],
+            request.projectKey,
+            template
+          );
+        } else if (request.templateType === "simulation_result" && request.simulation) {
+          // Format simulation as issue request
+          issueRequest = jiraIntegration.formatSimulationAsIssue(
+            request.simulation,
+            request.projectKey,
+            template
+          );
+        } else {
+          return res.status(400).json({
+            error: `Missing required data for template type: ${request.templateType}`,
+          });
+        }
+
+        const result = await jiraIntegration.createIssue(issueRequest);
+
+        if (result.success) {
+          return res.json({
+            success: true,
+            issueKey: result.issueKey,
+            issueId: result.issueId,
+            issueUrl: result.issueUrl,
+            actionExportId: result.actionExportId,
+          });
+        } else {
+          return res.status(400).json({
+            success: false,
+            error: result.error,
+            actionExportId: result.actionExportId,
+          });
+        }
+      }
+
+      // Fall back to direct ticket creation
+      const parseResult = jiraCreateTicketRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid Jira ticket request",
+          details: parseResult.error.errors,
+        });
+      }
+
+      const request = parseResult.data;
+
+      // Get the integration
+      const integration = await storage.getIntegration(request.integrationId);
+      if (!integration) {
+        return res.status(404).json({ error: "Integration not found" });
+      }
+
+      if (integration.type !== "jira") {
+        return res.status(400).json({ error: "Integration is not a Jira integration" });
+      }
+
+      // Create the ticket
+      const jiraIntegration = createJiraIntegration(integration);
+      const result = await jiraIntegration.createIssue({
+        integrationId: request.integrationId,
+        projectKey: request.projectKey,
+        issueType: request.issueType || "Task",
+        summary: request.summary,
+        description: request.description,
+        priority: request.priority,
+        labels: request.labels,
+        customFields: request.customFields,
+        sourceType: request.sourceType,
+        sourceId: request.sourceId,
+      });
+
+      if (result.success) {
+        res.json({
+          success: true,
+          issueKey: result.issueKey,
+          issueId: result.issueId,
+          issueUrl: result.issueUrl,
+          actionExportId: result.actionExportId,
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.error,
+          actionExportId: result.actionExportId,
+        });
+      }
+    } catch (error) {
+      console.error("Error creating Jira ticket:", error);
+      res.status(500).json({ error: "Failed to create Jira ticket" });
+    }
+  });
+
+  // Get a Jira issue
+  app.get("/api/integrations/jira/issue/:issueKey", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const integrationId = req.query.integrationId as string;
+      if (!integrationId) {
+        return res.status(400).json({ error: "integrationId query parameter required" });
+      }
+
+      const integration = await storage.getIntegration(integrationId);
+      if (!integration || integration.type !== "jira") {
+        return res.status(404).json({ error: "Jira integration not found" });
+      }
+
+      const jiraIntegration = createJiraIntegration(integration);
+      const result = await jiraIntegration.getIssue(req.params.issueKey);
+
+      if (result.success) {
+        res.json(result.issue);
+      } else {
+        res.status(404).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Error fetching Jira issue:", error);
+      res.status(500).json({ error: "Failed to fetch Jira issue" });
+    }
+  });
+
+  // Update a Jira issue
+  app.patch("/api/integrations/jira/issue/:issueKey", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parseResult = jiraUpdateIssueRequestSchema.safeParse({
+        ...req.body,
+        issueKey: req.params.issueKey,
+      });
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid update request",
+          details: parseResult.error.errors,
+        });
+      }
+
+      const request = parseResult.data;
+
+      const integration = await storage.getIntegration(request.integrationId);
+      if (!integration || integration.type !== "jira") {
+        return res.status(404).json({ error: "Jira integration not found" });
+      }
+
+      const jiraIntegration = createJiraIntegration(integration);
+      const result = await jiraIntegration.updateIssue(request);
+
+      if (result.success) {
+        res.json({ success: true, issueKey: result.issueKey });
+      } else {
+        res.status(400).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      console.error("Error updating Jira issue:", error);
+      res.status(500).json({ error: "Failed to update Jira issue" });
+    }
+  });
+
+  // Get available Jira projects
+  app.get("/api/integrations/jira/projects", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const integrationId = req.query.integrationId as string;
+      if (!integrationId) {
+        return res.status(400).json({ error: "integrationId query parameter required" });
+      }
+
+      const integration = await storage.getIntegration(integrationId);
+      if (!integration || integration.type !== "jira") {
+        return res.status(404).json({ error: "Jira integration not found" });
+      }
+
+      const jiraIntegration = createJiraIntegration(integration);
+      const projects = await jiraIntegration.getProjects();
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching Jira projects:", error);
+      res.status(500).json({ error: "Failed to fetch Jira projects" });
+    }
+  });
+
+  // Get issue types for a Jira project
+  app.get("/api/integrations/jira/projects/:projectKey/issue-types", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const integrationId = req.query.integrationId as string;
+      if (!integrationId) {
+        return res.status(400).json({ error: "integrationId query parameter required" });
+      }
+
+      const integration = await storage.getIntegration(integrationId);
+      if (!integration || integration.type !== "jira") {
+        return res.status(404).json({ error: "Jira integration not found" });
+      }
+
+      const jiraIntegration = createJiraIntegration(integration);
+      const issueTypes = await jiraIntegration.getIssueTypes(req.params.projectKey);
+      res.json(issueTypes);
+    } catch (error) {
+      console.error("Error fetching Jira issue types:", error);
+      res.status(500).json({ error: "Failed to fetch Jira issue types" });
+    }
+  });
+
+  // Check if Jira is configured
+  app.get("/api/integrations/jira/status", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const configured = await isJiraConfigured();
+      const integration = await storage.getIntegrationByType("jira");
+
+      res.json({
+        configured,
+        status: integration?.status || "not_configured",
+        integrationId: integration?.id,
+      });
+    } catch (error) {
+      console.error("Error checking Jira status:", error);
+      res.status(500).json({ error: "Failed to check Jira status" });
+    }
+  });
+
+  // ============ Action Export Endpoints ============
+
+  // List action exports
+  app.get("/api/action-exports", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const sourceType = req.query.sourceType as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+
+      const exports = await storage.listActionExports(sourceType, limit);
+      res.json(exports);
+    } catch (error) {
+      console.error("Error listing action exports:", error);
+      res.status(500).json({ error: "Failed to list action exports" });
+    }
+  });
+
+  // Get a specific action export
+  app.get("/api/action-exports/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const actionExport = await storage.getActionExport(req.params.id);
+      if (!actionExport) {
+        return res.status(404).json({ error: "Action export not found" });
+      }
+      res.json(actionExport);
+    } catch (error) {
+      console.error("Error fetching action export:", error);
+      res.status(500).json({ error: "Failed to fetch action export" });
+    }
+  });
+
+  // ============ Agent Endpoints (Phase 6C) ============
+
+  // Initialize agents and scheduler on startup
+  initializeAgents();
+  initializeScheduler().catch(err => {
+    console.error("[Scheduler] Failed to initialize scheduler:", err);
+  });
+
+  // List all registered agents
+  app.get("/api/agents", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const agents = getAllAgents();
+      const agentDefinitions = await storage.listAgentDefinitions();
+
+      // Merge runtime agent info with stored definitions
+      const agentList = agents.map(agent => {
+        const stored = agentDefinitions.find(d => d.type === agent.type);
+        return {
+          type: agent.type,
+          name: agent.name,
+          description: agent.description,
+          version: agent.version,
+          stored: stored || null,
+        };
+      });
+
+      res.json(agentList);
+    } catch (error) {
+      console.error("Error listing agents:", error);
+      res.status(500).json({ error: "Failed to list agents" });
+    }
+  });
+
+  // Get agent by type
+  app.get("/api/agents/:type", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const agentType = req.params.type as AgentType;
+      const agent = getAgent(agentType);
+
+      if (!agent) {
+        return res.status(404).json({ error: `Agent type '${agentType}' not found` });
+      }
+
+      const stored = await storage.getAgentDefinitionByType(agentType);
+      const recentRuns = await storage.listAgentRuns(stored?.id, 5);
+
+      res.json({
+        type: agent.type,
+        name: agent.name,
+        description: agent.description,
+        version: agent.version,
+        inputSchema: agent.getInputSchema(),
+        defaultInput: agent.getDefaultInput(),
+        stored: stored || null,
+        recentRuns,
+      });
+    } catch (error) {
+      console.error("Error fetching agent:", error);
+      res.status(500).json({ error: "Failed to fetch agent" });
+    }
+  });
+
+  // Trigger agent execution
+  app.post("/api/agents/:type/run", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const agentType = req.params.type as AgentType;
+      const agent = getAgent(agentType);
+
+      if (!agent) {
+        return res.status(404).json({ error: `Agent type '${agentType}' not found` });
+      }
+
+      // For channel health monitor, we need to provide HCP data
+      if (agentType === "channel_health_monitor") {
+        const hcps = await storage.getAllHcps();
+        channelHealthMonitor.setHcpData(hcps);
+      }
+
+      const input = req.body.input || agent.getDefaultInput();
+      const userId = (req.user as any)?.id || "system";
+
+      // Run the agent
+      const result = await agent.run(input, userId, "on_demand");
+
+      // Store the run record
+      const runRecord = await storage.createAgentRun({
+        agentId: result.runId,
+        agentType: agent.type,
+        agentVersion: agent.version,
+        triggerType: "on_demand",
+        triggeredBy: userId,
+        inputs: input,
+        outputs: {
+          alerts: result.output.alerts?.map((a, idx) => ({
+            id: `alert-${result.runId}-${idx}`,
+            severity: a.severity,
+            title: a.title,
+            message: a.message,
+          })),
+          recommendations: result.output.insights?.map((i, idx) => ({
+            id: `insight-${result.runId}-${idx}`,
+            type: i.type,
+            description: i.description,
+            confidence: 0.8,
+          })),
+          metrics: result.output.metrics,
+          raw: { summary: result.output.summary },
+        },
+        status: result.status,
+        startedAt: new Date(Date.now() - result.duration),
+        completedAt: new Date(),
+        executionTimeMs: result.duration,
+        actionsProposed: result.output.proposedActions?.length || 0,
+        errorMessage: result.output.error,
+      });
+
+      // Create alerts if any
+      if (result.output.alerts && result.output.alerts.length > 0) {
+        for (const alert of result.output.alerts) {
+          await storage.createAlert({
+            agentId: result.runId,
+            agentRunId: runRecord.id,
+            severity: alert.severity,
+            title: alert.title,
+            message: alert.message,
+            affectedEntities: alert.affectedEntities ? {
+              type: alert.affectedEntities.type as "channel" | "segment" | "audience" | "hcp",
+              ids: alert.affectedEntities.ids,
+              count: alert.affectedEntities.count,
+            } : undefined,
+            status: "active",
+          });
+        }
+      }
+
+      res.json({
+        runId: result.runId,
+        status: result.status,
+        duration: result.duration,
+        output: result.output,
+        storedRunId: runRecord.id,
+      });
+    } catch (error) {
+      console.error("Error running agent:", error);
+      res.status(500).json({ error: "Failed to run agent" });
+    }
+  });
+
+  // Get agent run history
+  app.get("/api/agents/:type/history", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const agentType = req.params.type;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+
+      const stored = await storage.getAgentDefinitionByType(agentType);
+      const runs = await storage.listAgentRuns(stored?.id, limit);
+
+      res.json(runs);
+    } catch (error) {
+      console.error("Error fetching agent history:", error);
+      res.status(500).json({ error: "Failed to fetch agent history" });
+    }
+  });
+
+  // Get a specific agent run
+  app.get("/api/agent-runs/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const run = await storage.getAgentRun(req.params.id);
+      if (!run) {
+        return res.status(404).json({ error: "Agent run not found" });
+      }
+      res.json(run);
+    } catch (error) {
+      console.error("Error fetching agent run:", error);
+      res.status(500).json({ error: "Failed to fetch agent run" });
+    }
+  });
+
+  // ============ Agent Action Endpoints (Approval Queue) ============
+
+  // List agent actions (approval queue)
+  app.get("/api/agent-actions", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const validStatuses = ["pending", "approved", "rejected", "modified", "auto_approved", "executing", "executed", "failed"] as const;
+      const statusParam = req.query.status as string | undefined;
+      const status = statusParam && validStatuses.includes(statusParam as any) ? statusParam as typeof validStatuses[number] : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+
+      const actions = await storage.listAgentActions(status, limit);
+      res.json(actions);
+    } catch (error) {
+      console.error("Error listing agent actions:", error);
+      res.status(500).json({ error: "Failed to list agent actions" });
+    }
+  });
+
+  // Get pending agent actions
+  app.get("/api/agent-actions/pending", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const actions = await storage.getPendingAgentActions();
+      res.json(actions);
+    } catch (error) {
+      console.error("Error fetching pending actions:", error);
+      res.status(500).json({ error: "Failed to fetch pending actions" });
+    }
+  });
+
+  // Get a specific agent action
+  app.get("/api/agent-actions/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const action = await storage.getAgentAction(req.params.id);
+      if (!action) {
+        return res.status(404).json({ error: "Agent action not found" });
+      }
+      res.json(action);
+    } catch (error) {
+      console.error("Error fetching agent action:", error);
+      res.status(500).json({ error: "Failed to fetch agent action" });
+    }
+  });
+
+  // Approve an agent action
+  app.post("/api/agent-actions/:id/approve", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const userId = (req.user as any)?.id || "unknown";
+      const modifiedAction = req.body.modifiedAction;
+
+      const action = await storage.approveAgentAction(req.params.id, userId, modifiedAction);
+      if (!action) {
+        return res.status(404).json({ error: "Agent action not found" });
+      }
+      res.json(action);
+    } catch (error) {
+      console.error("Error approving agent action:", error);
+      res.status(500).json({ error: "Failed to approve agent action" });
+    }
+  });
+
+  // Reject an agent action
+  app.post("/api/agent-actions/:id/reject", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const userId = (req.user as any)?.id || "unknown";
+      const reason = req.body.reason;
+
+      const action = await storage.rejectAgentAction(req.params.id, userId, reason);
+      if (!action) {
+        return res.status(404).json({ error: "Agent action not found" });
+      }
+      res.json(action);
+    } catch (error) {
+      console.error("Error rejecting agent action:", error);
+      res.status(500).json({ error: "Failed to reject agent action" });
+    }
+  });
+
+  // Batch approve agent actions
+  app.post("/api/agent-actions/batch/approve", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const userId = (req.user as any)?.id || "unknown";
+      const actionIds = req.body.actionIds as string[];
+
+      if (!actionIds || !Array.isArray(actionIds) || actionIds.length === 0) {
+        return res.status(400).json({ error: "actionIds array is required" });
+      }
+
+      const result = await approvalWorkflow.batchApprove(actionIds, userId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error batch approving actions:", error);
+      res.status(500).json({ error: "Failed to batch approve actions" });
+    }
+  });
+
+  // Batch reject agent actions
+  app.post("/api/agent-actions/batch/reject", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const userId = (req.user as any)?.id || "unknown";
+      const { actionIds, reason } = req.body;
+
+      if (!actionIds || !Array.isArray(actionIds) || actionIds.length === 0) {
+        return res.status(400).json({ error: "actionIds array is required" });
+      }
+
+      const result = await approvalWorkflow.batchReject(actionIds, userId, reason);
+      res.json(result);
+    } catch (error) {
+      console.error("Error batch rejecting actions:", error);
+      res.status(500).json({ error: "Failed to batch reject actions" });
+    }
+  });
+
+  // Get approval queue statistics
+  app.get("/api/agent-actions/stats", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const stats = await approvalWorkflow.getQueueStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting queue stats:", error);
+      res.status(500).json({ error: "Failed to get queue statistics" });
+    }
+  });
+
+  // ============ Approval Rules Endpoints ============
+
+  // Get approval rules
+  app.get("/api/approval-rules", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const rules = approvalWorkflow.getRules();
+      res.json(rules);
+    } catch (error) {
+      console.error("Error getting approval rules:", error);
+      res.status(500).json({ error: "Failed to get approval rules" });
+    }
+  });
+
+  // Get enabled approval rules
+  app.get("/api/approval-rules/enabled", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const rules = approvalWorkflow.getEnabledRules();
+      res.json(rules);
+    } catch (error) {
+      console.error("Error getting enabled approval rules:", error);
+      res.status(500).json({ error: "Failed to get enabled approval rules" });
+    }
+  });
+
+  // Add a new approval rule
+  app.post("/api/approval-rules", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const rule = req.body;
+      if (!rule.id || !rule.name || !rule.conditions || !rule.action) {
+        return res.status(400).json({ error: "Missing required fields: id, name, conditions, action" });
+      }
+
+      approvalWorkflow.addRule(rule);
+      res.status(201).json(rule);
+    } catch (error) {
+      console.error("Error adding approval rule:", error);
+      res.status(500).json({ error: "Failed to add approval rule" });
+    }
+  });
+
+  // Update an approval rule
+  app.patch("/api/approval-rules/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const updates = req.body;
+      const rule = approvalWorkflow.updateRule(req.params.id, updates);
+      if (!rule) {
+        return res.status(404).json({ error: "Approval rule not found" });
+      }
+      res.json(rule);
+    } catch (error) {
+      console.error("Error updating approval rule:", error);
+      res.status(500).json({ error: "Failed to update approval rule" });
+    }
+  });
+
+  // Delete an approval rule
+  app.delete("/api/approval-rules/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const deleted = approvalWorkflow.deleteRule(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Approval rule not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting approval rule:", error);
+      res.status(500).json({ error: "Failed to delete approval rule" });
+    }
+  });
+
+  // ============ Orchestrator Endpoints ============
+
+  // Run orchestration cycle
+  app.post("/api/orchestrator/run", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const userId = (req.user as any)?.id || "unknown";
+      const input = req.body || {};
+
+      // Load data for the orchestrator if it needs to run agents
+      if (input.agentsToRun?.includes("channel_health_monitor")) {
+        const hcps = await storage.getAllHcps();
+        channelHealthMonitor.setHcpData(hcps);
+      }
+      if (input.agentsToRun?.includes("insight_synthesizer")) {
+        const [hcps, recentAlerts, recentAgentRuns] = await Promise.all([
+          storage.getAllHcps(),
+          storage.listAlerts(undefined, 100),
+          storage.listAgentRuns(undefined, 50),
+        ]);
+        const recentSimulations = await storage.getSimulationHistory();
+        insightSynthesizer.setData({
+          hcps,
+          recentAlerts,
+          recentAgentRuns,
+          recentSimulations: recentSimulations.slice(0, 20),
+        });
+      }
+
+      const result = await orchestrator.run(input, userId, "on_demand");
+      res.json(result);
+    } catch (error) {
+      console.error("Error running orchestration:", error);
+      res.status(500).json({ error: "Failed to run orchestration" });
+    }
+  });
+
+  // Get orchestrator status
+  app.get("/api/orchestrator/status", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const definition = orchestrator.getDefinition({
+        onDemand: true,
+        scheduled: { enabled: false },
+      });
+      const rules = approvalWorkflow.getRules();
+      const queueStats = await approvalWorkflow.getQueueStats();
+
+      res.json({
+        agent: definition,
+        approvalRulesCount: rules.length,
+        enabledRulesCount: rules.filter(r => r.enabled).length,
+        queueStats,
+      });
+    } catch (error) {
+      console.error("Error getting orchestrator status:", error);
+      res.status(500).json({ error: "Failed to get orchestrator status" });
+    }
+  });
+
+  // ============ Alert Endpoints ============
+
+  // List alerts
+  app.get("/api/alerts", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const status = req.query.status as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+
+      const alerts = await storage.listAlerts(status, limit);
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error listing alerts:", error);
+      res.status(500).json({ error: "Failed to list alerts" });
+    }
+  });
+
+  // Get active alert count
+  app.get("/api/alerts/count", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const count = await storage.getActiveAlertCount();
+      res.json({ count });
+    } catch (error) {
+      console.error("Error counting alerts:", error);
+      res.status(500).json({ error: "Failed to count alerts" });
+    }
+  });
+
+  // Get a specific alert
+  app.get("/api/alerts/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const alert = await storage.getAlert(req.params.id);
+      if (!alert) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
+      res.json(alert);
+    } catch (error) {
+      console.error("Error fetching alert:", error);
+      res.status(500).json({ error: "Failed to fetch alert" });
+    }
+  });
+
+  // Acknowledge an alert
+  app.post("/api/alerts/:id/acknowledge", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const userId = (req.user as any)?.id || "unknown";
+      const alert = await storage.acknowledgeAlert(req.params.id, userId);
+      if (!alert) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
+      res.json(alert);
+    } catch (error) {
+      console.error("Error acknowledging alert:", error);
+      res.status(500).json({ error: "Failed to acknowledge alert" });
+    }
+  });
+
+  // Dismiss an alert
+  app.post("/api/alerts/:id/dismiss", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const userId = (req.user as any)?.id || "unknown";
+      const alert = await storage.dismissAlert(req.params.id, userId);
+      if (!alert) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
+      res.json(alert);
+    } catch (error) {
+      console.error("Error dismissing alert:", error);
+      res.status(500).json({ error: "Failed to dismiss alert" });
+    }
+  });
+
+  // Resolve an alert
+  app.post("/api/alerts/:id/resolve", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const alert = await storage.resolveAlert(req.params.id);
+      if (!alert) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
+      res.json(alert);
+    } catch (error) {
+      console.error("Error resolving alert:", error);
+      res.status(500).json({ error: "Failed to resolve alert" });
+    }
+  });
+
+  // ============ Scheduler Endpoints ============
+
+  // Get scheduler status
+  app.get("/api/scheduler/status", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const status = agentScheduler.getStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting scheduler status:", error);
+      res.status(500).json({ error: "Failed to get scheduler status" });
+    }
+  });
+
+  // Start the scheduler
+  app.post("/api/scheduler/start", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      agentScheduler.start();
+      const status = agentScheduler.getStatus();
+      res.json({ message: "Scheduler started", status });
+    } catch (error) {
+      console.error("Error starting scheduler:", error);
+      res.status(500).json({ error: "Failed to start scheduler" });
+    }
+  });
+
+  // Stop the scheduler
+  app.post("/api/scheduler/stop", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      agentScheduler.stop();
+      const status = agentScheduler.getStatus();
+      res.json({ message: "Scheduler stopped", status });
+    } catch (error) {
+      console.error("Error stopping scheduler:", error);
+      res.status(500).json({ error: "Failed to stop scheduler" });
+    }
+  });
+
+  // Trigger an agent manually
+  app.post("/api/scheduler/trigger/:agentType", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const agentType = req.params.agentType;
+      await agentScheduler.triggerAgent(agentType);
+      res.json({ message: `Agent ${agentType} triggered successfully` });
+    } catch (error) {
+      console.error("Error triggering agent:", error);
+      res.status(500).json({ error: "Failed to trigger agent" });
     }
   });
 

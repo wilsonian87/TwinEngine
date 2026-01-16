@@ -18,6 +18,7 @@ import CohortCompare from "@/pages/cohort-compare";
 import ModelEvaluationPage from "@/pages/model-evaluation";
 import Settings from "@/pages/settings";
 import Landing from "@/pages/landing";
+import AgentsPage from "@/pages/agents";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/feature-store" component={FeatureStore} />
       <Route path="/model-evaluation" component={ModelEvaluationPage} />
       <Route path="/settings" component={Settings} />
+      <Route path="/agents" component={AgentsPage} />
       <Route component={NotFound} />
     </Switch>
   );

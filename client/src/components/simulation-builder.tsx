@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X, TrendingUp, Save, RefreshCw, HelpCircle, Info, Mail, Phone, Video, Globe, Calendar, FolderOpen, Database, Check, ArrowRightLeft, Lightbulb, ArrowRight, Wand2 } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X, TrendingUp, Save, RefreshCw, HelpCircle, Info, Mail, Phone, Video, Globe, Calendar, FolderOpen, Database, Check, ArrowRightLeft, Lightbulb, ArrowRight, Wand2, Ticket } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,15 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import type { Channel, SimulationResult, InsertSimulationScenario, HCPProfile, SavedAudience } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+
+// Jira status response type
+interface JiraStatusResponse {
+  configured: boolean;
+  status: string;
+  integrationId?: string;
+  defaultProject?: string;
+}
 
 const channelLabels: Record<Channel, string> = {
   email: "Email",
@@ -157,6 +166,7 @@ export function SimulationBuilder({
   selectedHcpCount = 0,
   seedHcp = null,
 }: SimulationBuilderProps) {
+  const { toast } = useToast();
   const [scenarioName, setScenarioName] = useState("New Campaign Scenario");
   const [description, setDescription] = useState("");
   const [frequency, setFrequency] = useState(4);
@@ -241,6 +251,72 @@ export function SimulationBuilder({
   // Fetch saved audiences for import
   const { data: savedAudiences = [] } = useQuery<SavedAudience[]>({
     queryKey: ["/api/audiences"],
+  });
+
+  // Check Jira integration status
+  const { data: jiraStatus } = useQuery<JiraStatusResponse>({
+    queryKey: ["/api/integrations/jira/status"],
+    queryFn: async () => {
+      const response = await fetch("/api/integrations/jira/status");
+      if (!response.ok) return { configured: false, status: "not_configured" };
+      return response.json();
+    },
+  });
+
+  // Create Jira ticket mutation
+  const createJiraTicketMutation = useMutation({
+    mutationFn: async (simResult: SimulationResult) => {
+      if (!jiraStatus?.integrationId) {
+        throw new Error("Jira is not configured");
+      }
+
+      const projectKey = jiraStatus.defaultProject || "TWIN";
+
+      const response = await fetch("/api/integrations/jira/create-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          integrationId: jiraStatus.integrationId,
+          projectKey,
+          templateType: "simulation_result",
+          simulation: {
+            id: simResult.id,
+            scenarioName: simResult.scenarioName,
+            predictedEngagementRate: simResult.predictedEngagementRate,
+            predictedResponseRate: simResult.predictedResponseRate,
+            predictedRxLift: simResult.predictedRxLift,
+            predictedReach: simResult.predictedReach,
+            efficiencyScore: simResult.efficiencyScore,
+            vsBaseline: {
+              engagement: `${simResult.vsBaseline.engagementDelta >= 0 ? '+' : ''}${simResult.vsBaseline.engagementDelta.toFixed(1)}%`,
+              response: `${simResult.vsBaseline.responseDelta >= 0 ? '+' : ''}${simResult.vsBaseline.responseDelta.toFixed(1)}%`,
+              rxVolume: `${simResult.vsBaseline.rxLiftDelta >= 0 ? '+' : ''}${simResult.vsBaseline.rxLiftDelta.toFixed(1)}%`,
+            },
+            runAt: simResult.runAt,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create Jira ticket");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Jira Ticket Created",
+        description: data.issueKey ? `Ticket ${data.issueKey} created successfully` : "Ticket created in dev mode",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to create Jira ticket",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const applyPreset = (presetKey: Exclude<PresetKey, "custom">) => {
@@ -842,27 +918,42 @@ export function SimulationBuilder({
                 </div>
 
                 {/* Action CTAs */}
-                <div className="border-t pt-4 flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={resetForm}
-                    data-testid="button-run-another"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                    Run Another
-                  </Button>
-                  {onSaveResult && (
+                <div className="border-t pt-4 space-y-2">
+                  <div className="flex gap-2">
                     <Button
-                      variant="default"
+                      variant="outline"
                       size="sm"
                       className="flex-1"
-                      onClick={() => onSaveResult(result, scenarioName)}
-                      data-testid="button-save-results"
+                      onClick={resetForm}
+                      data-testid="button-run-another"
                     >
-                      <Save className="h-3.5 w-3.5 mr-1.5" />
-                      Save Results
+                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                      Run Another
+                    </Button>
+                    {onSaveResult && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => onSaveResult(result, scenarioName)}
+                        data-testid="button-save-results"
+                      >
+                        <Save className="h-3.5 w-3.5 mr-1.5" />
+                        Save Results
+                      </Button>
+                    )}
+                  </div>
+                  {jiraStatus?.configured && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => createJiraTicketMutation.mutate(result)}
+                      disabled={createJiraTicketMutation.isPending}
+                      data-testid="button-create-jira-ticket"
+                    >
+                      <Ticket className="h-3.5 w-3.5 mr-1.5" />
+                      {createJiraTicketMutation.isPending ? "Creating..." : "Create Jira Ticket"}
                     </Button>
                   )}
                 </div>

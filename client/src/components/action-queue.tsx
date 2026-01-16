@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -40,7 +40,12 @@ import {
   Clock,
   ChevronDown,
   RefreshCw,
+  MessageSquare,
+  Check,
+  X,
+  Ticket,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { Channel } from "@shared/schema";
 import type { NextBestAction } from "../../../server/services/nba-engine";
 
@@ -116,11 +121,27 @@ const healthStatusColors: Record<string, string> = {
   opportunity: "bg-purple-500/10 text-purple-500",
 };
 
+// Slack status response type
+interface SlackStatusResponse {
+  configured: boolean;
+  status: string;
+  integrationId?: string;
+}
+
+// Jira status response type
+interface JiraStatusResponse {
+  configured: boolean;
+  status: string;
+  integrationId?: string;
+  defaultProject?: string;
+}
+
 export function ActionQueue({ hcpIds, audienceName }: ActionQueueProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [urgencyFilter, setUrgencyFilter] = useState<string>("all");
   const [actionTypeFilter, setActionTypeFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
+  const { toast } = useToast();
 
   // Fetch NBAs for the cohort
   const {
@@ -143,6 +164,261 @@ export function ActionQueue({ hcpIds, audienceName }: ActionQueueProps) {
     },
     enabled: hcpIds.length > 0,
   });
+
+  // Check Slack integration status
+  const { data: slackStatus } = useQuery<SlackStatusResponse>({
+    queryKey: ["/api/integrations/slack/status"],
+    queryFn: async () => {
+      const response = await fetch("/api/integrations/slack/status");
+      if (!response.ok) return { configured: false, status: "not_configured" };
+      return response.json();
+    },
+  });
+
+  // Check Jira integration status
+  const { data: jiraStatus } = useQuery<JiraStatusResponse>({
+    queryKey: ["/api/integrations/jira/status"],
+    queryFn: async () => {
+      const response = await fetch("/api/integrations/jira/status");
+      if (!response.ok) return { configured: false, status: "not_configured" };
+      return response.json();
+    },
+  });
+
+  // Send to Slack mutation
+  const sendToSlackMutation = useMutation({
+    mutationFn: async ({ nbas, onlySelected }: { nbas: NextBestAction[]; onlySelected: boolean }) => {
+      if (!slackStatus?.integrationId) {
+        throw new Error("Slack is not configured");
+      }
+
+      const dataToSend = onlySelected
+        ? nbas.filter((nba) => selectedIds.has(nba.hcpId))
+        : nbas;
+
+      if (dataToSend.length === 0) {
+        throw new Error("No actions to send");
+      }
+
+      // Format the message with blocks
+      const blocks = formatNBAsForSlack(dataToSend, audienceName);
+
+      const response = await fetch("/api/integrations/slack/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          integrationId: slackStatus.integrationId,
+          message: {
+            text: `Action Queue: ${dataToSend.length} NBA recommendations${audienceName ? ` for ${audienceName}` : ""}`,
+            blocks,
+          },
+          sourceType: "nba",
+          sourceId: `action-queue-${Date.now()}`,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to send to Slack");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Sent to Slack",
+        description: `Action queue exported successfully`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to send to Slack",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create Jira ticket mutation
+  const createJiraTicketMutation = useMutation({
+    mutationFn: async ({ nba }: { nba: NextBestAction }) => {
+      if (!jiraStatus?.integrationId) {
+        throw new Error("Jira is not configured");
+      }
+
+      const projectKey = jiraStatus.defaultProject || "TWIN";
+
+      const response = await fetch("/api/integrations/jira/create-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          integrationId: jiraStatus.integrationId,
+          projectKey,
+          templateType: "nba_action",
+          nba: {
+            hcpId: nba.hcpId,
+            hcpName: nba.hcpName,
+            recommendedChannel: nba.recommendedChannel,
+            actionType: nba.actionType,
+            urgency: nba.urgency,
+            confidence: nba.confidence,
+            reasoning: nba.reasoning,
+            suggestedTiming: nba.suggestedTiming,
+            metrics: nba.metrics,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create Jira ticket");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Jira Ticket Created",
+        description: data.issueKey ? `Ticket ${data.issueKey} created successfully` : "Ticket created in dev mode",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to create Jira ticket",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create Jira tickets for multiple NBAs
+  const createJiraTicketsMutation = useMutation({
+    mutationFn: async ({ nbas, onlySelected }: { nbas: NextBestAction[]; onlySelected: boolean }) => {
+      if (!jiraStatus?.integrationId) {
+        throw new Error("Jira is not configured");
+      }
+
+      const dataToSend = onlySelected
+        ? nbas.filter((nba) => selectedIds.has(nba.hcpId))
+        : nbas;
+
+      if (dataToSend.length === 0) {
+        throw new Error("No actions to export");
+      }
+
+      const projectKey = jiraStatus.defaultProject || "TWIN";
+      const results = [];
+
+      for (const nba of dataToSend) {
+        const response = await fetch("/api/integrations/jira/create-ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            integrationId: jiraStatus.integrationId,
+            projectKey,
+            templateType: "nba_action",
+            nba: {
+              hcpId: nba.hcpId,
+              hcpName: nba.hcpName,
+              recommendedChannel: nba.recommendedChannel,
+              actionType: nba.actionType,
+              urgency: nba.urgency,
+              confidence: nba.confidence,
+              reasoning: nba.reasoning,
+              suggestedTiming: nba.suggestedTiming,
+              metrics: nba.metrics,
+            },
+          }),
+        });
+
+        if (response.ok) {
+          results.push(await response.json());
+        }
+      }
+
+      return { created: results.length, total: dataToSend.length };
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Jira Tickets Created",
+        description: `Created ${data.created} of ${data.total} tickets`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to create Jira tickets",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Format NBAs as Slack blocks
+  const formatNBAsForSlack = (nbas: NextBestAction[], audience?: string) => {
+    const blocks: any[] = [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: `:clipboard: Action Queue${audience ? ` - ${audience}` : ""}`,
+          emoji: true,
+        },
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*${nbas.length} recommendations* exported from TwinEngine:`,
+        },
+      },
+      {
+        type: "divider",
+      },
+    ];
+
+    // Add up to 10 NBAs
+    const displayNbas = nbas.slice(0, 10);
+    for (const nba of displayNbas) {
+      const urgencyEmoji = nba.urgency === "high" ? ":red_circle:" : nba.urgency === "medium" ? ":large_yellow_circle:" : ":large_green_circle:";
+      blocks.push({
+        type: "section",
+        fields: [
+          {
+            type: "mrkdwn",
+            text: `*${nba.hcpName}*\n${channelLabels[nba.recommendedChannel]} | ${actionTypeLabels[nba.actionType]}`,
+          },
+          {
+            type: "mrkdwn",
+            text: `${urgencyEmoji} ${nba.urgency} | ${nba.confidence}% confidence`,
+          },
+        ],
+      });
+    }
+
+    if (nbas.length > 10) {
+      blocks.push({
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: `_...and ${nbas.length - 10} more recommendations_`,
+          },
+        ],
+      });
+    }
+
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `Exported from TwinEngine | ${new Date().toLocaleString()}`,
+        },
+      ],
+    });
+
+    return blocks;
+  };
 
   // Apply filters to NBAs
   const filteredNbas = useMemo(() => {
@@ -296,14 +572,52 @@ export function ActionQueue({ hcpIds, audienceName }: ActionQueueProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => exportToCSV(false)}>
-                    Export All ({filteredNbas.length})
+                    <Download className="h-4 w-4 mr-2" />
+                    Export All to CSV ({filteredNbas.length})
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => exportToCSV(true)}
                     disabled={selectedIds.size === 0}
                   >
-                    Export Selected ({selectedIds.size})
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Selected to CSV ({selectedIds.size})
                   </DropdownMenuItem>
+                  {slackStatus?.configured && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => sendToSlackMutation.mutate({ nbas: filteredNbas, onlySelected: false })}
+                        disabled={sendToSlackMutation.isPending}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Send All to Slack ({filteredNbas.length})
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => sendToSlackMutation.mutate({ nbas: filteredNbas, onlySelected: true })}
+                        disabled={selectedIds.size === 0 || sendToSlackMutation.isPending}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Send Selected to Slack ({selectedIds.size})
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  {jiraStatus?.configured && (
+                    <>
+                      <DropdownMenuItem
+                        onClick={() => createJiraTicketsMutation.mutate({ nbas: filteredNbas, onlySelected: false })}
+                        disabled={createJiraTicketsMutation.isPending}
+                      >
+                        <Ticket className="h-4 w-4 mr-2" />
+                        Create Jira Tickets - All ({filteredNbas.length})
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => createJiraTicketsMutation.mutate({ nbas: filteredNbas, onlySelected: true })}
+                        disabled={selectedIds.size === 0 || createJiraTicketsMutation.isPending}
+                      >
+                        <Ticket className="h-4 w-4 mr-2" />
+                        Create Jira Tickets - Selected ({selectedIds.size})
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

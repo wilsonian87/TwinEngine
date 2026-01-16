@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, real, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 // HCP Specialties
@@ -869,3 +869,838 @@ export const runEvaluationRequestSchema = z.object({
 });
 
 export type RunEvaluationRequest = z.infer<typeof runEvaluationRequestSchema>;
+
+// ============================================================================
+// PHASE 6: AGENTIC ECOSYSTEM SCHEMA ADDITIONS
+// ============================================================================
+
+// ============================================================================
+// INTEGRATION SYSTEM
+// ============================================================================
+
+// Supported integration types
+export const integrationTypes = [
+  "slack",
+  "jira", 
+  "teams",
+  "box",
+  "confluence",
+  "veeva",
+  "email"
+] as const;
+
+export type IntegrationType = (typeof integrationTypes)[number];
+
+// Integration status
+export const integrationStatuses = ["active", "inactive", "error", "pending_auth"] as const;
+export type IntegrationStatus = (typeof integrationStatuses)[number];
+
+// Integration Configurations Table
+export const integrationConfigs = pgTable("integration_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Integration identification
+  type: varchar("type", { length: 50 }).notNull(),  // IntegrationType
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  
+  // Connection details (encrypted in production)
+  credentials: jsonb("credentials").$type<IntegrationCredentials>(),
+  mcpEndpoint: varchar("mcp_endpoint", { length: 500 }),
+  
+  // Configuration
+  scopes: jsonb("scopes").$type<string[]>(),
+  defaultSettings: jsonb("default_settings").$type<Record<string, unknown>>(),
+  
+  // Status tracking
+  status: varchar("status", { length: 20 }).notNull().default("pending_auth"),
+  lastHealthCheck: timestamp("last_health_check"),
+  lastError: text("last_error"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Credential types per integration
+export const integrationCredentialsSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("slack"),
+    botToken: z.string(),
+    signingSecret: z.string().optional(),
+    defaultChannel: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("jira"),
+    email: z.string().email(),
+    apiToken: z.string(),
+    baseUrl: z.string().url(),
+    projectKey: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("teams"),
+    tenantId: z.string(),
+    clientId: z.string(),
+    clientSecret: z.string(),
+    defaultTeamId: z.string().optional(),
+    defaultChannelId: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("box"),
+    clientId: z.string(),
+    clientSecret: z.string(),
+    enterpriseId: z.string(),
+    defaultFolderId: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("confluence"),
+    email: z.string().email(),
+    apiToken: z.string(),
+    baseUrl: z.string().url(),
+    spaceKey: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("veeva"),
+    username: z.string(),
+    password: z.string(),
+    vaultDomain: z.string(),
+  }),
+  z.object({
+    type: z.literal("email"),
+    smtpHost: z.string(),
+    smtpPort: z.number(),
+    username: z.string(),
+    password: z.string(),
+    fromAddress: z.string().email(),
+  }),
+]);
+
+export type IntegrationCredentials = z.infer<typeof integrationCredentialsSchema>;
+
+export const insertIntegrationConfigSchema = createInsertSchema(integrationConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastHealthCheck: true,
+});
+
+export type InsertIntegrationConfig = z.infer<typeof insertIntegrationConfigSchema>;
+export type IntegrationConfig = typeof integrationConfigs.$inferSelect;
+
+// ============================================================================
+// ACTION EXPORTS (Audit Trail for Integrations)
+// ============================================================================
+
+export const actionExportStatuses = ["pending", "success", "failed", "retrying"] as const;
+export type ActionExportStatus = (typeof actionExportStatuses)[number];
+
+export const actionExports = pgTable("action_exports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Source (what triggered the export)
+  sourceType: varchar("source_type", { length: 50 }).notNull(),  // "nba", "simulation", "audience", "alert", "document"
+  sourceId: varchar("source_id").notNull(),
+  sourceName: varchar("source_name", { length: 200 }),
+  
+  // Destination
+  integrationId: varchar("integration_id").notNull().references(() => integrationConfigs.id),
+  destinationType: varchar("destination_type", { length: 50 }).notNull(),  // "slack_message", "jira_ticket", "box_file", etc.
+  destinationRef: varchar("destination_ref", { length: 500 }),  // Jira ticket ID, Slack ts, Box file ID, etc.
+  destinationUrl: varchar("destination_url", { length: 1000 }),  // Direct link to created resource
+  
+  // Payload
+  payload: jsonb("payload").$type<Record<string, unknown>>(),
+  
+  // Status
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0),
+  
+  // Audit
+  exportedBy: varchar("exported_by", { length: 100 }),
+  exportedAt: timestamp("exported_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertActionExportSchema = createInsertSchema(actionExports).omit({
+  id: true,
+  exportedAt: true,
+});
+
+export type InsertActionExport = z.infer<typeof insertActionExportSchema>;
+export type ActionExport = typeof actionExports.$inferSelect;
+
+// ============================================================================
+// AGENT SYSTEM
+// ============================================================================
+
+// Agent types
+export const agentTypes = [
+  "channel_health_monitor",
+  "engagement_drift_detector", 
+  "insight_synthesizer",
+  "ecosystem_watchdog",
+  "competitive_signal_watcher",
+  "pattern_detector",
+  "anomaly_assessor"
+] as const;
+
+export type AgentType = (typeof agentTypes)[number];
+
+// Agent statuses
+export const agentStatuses = ["active", "paused", "disabled", "error"] as const;
+export type AgentStatus = (typeof agentStatuses)[number];
+
+// Agent Definitions Table
+export const agentDefinitions = pgTable("agent_definitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Identity
+  type: varchar("type", { length: 50 }).notNull(),  // AgentType
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  version: varchar("version", { length: 20 }).default("1.0.0"),
+  
+  // Trigger configuration
+  triggers: jsonb("triggers").notNull().$type<AgentTriggers>(),
+  
+  // Input configuration
+  inputSchema: jsonb("input_schema").$type<Record<string, unknown>>(),
+  defaultInputs: jsonb("default_inputs").$type<Record<string, unknown>>(),
+  
+  // Output configuration
+  outputDestinations: jsonb("output_destinations").$type<AgentDestinations>(),
+  
+  // Runtime settings
+  status: varchar("status", { length: 20 }).notNull().default("active"),
+  timeoutSeconds: integer("timeout_seconds").default(300),
+  maxRetries: integer("max_retries").default(3),
+  
+  // Performance tracking
+  lastRunAt: timestamp("last_run_at"),
+  lastRunStatus: varchar("last_run_status", { length: 20 }),
+  avgExecutionTimeMs: integer("avg_execution_time_ms"),
+  successRate: real("success_rate"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Agent trigger configuration
+export const agentTriggersSchema = z.object({
+  scheduled: z.object({
+    enabled: z.boolean(),
+    cron: z.string().optional(),  // Cron expression
+    timezone: z.string().optional(),
+  }).optional(),
+  onDemand: z.boolean().optional(),
+  eventDriven: z.object({
+    enabled: z.boolean(),
+    events: z.array(z.string()),  // Event types that trigger this agent
+  }).optional(),
+});
+
+export type AgentTriggers = z.infer<typeof agentTriggersSchema>;
+
+// Agent output destinations
+export const agentDestinationsSchema = z.object({
+  inPlatform: z.array(z.enum(["alert_banner", "notification_center", "dashboard_widget", "dedicated_view"])).optional(),
+  external: z.array(z.enum(["slack", "jira", "teams", "box", "email"])).optional(),
+});
+
+export type AgentDestinations = z.infer<typeof agentDestinationsSchema>;
+
+export const insertAgentDefinitionSchema = createInsertSchema(agentDefinitions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastRunAt: true,
+  lastRunStatus: true,
+});
+
+export type InsertAgentDefinition = z.infer<typeof insertAgentDefinitionSchema>;
+export type AgentDefinition = typeof agentDefinitions.$inferSelect;
+
+// ============================================================================
+// AGENT RUNS (Execution History)
+// ============================================================================
+
+export const agentRunStatuses = ["pending", "running", "completed", "failed", "cancelled"] as const;
+export type AgentRunStatus = (typeof agentRunStatuses)[number];
+
+export const agentRuns = pgTable("agent_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Agent reference
+  agentId: varchar("agent_id").notNull().references(() => agentDefinitions.id),
+  agentType: varchar("agent_type", { length: 50 }).notNull(),
+  agentVersion: varchar("agent_version", { length: 20 }),
+  
+  // Trigger info
+  triggerType: varchar("trigger_type", { length: 20 }).notNull(),  // "scheduled", "on_demand", "event"
+  triggeredBy: varchar("triggered_by", { length: 100 }),  // User ID or "system"
+  triggerEvent: varchar("trigger_event", { length: 100 }),  // If event-driven
+  
+  // Inputs
+  inputs: jsonb("inputs").$type<Record<string, unknown>>(),
+  
+  // Outputs
+  outputs: jsonb("outputs").$type<AgentRunOutputs>(),
+  
+  // Execution details
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  errorMessage: text("error_message"),
+  errorStack: text("error_stack"),
+  
+  // Performance metrics
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  executionTimeMs: integer("execution_time_ms"),
+  
+  // Resource usage
+  tokensUsed: integer("tokens_used"),  // If Claude was invoked
+  
+  // Actions generated
+  actionsProposed: integer("actions_proposed").default(0),
+  actionsApproved: integer("actions_approved").default(0),
+  actionsExecuted: integer("actions_executed").default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Agent run outputs structure
+export const agentRunOutputsSchema = z.object({
+  alerts: z.array(z.object({
+    id: z.string(),
+    severity: z.enum(["critical", "warning", "info"]),
+    title: z.string(),
+    message: z.string(),
+  })).optional(),
+  recommendations: z.array(z.object({
+    id: z.string(),
+    type: z.string(),
+    description: z.string(),
+    confidence: z.number(),
+  })).optional(),
+  documents: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    type: z.string(),
+  })).optional(),
+  metrics: z.record(z.number()).optional(),
+  raw: z.unknown().optional(),
+});
+
+export type AgentRunOutputs = z.infer<typeof agentRunOutputsSchema>;
+
+export const insertAgentRunSchema = createInsertSchema(agentRuns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAgentRun = z.infer<typeof insertAgentRunSchema>;
+export type AgentRun = typeof agentRuns.$inferSelect;
+
+// ============================================================================
+// AGENT ACTIONS (Approval Queue)
+// ============================================================================
+
+export const agentActionStatuses = [
+  "pending",
+  "approved", 
+  "rejected",
+  "modified",
+  "auto_approved",
+  "executing",
+  "executed",
+  "failed"
+] as const;
+
+export type AgentActionStatus = (typeof agentActionStatuses)[number];
+
+export const agentActions = pgTable("agent_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Source
+  agentId: varchar("agent_id").notNull().references(() => agentDefinitions.id),
+  agentRunId: varchar("agent_run_id").references(() => agentRuns.id),
+  agentType: varchar("agent_type", { length: 50 }).notNull(),
+  
+  // Action details
+  actionType: varchar("action_type", { length: 50 }).notNull(),  // "send_slack", "create_jira", "generate_document", etc.
+  actionName: varchar("action_name", { length: 200 }).notNull(),
+  
+  // What the agent wants to do
+  proposedAction: jsonb("proposed_action").notNull().$type<ProposedAction>(),
+  reasoning: text("reasoning"),  // Claude-generated explanation
+  confidence: real("confidence"),  // 0-1
+  
+  // Risk assessment
+  riskLevel: varchar("risk_level", { length: 20 }).default("low"),  // "low", "medium", "high"
+  impactScope: varchar("impact_scope", { length: 20 }),  // "individual", "segment", "portfolio"
+  affectedEntityCount: integer("affected_entity_count"),
+  
+  // Approval workflow
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  autoApprovalEligible: boolean("auto_approval_eligible").default(false),
+  approvalRuleId: varchar("approval_rule_id").references(() => approvalRules.id),
+  
+  // Review
+  reviewedBy: varchar("reviewed_by", { length: 100 }),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  modifiedAction: jsonb("modified_action").$type<ProposedAction>(),  // If modified before approval
+  
+  // Execution
+  executedAt: timestamp("executed_at"),
+  executionResult: jsonb("execution_result").$type<ExecutionResult>(),
+  executionError: text("execution_error"),
+  
+  // Expiration
+  expiresAt: timestamp("expires_at"),  // Action expires if not reviewed
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Proposed action structure
+export const proposedActionSchema = z.object({
+  destination: z.object({
+    type: z.string(),  // "slack", "jira", "box", etc.
+    integrationId: z.string(),
+    target: z.string().optional(),  // Channel, project, folder, etc.
+  }),
+  payload: z.record(z.unknown()),
+  metadata: z.object({
+    sourceEntities: z.array(z.object({
+      type: z.string(),
+      id: z.string(),
+      name: z.string().optional(),
+    })).optional(),
+    tags: z.array(z.string()).optional(),
+  }).optional(),
+});
+
+export type ProposedAction = z.infer<typeof proposedActionSchema>;
+
+// Execution result structure
+export const executionResultSchema = z.object({
+  success: z.boolean(),
+  destinationRef: z.string().optional(),
+  destinationUrl: z.string().optional(),
+  responseData: z.unknown().optional(),
+  executionTimeMs: z.number().optional(),
+});
+
+export type ExecutionResult = z.infer<typeof executionResultSchema>;
+
+export const insertAgentActionSchema = createInsertSchema(agentActions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAgentAction = z.infer<typeof insertAgentActionSchema>;
+export type AgentAction = typeof agentActions.$inferSelect;
+
+// ============================================================================
+// APPROVAL RULES
+// ============================================================================
+
+export const approvalRules = pgTable("approval_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Scope
+  agentType: varchar("agent_type", { length: 50 }),  // null = applies to all agents
+  actionType: varchar("action_type", { length: 50 }),  // null = applies to all actions
+  
+  // Rule name and description
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  
+  // Auto-approval conditions
+  autoApproveConditions: jsonb("auto_approve_conditions").$type<AutoApproveConditions>(),
+  
+  // Manual approval settings
+  requiredApprovers: jsonb("required_approvers").$type<string[]>(),  // User IDs or roles
+  approvalMode: varchar("approval_mode", { length: 20 }).default("any"),  // "any" or "all"
+  escalationAfterMinutes: integer("escalation_after_minutes"),
+  escalateTo: jsonb("escalate_to").$type<string[]>(),
+  
+  // Notifications
+  notifyOnProposal: jsonb("notify_on_proposal").$type<string[]>(),
+  notifyOnExecution: jsonb("notify_on_execution").$type<string[]>(),
+  
+  // Rule status
+  enabled: boolean("enabled").default(true),
+  priority: integer("priority").default(0),  // Higher = evaluated first
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Auto-approval conditions
+export const autoApproveConditionsSchema = z.object({
+  enabled: z.boolean(),
+  confidenceThreshold: z.number().min(0).max(1),
+  impactScopes: z.array(z.enum(["individual", "segment", "portfolio"])).optional(),
+  maxAffectedEntities: z.number().optional(),
+  allowedDestinations: z.array(z.string()).optional(),
+  excludeRiskLevels: z.array(z.enum(["medium", "high"])).optional(),
+  timeWindow: z.object({
+    enabled: z.boolean(),
+    startHour: z.number().min(0).max(23),
+    endHour: z.number().min(0).max(23),
+    timezone: z.string(),
+    daysOfWeek: z.array(z.number().min(0).max(6)),
+  }).optional(),
+});
+
+export type AutoApproveConditions = z.infer<typeof autoApproveConditionsSchema>;
+
+export const insertApprovalRuleSchema = createInsertSchema(approvalRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertApprovalRule = z.infer<typeof insertApprovalRuleSchema>;
+export type ApprovalRule = typeof approvalRules.$inferSelect;
+
+// ============================================================================
+// GENERATED DOCUMENTS
+// ============================================================================
+
+export const documentTypes = [
+  "brief",
+  "pov",
+  "executive_summary",
+  "campaign_report",
+  "health_assessment",
+  "custom"
+] as const;
+
+export type DocumentType = (typeof documentTypes)[number];
+
+export const generatedDocuments = pgTable("generated_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Document identity
+  title: varchar("title", { length: 300 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(),  // DocumentType
+  description: text("description"),
+  
+  // Content
+  content: text("content").notNull(),  // Markdown
+  contentHtml: text("content_html"),  // Rendered HTML
+  sections: jsonb("sections").$type<DocumentSection[]>(),
+  
+  // Key outputs
+  keyFindings: jsonb("key_findings").$type<string[]>(),
+  recommendations: jsonb("recommendations").$type<string[]>(),
+  
+  // Source context
+  sourceContext: jsonb("source_context").$type<DocumentSourceContext>(),
+  
+  // Generation metadata
+  generatedBy: varchar("generated_by", { length: 50 }),  // Agent ID or "user"
+  agentRunId: varchar("agent_run_id").references(() => agentRuns.id),
+  modelUsed: varchar("model_used", { length: 50 }),
+  tokensUsed: integer("tokens_used"),
+  generationTimeMs: integer("generation_time_ms"),
+  
+  // Formatting
+  tone: varchar("tone", { length: 20 }),
+  wordCount: integer("word_count"),
+  
+  // Exports
+  exports: jsonb("exports").$type<DocumentExport[]>(),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("draft"),  // "draft", "final", "archived"
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Document section structure
+export const documentSectionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  content: z.string(),
+  order: z.number(),
+});
+
+export type DocumentSection = z.infer<typeof documentSectionSchema>;
+
+// Document source context
+export const documentSourceContextSchema = z.object({
+  audiences: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    hcpCount: z.number(),
+  })).optional(),
+  simulations: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+  })).optional(),
+  timeframe: z.object({
+    start: z.string(),
+    end: z.string(),
+  }).optional(),
+  focusAreas: z.array(z.string()).optional(),
+  customPrompt: z.string().optional(),
+});
+
+export type DocumentSourceContext = z.infer<typeof documentSourceContextSchema>;
+
+// Document export record
+export const documentExportSchema = z.object({
+  destination: z.string(),
+  exportedAt: z.string(),
+  destinationRef: z.string().optional(),
+  destinationUrl: z.string().optional(),
+});
+
+export type DocumentExport = z.infer<typeof documentExportSchema>;
+
+export const insertGeneratedDocumentSchema = createInsertSchema(generatedDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertGeneratedDocument = z.infer<typeof insertGeneratedDocumentSchema>;
+export type GeneratedDocument = typeof generatedDocuments.$inferSelect;
+
+// ============================================================================
+// ALERTS (In-Platform Notifications)
+// ============================================================================
+
+export const alertSeverities = ["critical", "warning", "info", "success"] as const;
+export type AlertSeverity = (typeof alertSeverities)[number];
+
+export const alerts = pgTable("alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Source
+  agentId: varchar("agent_id").references(() => agentDefinitions.id),
+  agentRunId: varchar("agent_run_id").references(() => agentRuns.id),
+  
+  // Alert content
+  severity: varchar("severity", { length: 20 }).notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  message: text("message").notNull(),
+  
+  // Affected entities
+  affectedEntities: jsonb("affected_entities").$type<AlertAffectedEntities>(),
+  
+  // Metrics
+  metrics: jsonb("metrics").$type<AlertMetrics>(),
+  
+  // Actions
+  suggestedActions: jsonb("suggested_actions").$type<AlertSuggestedAction[]>(),
+  
+  // Links
+  linkType: varchar("link_type", { length: 50 }),  // "audience", "hcp", "simulation", etc.
+  linkId: varchar("link_id", { length: 100 }),
+  linkUrl: varchar("link_url", { length: 500 }),
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("active"),  // "active", "acknowledged", "dismissed", "resolved"
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedBy: varchar("acknowledged_by", { length: 100 }),
+  dismissedAt: timestamp("dismissed_at"),
+  dismissedBy: varchar("dismissed_by", { length: 100 }),
+  resolvedAt: timestamp("resolved_at"),
+  
+  // Expiration
+  expiresAt: timestamp("expires_at"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Alert affected entities
+export const alertAffectedEntitiesSchema = z.object({
+  type: z.enum(["audience", "hcp", "channel", "segment"]),
+  ids: z.array(z.string()),
+  count: z.number(),
+  sampleNames: z.array(z.string()).optional(),
+});
+
+export type AlertAffectedEntities = z.infer<typeof alertAffectedEntitiesSchema>;
+
+// Alert metrics
+export const alertMetricsSchema = z.object({
+  current: z.number(),
+  threshold: z.number(),
+  previous: z.number().optional(),
+  trend: z.enum(["improving", "stable", "declining"]).optional(),
+  percentChange: z.number().optional(),
+});
+
+export type AlertMetrics = z.infer<typeof alertMetricsSchema>;
+
+// Alert suggested action
+export const alertSuggestedActionSchema = z.object({
+  type: z.string(),
+  label: z.string(),
+  description: z.string().optional(),
+  actionId: z.string().optional(),  // Link to agent action
+});
+
+export type AlertSuggestedAction = z.infer<typeof alertSuggestedActionSchema>;
+
+export const insertAlertSchema = createInsertSchema(alerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAlert = z.infer<typeof insertAlertSchema>;
+export type Alert = typeof alerts.$inferSelect;
+
+// ============================================================================
+// API REQUEST/RESPONSE TYPES
+// ============================================================================
+
+// Integration API
+export const createIntegrationRequestSchema = z.object({
+  type: z.enum(integrationTypes),
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+  credentials: integrationCredentialsSchema,
+  defaultSettings: z.record(z.unknown()).optional(),
+});
+
+export type CreateIntegrationRequest = z.infer<typeof createIntegrationRequestSchema>;
+
+// Slack send request
+export const slackSendRequestSchema = z.object({
+  integrationId: z.string(),
+  channel: z.string().optional(),
+  message: z.object({
+    text: z.string(),
+    blocks: z.array(z.unknown()).optional(),
+    attachments: z.array(z.unknown()).optional(),
+  }),
+  sourceType: z.string(),
+  sourceId: z.string(),
+});
+
+export type SlackSendRequest = z.infer<typeof slackSendRequestSchema>;
+
+// Jira create ticket request (direct)
+export const jiraCreateTicketRequestSchema = z.object({
+  integrationId: z.string(),
+  projectKey: z.string(),
+  summary: z.string(),
+  description: z.string().optional(),
+  issueType: z.string().default("Task"),
+  priority: z.string().optional(),
+  labels: z.array(z.string()).optional(),
+  customFields: z.record(z.unknown()).optional(),
+  sourceType: z.string(),
+  sourceId: z.string(),
+});
+
+export type JiraCreateTicketRequest = z.infer<typeof jiraCreateTicketRequestSchema>;
+
+// Jira template-based ticket creation schema (for NBA and Simulation)
+export const jiraTemplateTicketRequestSchema = z.object({
+  integrationId: z.string(),
+  projectKey: z.string(),
+  templateType: z.enum(["nba_action", "simulation_result", "channel_alert", "custom"]),
+  // NBA data (when templateType is "nba_action")
+  nba: z.object({
+    hcpId: z.string(),
+    hcpName: z.string(),
+    recommendedChannel: z.string(),
+    actionType: z.string(),
+    urgency: z.string(),
+    confidence: z.number(),
+    reasoning: z.string(),
+    suggestedTiming: z.string(),
+    metrics: z.object({
+      channelScore: z.number(),
+      responseRate: z.number(),
+      lastContactDays: z.number().optional(),
+    }),
+  }).optional(),
+  // Simulation data (when templateType is "simulation_result")
+  simulation: z.object({
+    id: z.string(),
+    scenarioName: z.string(),
+    predictedEngagementRate: z.number(),
+    predictedResponseRate: z.number(),
+    predictedRxLift: z.number(),
+    predictedReach: z.number(),
+    costPerEngagement: z.number().optional(),
+    efficiencyScore: z.number(),
+    vsBaseline: z.object({
+      engagement: z.string(),
+      response: z.string(),
+      rxVolume: z.string(),
+    }),
+    runAt: z.string(),
+  }).optional(),
+});
+
+export type JiraTemplateTicketRequest = z.infer<typeof jiraTemplateTicketRequestSchema>;
+
+// Jira update issue request
+export const jiraUpdateIssueRequestSchema = z.object({
+  integrationId: z.string(),
+  issueKey: z.string(),
+  fields: z.object({
+    summary: z.string().optional(),
+    description: z.string().optional(),
+    priority: z.string().optional(),
+    labels: z.array(z.string()).optional(),
+    status: z.string().optional(),
+  }),
+});
+
+export type JiraUpdateIssueRequest = z.infer<typeof jiraUpdateIssueRequestSchema>;
+
+// Agent run request
+export const runAgentRequestSchema = z.object({
+  agentId: z.string(),
+  inputs: z.record(z.unknown()).optional(),
+  triggeredBy: z.string().optional(),
+});
+
+export type RunAgentRequest = z.infer<typeof runAgentRequestSchema>;
+
+// Document generation request
+export const generateDocumentRequestSchema = z.object({
+  type: z.enum(documentTypes),
+  title: z.string().optional(),
+  context: documentSourceContextSchema,
+  formatting: z.object({
+    tone: z.enum(["strategic", "tactical", "executive"]).optional(),
+    length: z.enum(["concise", "standard", "comprehensive"]).optional(),
+    includeVisualizations: z.boolean().optional(),
+    includeSupportingData: z.boolean().optional(),
+  }).optional(),
+  customPrompt: z.string().optional(),
+});
+
+export type GenerateDocumentRequest = z.infer<typeof generateDocumentRequestSchema>;
+
+// Action approval request
+export const approveActionRequestSchema = z.object({
+  actionId: z.string(),
+  decision: z.enum(["approve", "reject", "modify"]),
+  notes: z.string().optional(),
+  modifiedPayload: z.record(z.unknown()).optional(),
+});
+
+export type ApproveActionRequest = z.infer<typeof approveActionRequestSchema>;
+
+// Alert acknowledgment request
+export const acknowledgeAlertRequestSchema = z.object({
+  alertId: z.string(),
+  action: z.enum(["acknowledge", "dismiss", "resolve"]),
+});
+
+export type AcknowledgeAlertRequest = z.infer<typeof acknowledgeAlertRequestSchema>;
+

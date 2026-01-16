@@ -118,3 +118,220 @@ Follows Carbon Design System (IBM) principles:
 - `PORT` - Server port (defaults to 3000)
 - `NODE_ENV` - development or production
 - `ANTHROPIC_API_KEY` - Anthropic API key for GenAI-powered NL query processing (optional, falls back to rule-based parsing if not set)
+
+
+## Phase 6: Agentic Ecosystem
+
+### Overview
+
+Phase 6 transforms TwinEngine from an analytics platform into an agentic intelligence hub with:
+- MCP-first enterprise integrations (Slack, Jira, Box, Teams)
+- Autonomous agents (Channel Health Monitor, Insight Synthesizer)
+- Human-in-the-loop approval workflows
+- AI-generated strategic documents
+
+### New Architecture Patterns
+
+#### Agent Service Pattern
+
+```typescript
+// server/services/agents/base-agent.ts
+export abstract class BaseAgent<TInput, TOutput> {
+  abstract readonly id: string;
+  abstract readonly type: AgentType;
+  abstract readonly name: string;
+  
+  abstract execute(input: TInput): Promise<TOutput>;
+  abstract validate(input: TInput): boolean;
+  
+  protected async proposeAction(action: ProposedAction): Promise<AgentAction> {
+    // All actions go through approval workflow
+  }
+  
+  protected async log(level: string, message: string, data?: unknown): Promise<void> {
+    // Structured logging for agent runs
+  }
+}
+```
+
+#### Integration Service Pattern
+
+```typescript
+// server/services/integrations/slack.ts
+export class SlackIntegration {
+  constructor(private config: IntegrationConfig) {}
+  
+  async sendMessage(request: SlackSendRequest): Promise<ActionExport> {
+    // 1. Validate config and request
+    // 2. Send via MCP or direct API
+    // 3. Log to actionExports
+    // 4. Return audit record
+  }
+  
+  async healthCheck(): Promise<IntegrationStatus> {
+    // Verify connection is working
+  }
+}
+```
+
+#### Approval Workflow Pattern
+
+```typescript
+// All agent actions flow through:
+// 1. Agent proposes action
+// 2. Orchestrator evaluates against approval rules
+// 3. If auto-approve eligible → execute immediately
+// 4. Otherwise → queue for human review
+// 5. Human approves/rejects/modifies
+// 6. Execute and log result
+```
+
+### New API Domains
+
+- `/api/integrations` - Integration configuration CRUD
+- `/api/integrations/:type/:action` - Integration-specific actions (e.g., slack/send)
+- `/api/agents` - Agent definition CRUD
+- `/api/agents/:id/run` - Trigger agent execution
+- `/api/agents/:id/history` - Agent run history
+- `/api/actions` - Pending action queue
+- `/api/actions/:id/approve` - Approve/reject actions
+- `/api/documents` - Generated document CRUD
+- `/api/documents/generate` - Trigger document generation
+- `/api/alerts` - In-platform alert management
+
+### New Environment Variables
+
+```bash
+# Slack
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_SIGNING_SECRET=...
+
+# Jira
+JIRA_BASE_URL=https://company.atlassian.net
+JIRA_EMAIL=...
+JIRA_API_TOKEN=...
+
+# Box
+BOX_CLIENT_ID=...
+BOX_CLIENT_SECRET=...
+
+# Agent Runtime
+AGENT_SCHEDULER_ENABLED=true
+AGENT_DEFAULT_TIMEZONE=America/New_York
+```
+
+### Key Dependencies (Phase 6)
+
+```json
+{
+  "@slack/web-api": "^7.0.0",
+  "jira.js": "^4.0.0",
+  "box-node-sdk": "^3.0.0",
+  "node-cron": "^3.0.0",
+  "@modelcontextprotocol/sdk": "^1.0.0"
+}
+```
+
+### Testing Strategy
+
+- **Unit**: Agent logic, approval rules, payload formatting
+- **Integration**: MCP communication (mock servers), action workflows
+- **E2E**: Full agent cycle from trigger to execution
+
+### File Structure (New)
+
+```
+server/services/
+├── agents/
+│   ├── base-agent.ts
+│   ├── orchestrator.ts
+│   ├── scheduler.ts
+│   ├── channel-health-monitor.ts
+│   └── insight-synthesizer.ts
+├── integrations/
+│   ├── mcp-client.ts
+│   ├── slack.ts
+│   ├── jira.ts
+│   └── box.ts
+└── ...
+
+client/src/
+├── pages/
+│   ├── AgentsDashboard.tsx
+│   ├── ActionQueue.tsx
+│   ├── DocumentGenerator.tsx
+│   └── IntegrationsAdmin.tsx
+├── components/
+│   ├── agents/
+│   ├── actions/
+│   ├── documents/
+│   └── integrations/
+└── ...
+```
+
+---
+
+## MCP Integration Notes
+
+### What is MCP?
+
+Model Context Protocol (MCP) is an open standard for AI-to-tool communication. Think of it as a "USB adapter" for AI integrations.
+
+### MCP vs Direct API
+
+- **Use MCP when**: Official MCP server exists (Atlassian, Slack via community)
+- **Use Direct API when**: No MCP server, or MCP server is immature
+
+### Current MCP Availability
+
+| Service | MCP Status | Approach |
+|---------|------------|----------|
+| Jira | ✅ Official Atlassian MCP | MCP-first |
+| Confluence | ✅ Official Atlassian MCP | MCP-first |
+| Slack | ⚠️ Community servers | Direct API with MCP wrapper |
+| Teams | ⚠️ Emerging | Direct API |
+| Box | ❌ None | Direct API |
+
+### MCP Client Pattern
+
+```typescript
+// server/services/integrations/mcp-client.ts
+export class MCPClient {
+  async connect(endpoint: string): Promise<void>;
+  async callTool(name: string, params: unknown): Promise<unknown>;
+  async listTools(): Promise<Tool[]>;
+  async disconnect(): Promise<void>;
+}
+```
+
+---
+
+## Governance & Compliance Notes
+
+### Audit Requirements
+
+All agent actions MUST be logged with:
+- Who/what triggered the action
+- What was proposed
+- Reasoning/confidence
+- Approval decision and reviewer
+- Execution result
+- Timestamps throughout
+
+### PHI Considerations
+
+- Never include PHI in external integrations without explicit configuration
+- Default to NPI + de-identified HCP references
+- Slack/Jira payloads should use entity IDs, not names unless configured
+
+### Auto-Approval Safety
+
+Auto-approval should ONLY be enabled for:
+- Low-risk actions (alerts to internal channels)
+- High-confidence recommendations (>90%)
+- Limited scope (individual HCPs, not portfolio-wide)
+
+Never auto-approve:
+- External communications to HCPs
+- Document generation with PHI
+- High-impact actions affecting >50 entities
