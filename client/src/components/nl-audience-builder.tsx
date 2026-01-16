@@ -46,7 +46,11 @@ import {
   Download,
   Save,
   RefreshCw,
-  Zap
+  Zap,
+  X,
+  RotateCcw,
+  Copy,
+  Plus
 } from "lucide-react";
 import { specialties, tiers, segments } from "@shared/schema";
 import type { NLQueryResponse, HCPProfile, HCPFilter, Tier, Segment, Specialty } from "@shared/schema";
@@ -82,6 +86,8 @@ export function NLAudienceBuilder() {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [audienceName, setAudienceName] = useState("");
   const [audienceDescription, setAudienceDescription] = useState("");
+  const [refineQuery, setRefineQuery] = useState("");
+  const [showRefine, setShowRefine] = useState(false);
 
   // Build filter object from state
   const filter: HCPFilter = useMemo(() => ({
@@ -253,6 +259,52 @@ export function NLAudienceBuilder() {
     setEngagementMax(100);
   };
 
+  // Refine: append modification to current query
+  const handleRefine = () => {
+    if (!refineQuery.trim()) return;
+    const newQuery = query.trim()
+      ? `${query.trim()}, and ${refineQuery.trim()}`
+      : refineQuery.trim();
+    setQuery(newQuery);
+    setRefineQuery("");
+    setShowRefine(false);
+    // Auto-run the refined query
+    searchMutation.mutate({
+      query: newQuery,
+      includeRecommendations,
+      maxResults: 50,
+    });
+  };
+
+  // Reset: clear everything to blank state
+  const handleReset = () => {
+    setQuery("");
+    setRefineQuery("");
+    setShowRefine(false);
+    clearFilters();
+    toast({ title: "Reset", description: "Audience builder cleared to blank state" });
+  };
+
+  // Clone: create a duplicate with " (copy)" suffix in name
+  const handleClone = () => {
+    const cloneName = `Cloned: ${query.trim().slice(0, 30) || "Unnamed"}...`;
+    setAudienceName(cloneName);
+    setSaveDialogOpen(true);
+  };
+
+  // Remove individual filter chips
+  const removeSpecialty = (s: Specialty) => {
+    setSelectedSpecialties(selectedSpecialties.filter((x) => x !== s));
+  };
+
+  const removeTier = (t: Tier) => {
+    setSelectedTiers(selectedTiers.filter((x) => x !== t));
+  };
+
+  const removeSegment = (s: Segment) => {
+    setSelectedSegments(selectedSegments.filter((x) => x !== s));
+  };
+
   const exportToCsv = () => {
     const headers = ["NPI", "First Name", "Last Name", "Specialty", "Tier", "Segment", "Organization", "City", "State", "Engagement Score", "Channel Preference"];
     const rows = filteredHcps.map((h) => [
@@ -321,20 +373,63 @@ export function NLAudienceBuilder() {
                   AI recommendations
                 </Label>
               </div>
-              <Button
-                onClick={handleSearch}
-                disabled={searchMutation.isPending || !query.trim()}
-                size="sm"
-                data-testid="button-search"
-              >
-                {searchMutation.isPending ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                ) : (
-                  <Search className="h-3.5 w-3.5 mr-1.5" />
-                )}
-                Parse
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRefine(!showRefine)}
+                  className="text-xs"
+                  data-testid="button-show-refine"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Refine
+                </Button>
+                <Button
+                  onClick={handleSearch}
+                  disabled={searchMutation.isPending || !query.trim()}
+                  size="sm"
+                  data-testid="button-search"
+                >
+                  {searchMutation.isPending ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : (
+                    <Search className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Parse
+                </Button>
+              </div>
             </div>
+
+            {/* Refine input */}
+            {showRefine && (
+              <div className="flex gap-2 pt-2 border-t">
+                <Input
+                  placeholder="Add criteria, e.g., 'but exclude Texas'"
+                  value={refineQuery}
+                  onChange={(e) => setRefineQuery(e.target.value)}
+                  className="text-xs h-8"
+                  onKeyDown={(e) => e.key === "Enter" && handleRefine()}
+                  data-testid="input-refine"
+                />
+                <Button
+                  size="sm"
+                  onClick={handleRefine}
+                  disabled={!refineQuery.trim()}
+                  className="h-8 text-xs"
+                  data-testid="button-refine"
+                >
+                  Apply
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setShowRefine(false); setRefineQuery(""); }}
+                  className="h-8 px-2"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -669,28 +764,88 @@ export function NLAudienceBuilder() {
 
         {/* Actions Bar */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="text-xs">
               {stats.total} HCPs match your criteria
             </Badge>
             {activeFilterCount > 0 && (
               <div className="flex items-center gap-1 flex-wrap">
                 {selectedSpecialties.map((s) => (
-                  <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                  <Badge
+                    key={s}
+                    variant="secondary"
+                    className="text-[10px] pr-1 cursor-pointer hover:bg-destructive/20 group"
+                    onClick={() => removeSpecialty(s)}
+                  >
+                    {s}
+                    <X className="h-2.5 w-2.5 ml-1 group-hover:text-destructive" />
+                  </Badge>
                 ))}
                 {selectedTiers.map((t) => (
-                  <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>
+                  <Badge
+                    key={t}
+                    variant="secondary"
+                    className="text-[10px] pr-1 cursor-pointer hover:bg-destructive/20 group"
+                    onClick={() => removeTier(t)}
+                  >
+                    {t}
+                    <X className="h-2.5 w-2.5 ml-1 group-hover:text-destructive" />
+                  </Badge>
                 ))}
-                {selectedSegments.slice(0, 2).map((s) => (
-                  <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
+                {selectedSegments.map((s) => (
+                  <Badge
+                    key={s}
+                    variant="secondary"
+                    className="text-[10px] pr-1 cursor-pointer hover:bg-destructive/20 group"
+                    onClick={() => removeSegment(s)}
+                  >
+                    {s}
+                    <X className="h-2.5 w-2.5 ml-1 group-hover:text-destructive" />
+                  </Badge>
                 ))}
-                {selectedSegments.length > 2 && (
-                  <Badge variant="secondary" className="text-[10px]">+{selectedSegments.length - 2}</Badge>
+                {(engagementMin > 0 || engagementMax < 100) && (
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] pr-1 cursor-pointer hover:bg-destructive/20 group"
+                    onClick={() => { setEngagementMin(0); setEngagementMax(100); }}
+                  >
+                    Eng: {engagementMin}-{engagementMax}
+                    <X className="h-2.5 w-2.5 ml-1 group-hover:text-destructive" />
+                  </Badge>
                 )}
               </div>
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleReset}
+                  className="h-8 px-2"
+                  data-testid="button-reset"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Reset to blank</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClone}
+                  disabled={stats.total === 0}
+                  className="h-8 px-2"
+                  data-testid="button-clone"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Clone as new audience</TooltipContent>
+            </Tooltip>
             <Button variant="outline" size="sm" onClick={exportToCsv} disabled={stats.total === 0}>
               <Download className="h-3.5 w-3.5 mr-1.5" />
               Export
