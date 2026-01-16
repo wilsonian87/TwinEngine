@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X, TrendingUp, Save, RefreshCw, HelpCircle, Info, Mail, Phone, Video, Globe, Calendar } from "lucide-react";
+import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X, TrendingUp, Save, RefreshCw, HelpCircle, Info, Mail, Phone, Video, Globe, Calendar, FolderOpen, Database, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import type { Channel, SimulationResult, InsertSimulationScenario, HCPProfile } from "@shared/schema";
+import type { Channel, SimulationResult, InsertSimulationScenario, HCPProfile, SavedAudience } from "@shared/schema";
 
 const channelLabels: Record<Channel, string> = {
   email: "Email",
@@ -174,6 +174,13 @@ export function SimulationBuilder({
   const [includeLookalikes, setIncludeLookalikes] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<PresetKey>("custom");
   const [showPresetRationale, setShowPresetRationale] = useState(false);
+  const [selectedSavedAudience, setSelectedSavedAudience] = useState<SavedAudience | null>(null);
+  const [showAudiencePicker, setShowAudiencePicker] = useState(false);
+
+  // Fetch saved audiences for import
+  const { data: savedAudiences = [] } = useQuery<SavedAudience[]>({
+    queryKey: ["/api/audiences"],
+  });
 
   const applyPreset = (presetKey: Exclude<PresetKey, "custom">) => {
     const preset = channelPresets[presetKey];
@@ -228,16 +235,23 @@ export function SimulationBuilder({
   };
 
   const handleRun = () => {
-    const targetIds: string[] = [];
-    
-    if (seedHcp) {
+    let targetIds: string[] = [];
+
+    // Use saved audience HCP IDs if one is selected
+    if (selectedSavedAudience) {
+      targetIds = [...selectedSavedAudience.hcpIds];
+    } else if (seedHcp) {
       targetIds.push(seedHcp.id);
     }
-    
+
     if (includeLookalikes && similarHcps.length > 0) {
-      similarHcps.forEach(hcp => targetIds.push(hcp.id));
+      similarHcps.forEach(hcp => {
+        if (!targetIds.includes(hcp.id)) {
+          targetIds.push(hcp.id);
+        }
+      });
     }
-    
+
     onRunSimulation({
       name: scenarioName,
       description: description || undefined,
@@ -266,15 +280,26 @@ export function SimulationBuilder({
     setIncludeLookalikes(false);
     setSelectedPreset("custom");
     setShowPresetRationale(false);
+    setSelectedSavedAudience(null);
+    setShowAudiencePicker(false);
   };
 
   const audienceCount = useMemo(() => {
+    // Prioritize saved audience if selected
+    if (selectedSavedAudience) {
+      let count = selectedSavedAudience.hcpCount;
+      if (includeLookalikes && similarHcps.length > 0) {
+        count += similarHcps.length;
+      }
+      return count;
+    }
+    // Fall back to selected HCPs or all HCPs
     let count = selectedHcpCount > 0 ? selectedHcpCount : allHcps.length;
     if (includeLookalikes && seedHcp && similarHcps.length > 0) {
       count += similarHcps.length;
     }
     return count;
-  }, [selectedHcpCount, allHcps.length, includeLookalikes, seedHcp, similarHcps.length]);
+  }, [selectedSavedAudience, selectedHcpCount, allHcps.length, includeLookalikes, seedHcp, similarHcps.length]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -682,18 +707,103 @@ export function SimulationBuilder({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Target Audience</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Target Audience
+            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            {/* Saved Audience Picker */}
+            <Collapsible open={showAudiencePicker} onOpenChange={setShowAudiencePicker}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Import Saved Audience</span>
+                </div>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7" data-testid="button-toggle-audience-picker">
+                    {showAudiencePicker ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+
+              <CollapsibleContent className="pt-2">
+                {savedAudiences.length > 0 ? (
+                  <div className="max-h-40 space-y-1.5 overflow-y-auto">
+                    {savedAudiences.map((audience) => (
+                      <button
+                        key={audience.id}
+                        className={`w-full flex items-center justify-between rounded-md border p-2 text-left text-xs transition-colors hover:bg-muted ${
+                          selectedSavedAudience?.id === audience.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border"
+                        }`}
+                        onClick={() => {
+                          setSelectedSavedAudience(
+                            selectedSavedAudience?.id === audience.id ? null : audience
+                          );
+                        }}
+                        data-testid={`saved-audience-${audience.id}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{audience.name}</div>
+                          <div className="text-muted-foreground">
+                            {audience.hcpCount.toLocaleString()} HCPs • {audience.source}
+                          </div>
+                        </div>
+                        {selectedSavedAudience?.id === audience.id && (
+                          <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-3 text-center text-xs text-muted-foreground">
+                    <Database className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <p>No saved audiences yet</p>
+                    <p className="mt-1">Create one from the Audience Builder</p>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* Selected Audience Display */}
+            {selectedSavedAudience && (
+              <div className="rounded-md bg-primary/5 border border-primary/20 p-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-primary" />
+                    <div>
+                      <span className="text-sm font-medium">{selectedSavedAudience.name}</span>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedSavedAudience.hcpCount.toLocaleString()} HCPs
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setSelectedSavedAudience(null)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Audience Count Summary */}
             <div className="flex items-center justify-between rounded-md bg-muted p-3">
               <span className="text-sm text-muted-foreground">Total HCPs</span>
               <span className="font-mono font-semibold" data-testid="text-selected-count">
                 {audienceCount.toLocaleString()}
               </span>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {selectedHcpCount > 0
-                ? `${selectedHcpCount} selected + ${includeLookalikes ? similarHcps.length + ' lookalikes' : 'no lookalikes'}`
+            <p className="text-xs text-muted-foreground">
+              {selectedSavedAudience
+                ? `Using "${selectedSavedAudience.name}"${includeLookalikes && similarHcps.length > 0 ? ` + ${similarHcps.length} lookalikes` : ''}`
+                : selectedHcpCount > 0
+                ? `${selectedHcpCount} selected${includeLookalikes ? ` + ${similarHcps.length} lookalikes` : ''}`
                 : "Simulation will run on all HCPs in the database"}
             </p>
           </CardContent>
