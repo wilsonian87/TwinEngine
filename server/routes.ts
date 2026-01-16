@@ -208,6 +208,24 @@ export async function registerRoutes(
     }
   });
 
+  // Dev mode bypass (only available in development)
+  app.post("/api/invite/dev-bypass", (req, res) => {
+    if (process.env.NODE_ENV !== "development") {
+      return res.status(403).json({ error: "Only available in development mode" });
+    }
+
+    const session = req.session as any;
+    session.inviteCodeId = "dev-bypass";
+    session.inviteEmail = "dev@localhost";
+    session.inviteLabel = "Development Mode";
+
+    res.json({
+      success: true,
+      label: "Development Mode",
+      email: "dev@localhost",
+    });
+  });
+
   // Admin: Create invite code (protected by env secret)
   app.post("/api/admin/codes", async (req, res) => {
     const adminSecret = process.env.ADMIN_SECRET || "admin-secret-change-me";

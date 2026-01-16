@@ -186,6 +186,27 @@ export default function Landing() {
                       Request access
                     </a>
                   </p>
+
+                  {/* Dev mode skip button */}
+                  {import.meta.env.DEV && (
+                    <div className="pt-4 border-t border-slate-700 mt-4">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full text-slate-400 hover:text-white hover:bg-slate-700"
+                        onClick={async () => {
+                          const response = await fetch("/api/invite/dev-bypass", {
+                            method: "POST",
+                          });
+                          if (response.ok) {
+                            queryClient.invalidateQueries({ queryKey: ["session"] });
+                          }
+                        }}
+                      >
+                        Skip (Dev Mode)
+                      </Button>
+                    </div>
+                  )}
                 </form>
               </CardContent>
             </Card>

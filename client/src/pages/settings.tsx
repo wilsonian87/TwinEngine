@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Save, Shield, Bell, Database, Users, FileText, Clock, Filter, Download, Eye, Play, Upload, Search, Activity, CheckCircle, AlertCircle, Server } from "lucide-react";
+import { Save, Shield, Bell, Database, Users, FileText, Clock, Filter, Download, Eye, Play, Upload, Search, Activity, CheckCircle, AlertCircle, Server, KeyRound } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 import type { AuditLog, HCPProfile } from "@shared/schema";
+import { InviteManager } from "@/components/invite-manager";
 
 // Determine environment from window location or env
 function getEnvironment(): "development" | "staging" | "production" {
@@ -434,6 +435,10 @@ export default function Settings() {
               <Database className="mr-2 h-4 w-4" />
               Configuration
             </TabsTrigger>
+            <TabsTrigger value="invites" data-testid="tab-invites">
+              <KeyRound className="mr-2 h-4 w-4" />
+              Invites
+            </TabsTrigger>
             <TabsTrigger value="status" data-testid="tab-status">
               <Activity className="mr-2 h-4 w-4" />
               System Status
@@ -648,6 +653,10 @@ export default function Settings() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="invites">
+            <InviteManager />
           </TabsContent>
 
           <TabsContent value="status">
