@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import passport from "passport";
 import { storage } from "./storage";
 import { hashPassword } from "./auth";
+import { classifyChannelHealth, classifyCohortChannelHealth, getHealthSummary } from "./services/channel-health";
 import {
   insertSimulationScenarioSchema,
   hcpFilterSchema,
@@ -407,7 +408,7 @@ export async function registerRoutes(
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const similarHcps = await storage.findSimilarHcps(req.params.id, limit);
-      
+
       // Log lookalike search
       await storage.logAction({
         action: "lookalike_search",
@@ -415,11 +416,65 @@ export async function registerRoutes(
         entityId: req.params.id,
         details: { resultCount: similarHcps.length, limit },
       });
-      
+
       res.json(similarHcps);
     } catch (error) {
       console.error("Error finding similar HCPs:", error);
       res.status(500).json({ error: "Failed to find similar HCPs" });
+    }
+  });
+
+  // ============ Channel Health Endpoints ============
+
+  // Get channel health for a single HCP
+  app.get("/api/hcps/:id/channel-health", async (req, res) => {
+    try {
+      const hcp = await storage.getHcpById(req.params.id);
+      if (!hcp) {
+        return res.status(404).json({ error: "HCP not found" });
+      }
+
+      const channelHealth = classifyChannelHealth(hcp);
+      const summary = getHealthSummary(channelHealth);
+
+      res.json({
+        hcpId: hcp.id,
+        hcpName: `${hcp.firstName} ${hcp.lastName}`,
+        channelHealth,
+        summary,
+      });
+    } catch (error) {
+      console.error("Error getting channel health:", error);
+      res.status(500).json({ error: "Failed to get channel health" });
+    }
+  });
+
+  // Get aggregate channel health for a cohort (via POST with HCP IDs)
+  app.post("/api/channel-health/cohort", async (req, res) => {
+    try {
+      const { hcpIds } = req.body as { hcpIds?: string[] };
+
+      if (!hcpIds || !Array.isArray(hcpIds) || hcpIds.length === 0) {
+        return res.status(400).json({ error: "hcpIds array required" });
+      }
+
+      // Fetch all HCPs by IDs
+      const allHcps = await storage.getAllHcps();
+      const cohort = allHcps.filter((h) => hcpIds.includes(h.id));
+
+      if (cohort.length === 0) {
+        return res.status(404).json({ error: "No HCPs found for given IDs" });
+      }
+
+      const cohortHealth = classifyCohortChannelHealth(cohort);
+
+      res.json({
+        totalHcps: cohort.length,
+        channelHealth: cohortHealth,
+      });
+    } catch (error) {
+      console.error("Error getting cohort channel health:", error);
+      res.status(500).json({ error: "Failed to get cohort channel health" });
     }
   });
 

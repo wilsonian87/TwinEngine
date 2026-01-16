@@ -1,4 +1,4 @@
-import { Mail, Phone, Video, Globe, Calendar, Users, ArrowRight, UserSearch, Sparkles, Zap } from "lucide-react";
+import { Mail, Phone, Video, Globe, Calendar, Users, ArrowRight, UserSearch, Sparkles, Zap, Activity } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   LineChart,
@@ -21,7 +21,9 @@ import {
   Bar,
 } from "recharts";
 import { StimuliPrediction } from "./stimuli-prediction";
+import { ChannelHealthRadial } from "./channel-health-radial";
 import type { HCPProfile, Channel } from "@shared/schema";
+import type { ChannelHealth } from "../../../server/services/channel-health";
 
 const channelIcons: Record<Channel, typeof Mail> = {
   email: Mail,
@@ -55,10 +57,29 @@ interface HCPDetailPanelProps {
   onSelectHcp?: (hcp: HCPProfile) => void;
 }
 
+// Response type for channel health API
+interface ChannelHealthResponse {
+  hcpId: string;
+  hcpName: string;
+  channelHealth: ChannelHealth[];
+  summary: {
+    healthyChannels: number;
+    issueChannels: number;
+    opportunityChannels: number;
+    primaryRecommendation: string;
+  };
+}
+
 export function HCPDetailPanel({ hcp, open, onClose, onSimulate, onSelectHcp }: HCPDetailPanelProps) {
   const [, setLocation] = useLocation();
   const { data: similarHcps = [], isLoading: isLoadingSimilar } = useQuery<HCPProfile[]>({
     queryKey: [`/api/hcps/${hcp?.id}/similar`],
+    enabled: !!hcp?.id && open,
+  });
+
+  // Fetch channel health data
+  const { data: channelHealthData, isLoading: isLoadingHealth } = useQuery<ChannelHealthResponse>({
+    queryKey: [`/api/hcps/${hcp?.id}/channel-health`],
     enabled: !!hcp?.id && open,
   });
 
@@ -122,8 +143,12 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate, onSelectHcp }: 
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
+              <TabsTrigger value="health" data-testid="tab-health">
+                <Activity className="mr-1 h-3 w-3" />
+                Health
+              </TabsTrigger>
               <TabsTrigger value="channels" data-testid="tab-channels">Channels</TabsTrigger>
               <TabsTrigger value="trends" data-testid="tab-trends">Trends</TabsTrigger>
               <TabsTrigger value="stimuli" data-testid="tab-stimuli">
@@ -179,6 +204,75 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate, onSelectHcp }: 
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="health" className="mt-4 space-y-4" data-testid="tab-content-health">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                    <Activity className="h-4 w-4 text-chart-1" />
+                    Channel Health Diagnostic
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Visual assessment of engagement health across all channels
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingHealth ? (
+                    <div className="flex justify-center py-8">
+                      <Skeleton className="h-64 w-64 rounded-full" />
+                    </div>
+                  ) : channelHealthData ? (
+                    <div className="flex justify-center py-4">
+                      <ChannelHealthRadial
+                        channelHealth={channelHealthData.channelHealth}
+                        hcpName={`Dr. ${hcp.lastName}`}
+                        size="md"
+                      />
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-sm text-muted-foreground">
+                      Unable to load channel health data
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {channelHealthData && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Health Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="rounded-md bg-green-500/10 p-3 text-center">
+                        <span className="block text-2xl font-bold text-green-500">
+                          {channelHealthData.summary.healthyChannels}
+                        </span>
+                        <span className="text-xs text-muted-foreground">Active</span>
+                      </div>
+                      <div className="rounded-md bg-yellow-500/10 p-3 text-center">
+                        <span className="block text-2xl font-bold text-yellow-500">
+                          {channelHealthData.summary.issueChannels}
+                        </span>
+                        <span className="text-xs text-muted-foreground">Issues</span>
+                      </div>
+                      <div className="rounded-md bg-purple-500/10 p-3 text-center">
+                        <span className="block text-2xl font-bold text-purple-500">
+                          {channelHealthData.summary.opportunityChannels}
+                        </span>
+                        <span className="text-xs text-muted-foreground">Opportunity</span>
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-muted p-3">
+                      <p className="text-sm font-medium">Recommendation</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {channelHealthData.summary.primaryRecommendation}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="channels" className="mt-4 space-y-4">
