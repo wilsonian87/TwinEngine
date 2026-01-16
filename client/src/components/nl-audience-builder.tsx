@@ -63,6 +63,15 @@ const exampleQueries = [
   "List endocrinologists with strong digital engagement but limited rep coverage",
 ];
 
+// Recommendation type icons
+const recommendationIcons: Record<string, typeof Lightbulb> = {
+  channel: MessageSquare,
+  timing: History,
+  content: BarChart2,
+  frequency: Zap,
+  audience: Users,
+};
+
 export function NLAudienceBuilder() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -88,6 +97,8 @@ export function NLAudienceBuilder() {
   const [audienceDescription, setAudienceDescription] = useState("");
   const [refineQuery, setRefineQuery] = useState("");
   const [showRefine, setShowRefine] = useState(false);
+  const [aiInsightsOpen, setAiInsightsOpen] = useState(true);
+  const [lastQueryResult, setLastQueryResult] = useState<NLQueryResponse | null>(null);
 
   // Build filter object from state
   const filter: HCPFilter = useMemo(() => ({
@@ -122,6 +133,11 @@ export function NLAudienceBuilder() {
         if (result.filters.segments) setSelectedSegments(result.filters.segments);
         if (result.filters.engagementRange?.min) setEngagementMin(result.filters.engagementRange.min);
         if (result.filters.engagementRange?.max) setEngagementMax(result.filters.engagementRange.max);
+      }
+      // Save result for AI insights panel
+      setLastQueryResult(result);
+      if (result.recommendations && result.recommendations.length > 0) {
+        setAiInsightsOpen(true);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/nl-query/history"] });
       toast({
@@ -303,6 +319,33 @@ export function NLAudienceBuilder() {
 
   const removeSegment = (s: Segment) => {
     setSelectedSegments(selectedSegments.filter((x) => x !== s));
+  };
+
+  // Apply recommendation to query/filters
+  const applyRecommendation = (recommendation: { type: string; recommendation: string }) => {
+    // Append recommendation to query as a refinement
+    const refinement = recommendation.recommendation;
+    const newQuery = query.trim()
+      ? `${query.trim()}, applying: ${refinement}`
+      : refinement;
+    setQuery(newQuery);
+    toast({
+      title: "Recommendation Applied",
+      description: `Added "${refinement.slice(0, 50)}..." to your criteria`,
+    });
+  };
+
+  // Format confidence for display
+  const getConfidenceStyle = (confidence: number) => {
+    if (confidence >= 0.8) return { label: "High", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" };
+    if (confidence >= 0.5) return { label: "Medium", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" };
+    return { label: "Low", className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" };
+  };
+
+  // Get icon for recommendation type
+  const getRecommendationIcon = (type: string) => {
+    const Icon = recommendationIcons[type] || Lightbulb;
+    return <Icon className="h-4 w-4" />;
   };
 
   const exportToCsv = () => {
@@ -761,6 +804,73 @@ export function NLAudienceBuilder() {
             </div>
           </Card>
         </div>
+
+        {/* AI Insights Panel */}
+        {lastQueryResult?.recommendations && lastQueryResult.recommendations.length > 0 && (
+          <Collapsible open={aiInsightsOpen} onOpenChange={setAiInsightsOpen}>
+            <Card className="border-primary/20 bg-primary/5">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="py-2 cursor-pointer hover:bg-primary/10 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <Lightbulb className="h-4 w-4 text-yellow-500" />
+                      AI Insights
+                      <Badge variant="secondary" className="text-[10px] ml-1">
+                        {lastQueryResult.recommendations.length}
+                      </Badge>
+                    </CardTitle>
+                    {aiInsightsOpen ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0 space-y-2">
+                  {lastQueryResult.recommendations.map((rec, i) => {
+                    const confidenceStyle = getConfidenceStyle(rec.confidence);
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-start gap-3 p-2 rounded-lg border bg-card"
+                        data-testid={`ai-recommendation-${i}`}
+                      >
+                        <div className="p-1.5 rounded bg-muted shrink-0">
+                          {getRecommendationIcon(rec.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium leading-tight">{rec.recommendation}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">
+                            {rec.rationale}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <Badge className={`text-[9px] h-4 px-1.5 ${confidenceStyle.className}`}>
+                              {confidenceStyle.label} ({Math.round(rec.confidence * 100)}%)
+                            </Badge>
+                            <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                              +{Math.round(rec.predictedImpact * 100)}% impact
+                            </Badge>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => applyRecommendation(rec)}
+                          className="h-6 text-[10px] shrink-0"
+                          data-testid={`button-apply-rec-${i}`}
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        )}
 
         {/* Actions Bar */}
         <div className="flex items-center justify-between">
