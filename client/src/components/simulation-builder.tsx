@@ -59,6 +59,70 @@ const contentTypeTooltips: Record<string, string> = {
   mixed: "Balanced approach combining all content types",
 };
 
+// Persona presets for quick-start channel mix configurations
+type PresetKey = "pre_launch" | "launching" | "mature" | "custom";
+
+interface ChannelPreset {
+  label: string;
+  description: string;
+  rationale: string;
+  channelMix: Record<Channel, number>;
+  recommendedFrequency: number;
+  recommendedDuration: number;
+  contentType: "educational" | "promotional" | "clinical_data" | "mixed";
+}
+
+const channelPresets: Record<Exclude<PresetKey, "custom">, ChannelPreset> = {
+  pre_launch: {
+    label: "Pre-Launch",
+    description: "Building awareness before product launch",
+    rationale: "Focus on education and relationship-building. Heavy emphasis on webinars and rep visits to establish clinical credibility before launch.",
+    channelMix: {
+      email: 15,
+      rep_visit: 30,
+      webinar: 30,
+      conference: 15,
+      digital_ad: 5,
+      phone: 5,
+    },
+    recommendedFrequency: 3,
+    recommendedDuration: 6,
+    contentType: "educational",
+  },
+  launching: {
+    label: "Launching",
+    description: "Active product launch phase",
+    rationale: "Balanced multi-channel blitz. Increase digital presence and rep visits for product demos. High frequency to maximize awareness during launch window.",
+    channelMix: {
+      email: 25,
+      rep_visit: 30,
+      webinar: 15,
+      conference: 5,
+      digital_ad: 20,
+      phone: 5,
+    },
+    recommendedFrequency: 8,
+    recommendedDuration: 3,
+    contentType: "mixed",
+  },
+  mature: {
+    label: "Mature",
+    description: "Established product maintenance",
+    rationale: "Efficient touch strategy for retention. Lower frequency with strategic touchpoints. Focus on clinical data to maintain prescriber confidence.",
+    channelMix: {
+      email: 35,
+      rep_visit: 20,
+      webinar: 10,
+      conference: 10,
+      digital_ad: 15,
+      phone: 10,
+    },
+    recommendedFrequency: 4,
+    recommendedDuration: 6,
+    contentType: "clinical_data",
+  },
+};
+
 // Helper component for parameter labels with tooltips
 function LabelWithTooltip({ label, tooltip }: { label: string; tooltip: string }) {
   return (
@@ -108,6 +172,23 @@ export function SimulationBuilder({
   });
   const [expandedAudience, setExpandedAudience] = useState(false);
   const [includeLookalikes, setIncludeLookalikes] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<PresetKey>("custom");
+  const [showPresetRationale, setShowPresetRationale] = useState(false);
+
+  const applyPreset = (presetKey: Exclude<PresetKey, "custom">) => {
+    const preset = channelPresets[presetKey];
+    setChannelMix(preset.channelMix);
+    setFrequency(preset.recommendedFrequency);
+    setDuration(preset.recommendedDuration);
+    setContentType(preset.contentType);
+    setSelectedPreset(presetKey);
+    setShowPresetRationale(true);
+  };
+
+  const handleChannelManualChange = (channel: Channel, value: number) => {
+    setChannelMix((prev) => ({ ...prev, [channel]: value }));
+    setSelectedPreset("custom"); // Switch to custom when manually adjusted
+  };
 
   const { data: allHcps = [] } = useQuery<HCPProfile[]>({
     queryKey: ["/api/hcps"],
@@ -127,10 +208,6 @@ export function SimulationBuilder({
 
   const totalAllocation = Object.values(channelMix).reduce((a, b) => a + b, 0);
   const isValidAllocation = totalAllocation === 100;
-
-  const handleChannelChange = (channel: Channel, value: number) => {
-    setChannelMix((prev) => ({ ...prev, [channel]: value }));
-  };
 
   const normalizeChannels = () => {
     const total = Object.values(channelMix).reduce((a, b) => a + b, 0);
@@ -187,6 +264,8 @@ export function SimulationBuilder({
       phone: 5,
     });
     setIncludeLookalikes(false);
+    setSelectedPreset("custom");
+    setShowPresetRationale(false);
   };
 
   const audienceCount = useMemo(() => {
@@ -352,37 +431,98 @@ export function SimulationBuilder({
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {(Object.entries(channelMix) as [Channel, number][]).map(([channel, value]) => {
-                const Icon = channelIcons[channel];
-                return (
-                  <div key={channel} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-2 cursor-help">
-                            <Icon className="h-4 w-4 text-muted-foreground" />
-                            <Label className="text-sm cursor-help">{channelLabels[channel]}</Label>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[200px]">
-                          <p className="text-xs">{channelTooltips[channel]}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <span className="font-mono text-sm">{value}%</span>
+          <CardContent className="space-y-4">
+            {/* Preset selector */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <LabelWithTooltip
+                  label="Quick Start Preset"
+                  tooltip="Pre-configured channel mixes optimized for different product lifecycle stages"
+                />
+                <Badge variant="outline" className="text-xs">
+                  {selectedPreset === "custom" ? "Custom" : channelPresets[selectedPreset].label}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {(Object.entries(channelPresets) as [Exclude<PresetKey, "custom">, ChannelPreset][]).map(
+                  ([key, preset]) => (
+                    <Tooltip key={key}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={selectedPreset === key ? "default" : "outline"}
+                          size="sm"
+                          className="w-full"
+                          onClick={() => applyPreset(key)}
+                          data-testid={`button-preset-${key}`}
+                        >
+                          {preset.label}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[220px]">
+                        <p className="font-medium text-xs">{preset.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{preset.rationale}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                )}
+              </div>
+
+              {/* Preset rationale banner */}
+              {showPresetRationale && selectedPreset !== "custom" && (
+                <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-medium text-primary">{channelPresets[selectedPreset].label} Strategy</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {channelPresets[selectedPreset].rationale}
+                      </p>
                     </div>
-                    <Slider
-                      value={[value]}
-                      onValueChange={([v]) => handleChannelChange(channel, v)}
-                      min={0}
-                      max={100}
-                      step={5}
-                      data-testid={`slider-channel-${channel}`}
-                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 -mt-1 -mr-1 shrink-0"
+                      onClick={() => setShowPresetRationale(false)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
-                );
-              })}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t pt-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {(Object.entries(channelMix) as [Channel, number][]).map(([channel, value]) => {
+                  const Icon = channelIcons[channel];
+                  return (
+                    <div key={channel} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-2 cursor-help">
+                              <Icon className="h-4 w-4 text-muted-foreground" />
+                              <Label className="text-sm cursor-help">{channelLabels[channel]}</Label>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[200px]">
+                            <p className="text-xs">{channelTooltips[channel]}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <span className="font-mono text-sm">{value}%</span>
+                      </div>
+                      <Slider
+                        value={[value]}
+                        onValueChange={([v]) => handleChannelManualChange(channel, v)}
+                        min={0}
+                        max={100}
+                        step={5}
+                        data-testid={`slider-channel-${channel}`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </CardContent>
         </Card>
