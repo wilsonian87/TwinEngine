@@ -50,8 +50,10 @@ import {
   X,
   RotateCcw,
   Copy,
-  Plus
+  Plus,
+  Activity
 } from "lucide-react";
+import { CohortHealthView } from "./cohort-health-view";
 import { specialties, tiers, segments } from "@shared/schema";
 import type { NLQueryResponse, HCPProfile, HCPFilter, Tier, Segment, Specialty } from "@shared/schema";
 
@@ -98,6 +100,7 @@ export function NLAudienceBuilder() {
   const [refineQuery, setRefineQuery] = useState("");
   const [showRefine, setShowRefine] = useState(false);
   const [aiInsightsOpen, setAiInsightsOpen] = useState(true);
+  const [cohortHealthOpen, setCohortHealthOpen] = useState(false);
   const [lastQueryResult, setLastQueryResult] = useState<NLQueryResponse | null>(null);
 
   // Build filter object from state
@@ -866,6 +869,37 @@ export function NLAudienceBuilder() {
                       </div>
                     );
                   })}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        )}
+
+        {/* Cohort Channel Health Panel */}
+        {filteredHcps.length > 0 && (
+          <Collapsible open={cohortHealthOpen} onOpenChange={setCohortHealthOpen}>
+            <Card className="border-chart-1/20 bg-chart-1/5">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="py-2 cursor-pointer hover:bg-chart-1/10 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <Activity className="h-4 w-4 text-chart-1" />
+                      Channel Health Analysis
+                    </CardTitle>
+                    {cohortHealthOpen ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0">
+                  <CohortHealthView
+                    hcpIds={filteredHcps.map((h) => h.id)}
+                    audienceName={query ? "Current Query Results" : undefined}
+                  />
                 </CardContent>
               </CollapsibleContent>
             </Card>
