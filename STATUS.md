@@ -1260,13 +1260,36 @@ test/server/agents.test.ts  # Agent infrastructure tests
   - MetricCard uses SignalCard with brand styling
   - Catalyst-gold metric values
 
+**Phase 8E: Global UI Polish (Complete)**
+- Button system: Brand variants (primary purple, accent gold), hover glow, press states
+- Form elements: Input, Select, Checkbox, Textarea with purple focus rings
+- Scenario Lab: SignalCard styling with glow/lift effects
+- Created `client/src/lib/brand-copy.ts` - Centralized UI copy strings
+- Updated empty/error states with brand voice ("No signals match.", "Connection interrupted.")
+
+**Phase 8F: White-Label Preparation (Complete)**
+- Created `client/src/lib/white-label.ts`:
+  - WhiteLabelConfig interface for client overrides
+  - mergeWhiteLabelConfig() function for deep merging
+  - applyWhiteLabelColors() for runtime CSS variable injection
+  - applyWhiteLabelTypography() for font customization
+  - initWhiteLabel() initialization function
+  - Example client configuration (EXAMPLE_CLIENT_CONFIG)
+- Created `docs/WHITE-LABEL-GUIDE.md`:
+  - Complete customization reference
+  - Color mapping table
+  - Module name overrides
+  - Build process documentation
+  - Deployment checklist
+
 **Build Status:**
 - TypeScript: Clean (no errors)
-- Build: Success (1.3MB client, 1.4MB server)
+- Build: Success (1.4MB client, 1.4MB server)
 - Tests: 358 passing
 
 **Notes:**
-- OmniVor Labs brand system ready for white-label expansion
-- SignalCard provides consistent premium styling across platform
-- View customizer persists settings to localStorage
+- Phase 8 UI Polish & Rebrand COMPLETE
+- OmniVor Labs brand system fully implemented
+- White-label ready for client customization
+- SignalCard provides consistent premium styling
 - Dark theme set as default for brand cohesion
