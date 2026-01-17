@@ -144,14 +144,14 @@ export function NLAudienceBuilder() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/nl-query/history"] });
       toast({
-        title: "Query Processed",
-        description: `Found ${result.resultCount} matching HCPs`,
+        title: "Signals Detected",
+        description: `${result.resultCount} HCPs match your criteria.`,
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to process your query. Please try rephrasing.",
+        title: "Connection Interrupted",
+        description: "Signal processing failed. Refine your query and retry.",
         variant: "destructive",
       });
     },
@@ -1022,9 +1022,9 @@ export function NLAudienceBuilder() {
             ) : filteredHcps.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Users className="h-10 w-10 text-muted-foreground mb-4 opacity-50" />
-                <h3 className="text-sm font-medium">No HCPs match your criteria</h3>
+                <h3 className="text-sm font-medium">No signals match.</h3>
                 <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                  Try adjusting your filters or using a natural language query
+                  Refine your criteria or describe your target cohort.
                 </p>
               </div>
             ) : (

@@ -304,9 +304,9 @@ export default function HCPExplorer() {
               <div className="mb-4 rounded-full bg-muted p-6">
                 <List className="h-10 w-10 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold">No HCPs found</h3>
+              <h3 className="text-lg font-semibold">No signals match.</h3>
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                Try adjusting your filters or search criteria to find matching healthcare professionals.
+                Refine your filters or adjust search criteria to detect matching signals.
               </p>
               <Button
                 variant="outline"
@@ -314,7 +314,7 @@ export default function HCPExplorer() {
                 onClick={() => setFilter({})}
                 data-testid="button-clear-all"
               >
-                Clear all filters
+                Reset filters
               </Button>
             </div>
           ) : (

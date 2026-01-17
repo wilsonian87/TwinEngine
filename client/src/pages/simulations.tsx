@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch, useLocation } from "wouter";
 import { FlaskConical, Clock, ArrowRight, AlertCircle, X, GitBranch } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { SignalCard, SignalCardContent, SignalCardHeader } from "@/components/ui/signal-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -61,14 +61,14 @@ export default function Simulations() {
       setCurrentResult(result);
       queryClient.invalidateQueries({ queryKey: ["/api/simulations/history"] });
       toast({
-        title: "Simulation Complete",
-        description: `Predicted ${result.predictedRxLift.toFixed(1)}% Rx lift with ${result.predictedEngagementRate.toFixed(1)}% engagement rate.`,
+        title: "Scenario Complete",
+        description: `Predicted ${result.predictedRxLift.toFixed(1)}% Rx lift with ${result.predictedEngagementRate.toFixed(1)}% signal strength.`,
       });
     },
     onError: () => {
       toast({
-        title: "Simulation Failed",
-        description: "There was an error running the simulation. Please try again.",
+        title: "Connection Interrupted",
+        description: "Scenario computation failed. Retry with adjusted parameters.",
         variant: "destructive",
       });
     },
@@ -179,71 +179,84 @@ export default function Simulations() {
                 <div className="mb-4 rounded-full bg-muted p-6">
                   <FlaskConical className="h-10 w-10 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-semibold">No simulations yet</h3>
+                <h3 className="text-lg font-semibold">No scenarios run yet.</h3>
                 <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                  Build your first campaign scenario to see predicted outcomes and optimize your HCP engagement strategy.
+                  Build your first scenario to predict outcomes and optimize engagement signals.
                 </p>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {history.map((result) => (
-                  <Card key={result.id} className="hover-elevate" data-testid={`card-simulation-${result.id}`}>
-                    <CardHeader className="pb-2">
+                  <SignalCard
+                    key={result.id}
+                    variant="default"
+                    glowOnHover
+                    liftOnHover
+                    clickable
+                    className="cursor-pointer"
+                    onClick={() => setCurrentResult(result)}
+                    data-testid={`card-simulation-${result.id}`}
+                  >
+                    <SignalCardHeader>
                       <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base">{result.scenarioName}</CardTitle>
+                        <h3 className="text-base font-semibold text-foreground">{result.scenarioName}</h3>
                         <Badge
                           variant={result.vsBaseline.rxLiftDelta >= 0 ? "default" : "secondary"}
+                          className={result.vsBaseline.rxLiftDelta >= 0 ? "bg-emerald-500/20 text-emerald-400 border-0" : ""}
                         >
                           {result.vsBaseline.rxLiftDelta >= 0 ? "+" : ""}
                           {result.vsBaseline.rxLiftDelta.toFixed(1)}%
                         </Badge>
                       </div>
-                      <CardDescription className="flex items-center gap-1">
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                         <Clock className="h-3 w-3" />
                         {formatDate(result.runAt)}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                      </p>
+                    </SignalCardHeader>
+                    <SignalCardContent>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <span className="text-xs text-muted-foreground">Engagement</span>
-                          <p className="font-mono font-semibold text-chart-1" data-testid={`text-sim-engagement-${result.id}`}>
+                          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Signal</span>
+                          <p className="font-mono text-lg font-bold" style={{ color: "var(--process-violet, #a855f7)" }} data-testid={`text-sim-engagement-${result.id}`}>
                             {result.predictedEngagementRate.toFixed(1)}%
                           </p>
                         </div>
                         <div>
-                          <span className="text-xs text-muted-foreground">Response</span>
-                          <p className="font-mono font-semibold" data-testid={`text-sim-response-${result.id}`}>
+                          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Response</span>
+                          <p className="font-mono text-lg font-bold text-foreground" data-testid={`text-sim-response-${result.id}`}>
                             {result.predictedResponseRate.toFixed(1)}%
                           </p>
                         </div>
                         <div>
-                          <span className="text-xs text-muted-foreground">Rx Lift</span>
-                          <p className="font-mono font-semibold text-chart-2" data-testid={`text-sim-rxlift-${result.id}`}>
+                          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Rx Lift</span>
+                          <p className="font-mono text-lg font-bold" style={{ color: "var(--catalyst-gold, #d97706)" }} data-testid={`text-sim-rxlift-${result.id}`}>
                             +{result.predictedRxLift.toFixed(1)}%
                           </p>
                         </div>
                         <div>
-                          <span className="text-xs text-muted-foreground">Reach</span>
-                          <p className="font-mono font-semibold" data-testid={`text-sim-reach-${result.id}`}>
+                          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Reach</span>
+                          <p className="font-mono text-lg font-bold text-foreground" data-testid={`text-sim-reach-${result.id}`}>
                             {result.predictedReach.toLocaleString()}
                           </p>
                         </div>
                       </div>
-                      <div className="mt-4">
+                      <div className="mt-4 pt-3 border-t border-border/50">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="w-full"
-                          onClick={() => setCurrentResult(result)}
+                          className="w-full text-xs hover:text-purple-400"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentResult(result);
+                          }}
                           data-testid={`button-view-result-${result.id}`}
                         >
                           View Details
-                          <ArrowRight className="ml-2 h-4 w-4" />
+                          <ArrowRight className="ml-2 h-3 w-3" />
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </SignalCardContent>
+                  </SignalCard>
                 ))}
               </div>
             )}
