@@ -12,6 +12,8 @@ import {
   ListTodo,
   GitCompare,
   Bot,
+  Shield,
+  Beaker,
 } from "lucide-react";
 import {
   Sidebar,
@@ -84,6 +86,18 @@ const systemItems = [
     url: "/agents",
     icon: Bot,
     description: "Autonomous agents & alerts",
+  },
+  {
+    title: "Constraints",
+    url: "/constraints",
+    icon: Shield,
+    description: "Capacity, budget & compliance",
+  },
+  {
+    title: "Allocation Lab",
+    url: "/allocation-lab",
+    icon: Beaker,
+    description: "Portfolio optimization",
   },
   {
     title: "Settings",

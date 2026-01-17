@@ -19,6 +19,8 @@ import ModelEvaluationPage from "@/pages/model-evaluation";
 import Settings from "@/pages/settings";
 import Landing from "@/pages/landing";
 import AgentsPage from "@/pages/agents";
+import ConstraintsPage from "@/pages/constraints";
+import AllocationLabPage from "@/pages/allocation-lab";
 
 function Router() {
   return (
@@ -34,6 +36,8 @@ function Router() {
       <Route path="/model-evaluation" component={ModelEvaluationPage} />
       <Route path="/settings" component={Settings} />
       <Route path="/agents" component={AgentsPage} />
+      <Route path="/constraints" component={ConstraintsPage} />
+      <Route path="/allocation-lab" component={AllocationLabPage} />
       <Route component={NotFound} />
     </Switch>
   );

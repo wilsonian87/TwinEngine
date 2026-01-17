@@ -1,5 +1,6 @@
-import type { HCPProfile, Channel } from "@shared/schema";
+import type { HCPProfile, Channel, ConstraintCheckResult } from "@shared/schema";
 import { classifyChannelHealth, type ChannelHealth, type HealthStatus } from "./channel-health";
+import { constraintManager } from "./constraint-manager";
 
 /**
  * Next Best Action (NBA) Engine
@@ -335,5 +336,273 @@ export function getNBASummary(nbas: NextBestAction[]): {
     byActionType,
     byChannel,
     avgConfidence: nbas.length > 0 ? Math.round(totalConfidence / nbas.length) : 0,
+  };
+}
+
+// ============================================================================
+// PHASE 7A: CONSTRAINT-AWARE NBA GENERATION
+// ============================================================================
+
+/**
+ * Extended NBA result with constraint information
+ */
+export interface ConstrainedNBA extends NextBestAction {
+  constraintCheck: ConstraintCheckResult;
+  isExecutable: boolean;
+  blockedReason?: string;
+  alternativeChannel?: Channel;
+}
+
+/**
+ * Validate a single NBA against constraints
+ */
+export async function validateNBAConstraints(
+  nba: NextBestAction,
+  campaignId?: string,
+  repId?: string
+): Promise<ConstrainedNBA> {
+  const constraintResult = await constraintManager.checkConstraints({
+    hcpId: nba.hcpId,
+    channel: nba.recommendedChannel,
+    actionType: nba.actionType,
+    plannedDate: new Date().toISOString(),
+    campaignId,
+    repId,
+  });
+
+  const isExecutable = constraintResult.passed;
+  const blockedReason = !isExecutable
+    ? constraintResult.violations.map(v => v.reason).join("; ")
+    : undefined;
+
+  return {
+    ...nba,
+    constraintCheck: constraintResult,
+    isExecutable,
+    blockedReason,
+  };
+}
+
+/**
+ * Validate multiple NBAs against constraints and filter out blocked ones
+ */
+export async function validateNBAsWithConstraints(
+  nbas: NextBestAction[],
+  campaignId?: string,
+  repId?: string,
+  includeBlocked: boolean = false
+): Promise<ConstrainedNBA[]> {
+  const validatedNBAs = await Promise.all(
+    nbas.map(nba => validateNBAConstraints(nba, campaignId, repId))
+  );
+
+  if (includeBlocked) {
+    return validatedNBAs;
+  }
+
+  return validatedNBAs.filter(nba => nba.isExecutable);
+}
+
+/**
+ * Generate NBAs with constraint awareness - tries alternative channels if primary is blocked
+ */
+export async function generateConstraintAwareNBA(
+  hcp: HCPProfile,
+  channelHealth?: ChannelHealth[],
+  config: NBAConfig = { prioritizeOpportunities: true, addressBlocked: true, reEngageThresholdDays: 60, minConfidenceThreshold: 40 },
+  campaignId?: string,
+  repId?: string
+): Promise<ConstrainedNBA> {
+  const health = channelHealth || classifyChannelHealth(hcp);
+  const channels: Channel[] = ["email", "phone", "rep_visit", "webinar", "conference", "digital_ad"];
+
+  // Try channels in order of health status preference
+  const sortedChannels = [...health].sort((a, b) => {
+    const statusPriority: Record<HealthStatus, number> = {
+      opportunity: 1,
+      active: 2,
+      declining: 3,
+      dark: 4,
+      blocked: 5,
+    };
+    const priorityDiff = statusPriority[a.status] - statusPriority[b.status];
+    if (priorityDiff !== 0) return priorityDiff;
+    return b.score - a.score;
+  });
+
+  // Try each channel until we find one that passes constraints
+  for (const channelHealth of sortedChannels) {
+    const nba = generateNBAForChannel(hcp, channelHealth, config);
+    const constraintResult = await constraintManager.checkConstraints({
+      hcpId: hcp.id,
+      channel: channelHealth.channel,
+      actionType: nba.actionType,
+      plannedDate: new Date().toISOString(),
+      campaignId,
+      repId,
+    });
+
+    if (constraintResult.passed) {
+      return {
+        ...nba,
+        constraintCheck: constraintResult,
+        isExecutable: true,
+      };
+    }
+
+    // Continue trying other channels if this one has hard constraints
+    const hasHardViolation = constraintResult.violations.some(v => v.severity === "error");
+    if (!hasHardViolation) {
+      // Soft violations (warnings) - return but mark as needing attention
+      return {
+        ...nba,
+        constraintCheck: constraintResult,
+        isExecutable: true,
+        blockedReason: constraintResult.warnings.join("; "),
+      };
+    }
+  }
+
+  // If all channels are blocked, return the primary recommendation with constraint info
+  const primaryNBA = generateNBA(hcp, health, config);
+  const constraintResult = await constraintManager.checkConstraints({
+    hcpId: hcp.id,
+    channel: primaryNBA.recommendedChannel,
+    actionType: primaryNBA.actionType,
+    plannedDate: new Date().toISOString(),
+    campaignId,
+    repId,
+  });
+
+  return {
+    ...primaryNBA,
+    constraintCheck: constraintResult,
+    isExecutable: false,
+    blockedReason: constraintResult.violations.map(v => v.reason).join("; "),
+  };
+}
+
+/**
+ * Generate NBA for a specific channel (helper function)
+ */
+function generateNBAForChannel(
+  hcp: HCPProfile,
+  channelHealth: ChannelHealth,
+  config: NBAConfig
+): NextBestAction {
+  let actionType: ActionType;
+  let confidence: number;
+  let reasoning: string;
+  let urgency: "high" | "medium" | "low";
+  let suggestedTiming: string;
+
+  switch (channelHealth.status) {
+    case "opportunity":
+      actionType = "expand";
+      confidence = Math.min(90, channelHealth.score + 15);
+      reasoning = `High affinity (score: ${channelHealth.score}) with limited engagement. Significant growth potential.`;
+      urgency = "high";
+      suggestedTiming = "Within the next week";
+      break;
+
+    case "declining":
+      actionType = "re_engage";
+      confidence = 75;
+      reasoning = channelHealth.lastContactDays !== null && channelHealth.lastContactDays > config.reEngageThresholdDays
+        ? `No contact in ${channelHealth.lastContactDays} days. Re-engagement is critical.`
+        : `Response rate dropped to ${channelHealth.responseRate}%. Proactive outreach recommended.`;
+      urgency = "high";
+      suggestedTiming = "ASAP";
+      break;
+
+    case "blocked":
+      actionType = "reduce_frequency";
+      confidence = 50;
+      reasoning = `Channel shows signs of fatigue (${channelHealth.responseRate}% response rate).`;
+      urgency = "medium";
+      suggestedTiming = "Within 1 month";
+      break;
+
+    case "active":
+      actionType = channelHealth.lastContactDays !== null && channelHealth.lastContactDays < 14
+        ? "follow_up"
+        : "maintain";
+      confidence = Math.min(95, channelHealth.score + 20);
+      reasoning = `Strong engagement (${channelHealth.responseRate}% response rate). Continue current cadence.`;
+      urgency = "low";
+      suggestedTiming = "Regular cadence";
+      break;
+
+    case "dark":
+    default:
+      actionType = "reach_out";
+      confidence = 45;
+      reasoning = `Limited engagement history on ${channelHealth.channel}.`;
+      urgency = "low";
+      suggestedTiming = "Flexible";
+  }
+
+  // Boost confidence for preferred channel
+  if (channelHealth.channel === hcp.channelPreference) {
+    confidence = Math.min(100, confidence + 10);
+    reasoning += ` (Aligned with stated channel preference)`;
+  }
+
+  return {
+    hcpId: hcp.id,
+    hcpName: `${hcp.firstName} ${hcp.lastName}`,
+    recommendedChannel: channelHealth.channel,
+    actionType,
+    confidence,
+    reasoning,
+    urgency,
+    suggestedTiming,
+    channelHealth: channelHealth.status,
+    metrics: {
+      channelScore: channelHealth.score,
+      responseRate: channelHealth.responseRate,
+      lastContactDays: channelHealth.lastContactDays,
+    },
+  };
+}
+
+/**
+ * Get constraint-aware NBA summary
+ */
+export async function getConstraintAwareNBASummary(
+  nbas: ConstrainedNBA[]
+): Promise<{
+  totalActions: number;
+  executableActions: number;
+  blockedActions: number;
+  byUrgency: Record<string, number>;
+  byActionType: Record<string, number>;
+  byChannel: Record<string, number>;
+  avgConfidence: number;
+  constraintViolations: {
+    type: string;
+    count: number;
+  }[];
+}> {
+  const baseSummary = getNBASummary(nbas);
+  const executableNBAs = nbas.filter(n => n.isExecutable);
+  const blockedNBAs = nbas.filter(n => !n.isExecutable);
+
+  // Count violations by type
+  const violationCounts: Record<string, number> = {};
+  for (const nba of blockedNBAs) {
+    for (const violation of nba.constraintCheck.violations) {
+      violationCounts[violation.constraintType] = (violationCounts[violation.constraintType] || 0) + 1;
+    }
+  }
+
+  return {
+    ...baseSummary,
+    executableActions: executableNBAs.length,
+    blockedActions: blockedNBAs.length,
+    constraintViolations: Object.entries(violationCounts).map(([type, count]) => ({
+      type,
+      count,
+    })),
   };
 }

@@ -72,11 +72,22 @@ export {
   type SchedulerState,
 } from "./scheduler";
 
+// Optimization Agent
+export {
+  OptimizationAgent,
+  optimizationAgent,
+  type OptimizationAgentInput,
+  type PlanPerformanceMetrics,
+  type OptimizationRecommendation,
+  type OptimizationAgentOutput,
+} from "./optimization-agent";
+
 // Initialize and register agents
 import { AgentRegistry } from "./base-agent";
 import { channelHealthMonitor } from "./channel-health-monitor";
 import { insightSynthesizer } from "./insight-synthesizer";
 import { orchestrator } from "./orchestrator";
+import { optimizationAgent } from "./optimization-agent";
 
 /**
  * Initialize all agents and register them
@@ -92,6 +103,9 @@ export function initializeAgents(): AgentRegistry {
 
   // Register Orchestrator (uses alert_manager type)
   registry.register(orchestrator);
+
+  // Register Optimization Agent
+  registry.register(optimizationAgent);
 
   return registry;
 }

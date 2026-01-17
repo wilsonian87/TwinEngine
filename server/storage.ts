@@ -21,6 +21,11 @@ import {
   agentRuns,
   agentActions,
   alerts,
+  // Phase 7B: Attribution tables
+  outcomeEvents,
+  attributionConfig,
+  predictionStaleness,
+  outcomeAttributions,
   type User,
   type InsertUser,
   type InviteCode,
@@ -1971,6 +1976,63 @@ export class DatabaseStorage implements IStorage {
       .from(alerts)
       .where(eq(alerts.status, "active"));
     return result[0]?.count ?? 0;
+  }
+
+  // ============================================================================
+  // Phase 7B: Attribution & Staleness Storage Methods
+  // ============================================================================
+
+  // Outcome events
+  async getOutcomeEventsByHcp(hcpId: string): Promise<typeof outcomeEvents.$inferSelect[]> {
+    return db
+      .select()
+      .from(outcomeEvents)
+      .where(eq(outcomeEvents.hcpId, hcpId))
+      .orderBy(desc(outcomeEvents.eventDate));
+  }
+
+  // Attribution configs
+  async getAttributionConfigs(): Promise<typeof attributionConfig.$inferSelect[]> {
+    return db.select().from(attributionConfig).orderBy(attributionConfig.channel);
+  }
+
+  // Prediction staleness
+  async getPredictionStalenessForHcp(hcpId: string): Promise<typeof predictionStaleness.$inferSelect[]> {
+    return db
+      .select()
+      .from(predictionStaleness)
+      .where(eq(predictionStaleness.hcpId, hcpId));
+  }
+
+  async getHcpsNeedingRefresh(predictionType?: string, limit: number = 100): Promise<typeof predictionStaleness.$inferSelect[]> {
+    const conditions = [eq(predictionStaleness.recommendRefresh, true)];
+    if (predictionType) {
+      conditions.push(eq(predictionStaleness.predictionType, predictionType));
+    }
+
+    return db
+      .select()
+      .from(predictionStaleness)
+      .where(and(...conditions))
+      .orderBy(desc(predictionStaleness.stalenessScore))
+      .limit(limit);
+  }
+
+  // Outcome attributions
+  async getAttributionsForOutcome(outcomeId: string): Promise<typeof outcomeAttributions.$inferSelect[]> {
+    return db
+      .select()
+      .from(outcomeAttributions)
+      .where(eq(outcomeAttributions.outcomeEventId, outcomeId))
+      .orderBy(desc(outcomeAttributions.contributionWeight));
+  }
+
+  async getAttributionsForStimulus(stimulusId: string): Promise<typeof outcomeAttributions.$inferSelect[]> {
+    return db
+      .select()
+      .from(outcomeAttributions)
+      .where(eq(outcomeAttributions.stimulusId, stimulusId))
+      .orderBy(desc(outcomeAttributions.createdAt));
   }
 }
 

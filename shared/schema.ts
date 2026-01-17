@@ -432,30 +432,36 @@ export type StimulusType = (typeof stimulusTypes)[number];
 export const stimuliEvents = pgTable("stimuli_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
-  
+
   // Event details
   stimulusType: varchar("stimulus_type", { length: 50 }).notNull(),
   channel: varchar("channel", { length: 20 }).notNull(),
-  
+
   // Event metadata
   contentType: varchar("content_type", { length: 50 }),
   messageVariant: varchar("message_variant", { length: 100 }),
   callToAction: varchar("call_to_action", { length: 200 }),
-  
+
+  // Phase 7-PREP: Extended fields for campaign and rep tracking
+  campaignId: varchar("campaign_id", { length: 100 }),
+  repId: varchar("rep_id", { length: 100 }),
+  contentCategory: varchar("content_category", { length: 50 }),
+  deliveryStatus: varchar("delivery_status", { length: 30 }).default("delivered"),
+
   // Predicted impact (computed when event is created)
   predictedEngagementDelta: real("predicted_engagement_delta"),
   predictedConversionDelta: real("predicted_conversion_delta"),
   confidenceLower: real("confidence_lower"),
   confidenceUpper: real("confidence_upper"),
-  
+
   // Actual outcome (filled in later for closed-loop learning)
   actualEngagementDelta: real("actual_engagement_delta"),
   actualConversionDelta: real("actual_conversion_delta"),
   outcomeRecordedAt: timestamp("outcome_recorded_at"),
-  
+
   // Status
   status: varchar("status", { length: 20 }).notNull().default("predicted"),
-  
+
   eventDate: timestamp("event_date").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -1703,4 +1709,2571 @@ export const acknowledgeAlertRequestSchema = z.object({
 });
 
 export type AcknowledgeAlertRequest = z.infer<typeof acknowledgeAlertRequestSchema>;
+
+// ============================================================================
+// PHASE 7-PREP: DATA FOUNDATION SCHEMA ADDITIONS
+// ============================================================================
+
+// ============================================================================
+// PRESCRIBING HISTORY - Monthly Rx snapshots
+// ============================================================================
+
+export const prescribingHistory = pgTable("prescribing_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+
+  // Time period
+  month: varchar("month", { length: 7 }).notNull(), // YYYY-MM format
+
+  // Prescribing metrics
+  totalRx: integer("total_rx").notNull().default(0),
+  newRx: integer("new_rx").notNull().default(0),
+  refillRx: integer("refill_rx").notNull().default(0),
+
+  // Market metrics
+  marketShare: real("market_share").default(0),
+  competitorShare: real("competitor_share").default(0),
+
+  // Product breakdown (JSONB for flexibility)
+  productBreakdown: jsonb("product_breakdown").$type<Record<string, number>>(),
+
+  // Trend indicators
+  momChange: real("mom_change"), // Month-over-month change percentage
+  yoyChange: real("yoy_change"), // Year-over-year change percentage
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPrescribingHistorySchema = createInsertSchema(prescribingHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPrescribingHistory = z.infer<typeof insertPrescribingHistorySchema>;
+export type PrescribingHistoryDB = typeof prescribingHistory.$inferSelect;
+
+// ============================================================================
+// TERRITORY ASSIGNMENTS - Rep-HCP mappings
+// ============================================================================
+
+export const territoryAssignments = pgTable("territory_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Rep information
+  repId: varchar("rep_id", { length: 100 }).notNull(),
+  repName: varchar("rep_name", { length: 200 }).notNull(),
+  repEmail: varchar("rep_email", { length: 255 }),
+
+  // HCP assignment
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+
+  // Assignment details
+  assignmentType: varchar("assignment_type", { length: 30 }).notNull().default("primary"), // primary, secondary, backup
+  territory: varchar("territory", { length: 100 }),
+  region: varchar("region", { length: 100 }),
+  district: varchar("district", { length: 100 }),
+
+  // Assignment period
+  effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertTerritoryAssignmentSchema = createInsertSchema(territoryAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTerritoryAssignment = z.infer<typeof insertTerritoryAssignmentSchema>;
+export type TerritoryAssignmentDB = typeof territoryAssignments.$inferSelect;
+
+// ============================================================================
+// CAMPAIGNS - Historical campaign definitions
+// ============================================================================
+
+export const campaignStatuses = ["draft", "active", "paused", "completed", "cancelled"] as const;
+export type CampaignStatus = (typeof campaignStatuses)[number];
+
+export const campaigns = pgTable("campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Campaign identity
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  campaignCode: varchar("campaign_code", { length: 50 }).unique(),
+
+  // Campaign type
+  campaignType: varchar("campaign_type", { length: 50 }), // launch, maintenance, awareness, retention
+  therapeuticArea: varchar("therapeutic_area", { length: 100 }),
+  product: varchar("product", { length: 100 }),
+
+  // Phase 7D: Campaign coordination fields
+  brand: varchar("brand", { length: 100 }),
+  businessUnit: varchar("business_unit", { length: 100 }),
+  priority: integer("priority").notNull().default(50), // 1-100, higher = more important
+  targetAudienceId: varchar("target_audience_id").references(() => savedAudiences.id),
+  createdBy: varchar("created_by", { length: 100 }),
+
+  // Timing
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+
+  // Channel strategy
+  primaryChannel: varchar("primary_channel", { length: 30 }),
+  channelMix: jsonb("channel_mix").$type<Record<string, number>>(),
+
+  // Targeting
+  targetSegments: jsonb("target_segments").$type<string[]>(),
+  targetSpecialties: jsonb("target_specialties").$type<string[]>(),
+  targetTiers: jsonb("target_tiers").$type<string[]>(),
+
+  // Goals
+  goalType: varchar("goal_type", { length: 50 }), // engagement, conversion, awareness, rx_lift
+  goalValue: real("goal_value"),
+
+  // Budget
+  budget: real("budget"),
+  spentToDate: real("spent_to_date").default(0),
+
+  // Performance summary (updated periodically)
+  totalReach: integer("total_reach").default(0),
+  totalEngagements: integer("total_engagements").default(0),
+  responseRate: real("response_rate"),
+
+  // Status
+  status: varchar("status", { length: 20 }).notNull().default("draft"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCampaignSchema = createInsertSchema(campaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+export type CampaignDB = typeof campaigns.$inferSelect;
+
+// ============================================================================
+// CAMPAIGN PARTICIPATION - HCP enrollment tracking
+// ============================================================================
+
+export const campaignParticipation = pgTable("campaign_participation", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+
+  // Enrollment details
+  enrolledAt: timestamp("enrolled_at").notNull().defaultNow(),
+  enrollmentSource: varchar("enrollment_source", { length: 50 }), // auto, manual, import
+
+  // Participation status
+  status: varchar("status", { length: 30 }).notNull().default("enrolled"), // enrolled, active, completed, opted_out
+  optOutReason: text("opt_out_reason"),
+  optOutAt: timestamp("opt_out_at"),
+
+  // Engagement summary for this HCP in this campaign
+  touchCount: integer("touch_count").default(0),
+  responseCount: integer("response_count").default(0),
+  lastTouchAt: timestamp("last_touch_at"),
+  lastResponseAt: timestamp("last_response_at"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCampaignParticipationSchema = createInsertSchema(campaignParticipation).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCampaignParticipation = z.infer<typeof insertCampaignParticipationSchema>;
+export type CampaignParticipationDB = typeof campaignParticipation.$inferSelect;
+
+// ============================================================================
+// OUTCOME EVENTS - Response tracking with attribution
+// ============================================================================
+
+export const outcomeTypes = [
+  "email_open",
+  "email_click",
+  "webinar_register",
+  "webinar_attend",
+  "content_download",
+  "sample_request",
+  "meeting_scheduled",
+  "meeting_completed",
+  "rx_written",
+  "form_submit",
+  "call_completed",
+  "referral",
+] as const;
+
+export type OutcomeType = (typeof outcomeTypes)[number];
+
+export const outcomeEvents = pgTable("outcome_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // HCP reference
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+
+  // Attribution - link to triggering stimulus
+  stimulusId: varchar("stimulus_id").references(() => stimuliEvents.id),
+  campaignId: varchar("campaign_id").references(() => campaigns.id),
+
+  // Outcome details
+  outcomeType: varchar("outcome_type", { length: 50 }).notNull(),
+  channel: varchar("channel", { length: 30 }).notNull(),
+
+  // Value/Impact
+  outcomeValue: real("outcome_value"), // Quantitative value if applicable
+  qualityScore: integer("quality_score"), // 1-10 quality rating
+
+  // Context
+  contentId: varchar("content_id", { length: 100 }),
+  contentName: varchar("content_name", { length: 200 }),
+
+  // Attribution metadata
+  attributionType: varchar("attribution_type", { length: 30 }).default("direct"), // direct, assisted, organic
+  attributionWeight: real("attribution_weight").default(1.0),
+  touchesInWindow: integer("touches_in_window"), // Number of touches before conversion
+  daysSinceLastTouch: integer("days_since_last_touch"),
+
+  eventDate: timestamp("event_date").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertOutcomeEventSchema = createInsertSchema(outcomeEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOutcomeEvent = z.infer<typeof insertOutcomeEventSchema>;
+export type OutcomeEventDB = typeof outcomeEvents.$inferSelect;
+
+// ============================================================================
+// CHANNEL CAPACITY - Daily/weekly limits
+// ============================================================================
+
+export const channelCapacity = pgTable("channel_capacity", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Channel identification
+  channel: varchar("channel", { length: 30 }).notNull(),
+  repId: varchar("rep_id", { length: 100 }), // Null for org-wide limits
+  territory: varchar("territory", { length: 100 }),
+
+  // Capacity limits
+  dailyLimit: integer("daily_limit"),
+  weeklyLimit: integer("weekly_limit"),
+  monthlyLimit: integer("monthly_limit"),
+
+  // Current usage (reset periodically)
+  dailyUsed: integer("daily_used").default(0),
+  weeklyUsed: integer("weekly_used").default(0),
+  monthlyUsed: integer("monthly_used").default(0),
+
+  // Cost per touch (for budget allocation)
+  costPerTouch: real("cost_per_touch"),
+
+  // Priority settings
+  priority: integer("priority").default(0), // Higher = preferred
+
+  // Availability windows (JSONB for flexibility)
+  availabilityWindows: jsonb("availability_windows").$type<{
+    dayOfWeek: number[];
+    startHour: number;
+    endHour: number;
+  }[]>(),
+
+  // Status
+  isActive: boolean("is_active").default(true),
+
+  effectiveFrom: timestamp("effective_from").notNull().defaultNow(),
+  effectiveTo: timestamp("effective_to"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertChannelCapacitySchema = createInsertSchema(channelCapacity).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertChannelCapacity = z.infer<typeof insertChannelCapacitySchema>;
+export type ChannelCapacityDB = typeof channelCapacity.$inferSelect;
+
+// ============================================================================
+// HCP CONTACT LIMITS - Per-HCP contact constraints
+// ============================================================================
+
+export const hcpContactLimits = pgTable("hcp_contact_limits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id).unique(),
+
+  // Global limits
+  maxTouchesPerWeek: integer("max_touches_per_week").default(3),
+  maxTouchesPerMonth: integer("max_touches_per_month").default(8),
+
+  // Channel-specific limits (JSONB)
+  channelLimits: jsonb("channel_limits").$type<Record<string, {
+    maxPerWeek: number;
+    maxPerMonth: number;
+    minDaysBetween: number;
+  }>>(),
+
+  // Preferred contact windows
+  preferredDays: jsonb("preferred_days").$type<number[]>(), // 0-6, Sunday-Saturday
+  preferredHours: jsonb("preferred_hours").$type<{ start: number; end: number }>(),
+
+  // Blackout periods
+  blackoutDates: jsonb("blackout_dates").$type<string[]>(), // ISO date strings
+
+  // Contact preferences
+  preferredChannel: varchar("preferred_channel", { length: 30 }),
+  doNotContact: boolean("do_not_contact").default(false),
+  doNotContactReason: text("do_not_contact_reason"),
+
+  // Current period usage
+  touchesThisWeek: integer("touches_this_week").default(0),
+  touchesThisMonth: integer("touches_this_month").default(0),
+  lastResetAt: timestamp("last_reset_at"),
+
+  // Last contact info
+  lastContactAt: timestamp("last_contact_at"),
+  lastContactChannel: varchar("last_contact_channel", { length: 30 }),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertHcpContactLimitsSchema = createInsertSchema(hcpContactLimits).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertHcpContactLimits = z.infer<typeof insertHcpContactLimitsSchema>;
+export type HcpContactLimitsDB = typeof hcpContactLimits.$inferSelect;
+
+// ============================================================================
+// PHASE 7-PREP API TYPES
+// ============================================================================
+
+// Prescribing History (API type)
+export const prescribingHistorySchema = z.object({
+  id: z.string(),
+  hcpId: z.string(),
+  month: z.string(),
+  totalRx: z.number(),
+  newRx: z.number(),
+  refillRx: z.number(),
+  marketShare: z.number().nullable(),
+  competitorShare: z.number().nullable(),
+  productBreakdown: z.record(z.number()).nullable(),
+  momChange: z.number().nullable(),
+  yoyChange: z.number().nullable(),
+  createdAt: z.string(),
+});
+
+export type PrescribingHistory = z.infer<typeof prescribingHistorySchema>;
+
+// Territory Assignment (API type)
+export const territoryAssignmentSchema = z.object({
+  id: z.string(),
+  repId: z.string(),
+  repName: z.string(),
+  repEmail: z.string().nullable(),
+  hcpId: z.string(),
+  assignmentType: z.enum(["primary", "secondary", "backup"]),
+  territory: z.string().nullable(),
+  region: z.string().nullable(),
+  district: z.string().nullable(),
+  effectiveFrom: z.string(),
+  effectiveTo: z.string().nullable(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+});
+
+export type TerritoryAssignment = z.infer<typeof territoryAssignmentSchema>;
+
+// Campaign (API type)
+export const campaignSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  campaignCode: z.string().nullable(),
+  campaignType: z.string(),
+  therapeuticArea: z.string().nullable(),
+  product: z.string().nullable(),
+  startDate: z.string(),
+  endDate: z.string().nullable(),
+  primaryChannel: z.string().nullable(),
+  channelMix: z.record(z.number()).nullable(),
+  targetSegments: z.array(z.string()).nullable(),
+  targetSpecialties: z.array(z.string()).nullable(),
+  targetTiers: z.array(z.string()).nullable(),
+  goalType: z.string().nullable(),
+  goalValue: z.number().nullable(),
+  budget: z.number().nullable(),
+  spentToDate: z.number().nullable(),
+  totalReach: z.number().nullable(),
+  totalEngagements: z.number().nullable(),
+  responseRate: z.number().nullable(),
+  status: z.enum(campaignStatuses),
+  createdAt: z.string(),
+});
+
+export type Campaign = z.infer<typeof campaignSchema>;
+
+// Outcome Event (API type)
+export const outcomeEventSchema = z.object({
+  id: z.string(),
+  hcpId: z.string(),
+  stimulusId: z.string().nullable(),
+  campaignId: z.string().nullable(),
+  outcomeType: z.enum(outcomeTypes),
+  channel: z.string(),
+  outcomeValue: z.number().nullable(),
+  qualityScore: z.number().nullable(),
+  contentId: z.string().nullable(),
+  contentName: z.string().nullable(),
+  attributionType: z.enum(["direct", "assisted", "organic"]),
+  attributionWeight: z.number(),
+  touchesInWindow: z.number().nullable(),
+  daysSinceLastTouch: z.number().nullable(),
+  eventDate: z.string(),
+  createdAt: z.string(),
+});
+
+export type OutcomeEvent = z.infer<typeof outcomeEventSchema>;
+
+// ============================================================================
+// PHASE 7: ORCHESTRATION INTELLIGENCE SCHEMA ADDITIONS
+// ============================================================================
+
+// ============================================================================
+// 7A: COMPLIANCE WINDOWS - Blackout/restricted periods
+// ============================================================================
+
+export const complianceWindowTypes = ["blackout", "restricted", "preferred"] as const;
+export type ComplianceWindowType = (typeof complianceWindowTypes)[number];
+
+export const complianceRecurrenceTypes = ["none", "yearly", "quarterly", "monthly"] as const;
+export type ComplianceRecurrenceType = (typeof complianceRecurrenceTypes)[number];
+
+export const complianceWindows = pgTable("compliance_windows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  channel: varchar("channel", { length: 20 }), // null = all channels
+  windowType: varchar("window_type", { length: 30 }).notNull(), // "blackout", "restricted", "preferred"
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  recurrence: varchar("recurrence", { length: 50 }).default("none"), // "none", "yearly", "quarterly", "monthly"
+  affectedHcpIds: jsonb("affected_hcp_ids").$type<string[] | null>(), // null = all HCPs
+  affectedSpecialties: jsonb("affected_specialties").$type<string[] | null>(),
+  affectedTerritories: jsonb("affected_territories").$type<string[] | null>(),
+  reason: varchar("reason", { length: 100 }), // "conference", "holiday", "regulation"
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: varchar("created_by", { length: 100 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertComplianceWindowSchema = createInsertSchema(complianceWindows).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertComplianceWindow = z.infer<typeof insertComplianceWindowSchema>;
+export type ComplianceWindowDB = typeof complianceWindows.$inferSelect;
+
+// ============================================================================
+// 7A: BUDGET ALLOCATIONS - Budget tracking per campaign/channel/period
+// ============================================================================
+
+export const budgetPeriodTypes = ["daily", "weekly", "monthly", "quarterly", "campaign"] as const;
+export type BudgetPeriodType = (typeof budgetPeriodTypes)[number];
+
+export const budgetAllocations = pgTable("budget_allocations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").references(() => campaigns.id),
+  channel: varchar("channel", { length: 20 }),
+  periodType: varchar("period_type", { length: 20 }).notNull(), // "daily", "weekly", "monthly", "campaign"
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  allocatedAmount: real("allocated_amount").notNull(),
+  spentAmount: real("spent_amount").notNull().default(0),
+  committedAmount: real("committed_amount").notNull().default(0), // planned but not executed
+  costPerAction: jsonb("cost_per_action").$type<Record<string, number>>(), // action_type -> cost
+  currency: varchar("currency", { length: 3 }).notNull().default("USD"),
+  notes: text("notes"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: varchar("created_by", { length: 100 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertBudgetAllocationSchema = createInsertSchema(budgetAllocations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBudgetAllocation = z.infer<typeof insertBudgetAllocationSchema>;
+export type BudgetAllocationDB = typeof budgetAllocations.$inferSelect;
+
+// ============================================================================
+// PHASE 7A: API TYPES
+// ============================================================================
+
+// Compliance Window (API type)
+export const complianceWindowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  channel: z.string().nullable(),
+  windowType: z.enum(complianceWindowTypes),
+  startDate: z.string(),
+  endDate: z.string(),
+  recurrence: z.enum(complianceRecurrenceTypes),
+  affectedHcpIds: z.array(z.string()).nullable(),
+  affectedSpecialties: z.array(z.string()).nullable(),
+  affectedTerritories: z.array(z.string()).nullable(),
+  reason: z.string().nullable(),
+  isActive: z.boolean(),
+  createdBy: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type ComplianceWindow = z.infer<typeof complianceWindowSchema>;
+
+// Budget Allocation (API type)
+export const budgetAllocationSchema = z.object({
+  id: z.string(),
+  campaignId: z.string().nullable(),
+  channel: z.string().nullable(),
+  periodType: z.enum(budgetPeriodTypes),
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  allocatedAmount: z.number(),
+  spentAmount: z.number(),
+  committedAmount: z.number(),
+  costPerAction: z.record(z.number()).nullable(),
+  currency: z.string(),
+  notes: z.string().nullable(),
+  isActive: z.boolean(),
+  createdBy: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type BudgetAllocation = z.infer<typeof budgetAllocationSchema>;
+
+// ============================================================================
+// PHASE 7A: CONSTRAINT CHECK TYPES
+// ============================================================================
+
+// Constraint check result
+export const constraintCheckResultSchema = z.object({
+  passed: z.boolean(),
+  violations: z.array(z.object({
+    constraintType: z.enum(["capacity", "contact_limit", "compliance", "budget", "territory"]),
+    constraintId: z.string().optional(),
+    reason: z.string(),
+    severity: z.enum(["error", "warning"]),
+    details: z.record(z.unknown()).optional(),
+  })),
+  warnings: z.array(z.string()),
+  capacityStatus: z.object({
+    available: z.number(),
+    used: z.number(),
+    limit: z.number(),
+    utilizationPct: z.number(),
+  }).optional(),
+  budgetStatus: z.object({
+    available: z.number(),
+    spent: z.number(),
+    committed: z.number(),
+    allocated: z.number(),
+    utilizationPct: z.number(),
+  }).optional(),
+});
+
+export type ConstraintCheckResult = z.infer<typeof constraintCheckResultSchema>;
+
+// Contact eligibility result
+export const contactEligibilitySchema = z.object({
+  eligible: z.boolean(),
+  reason: z.string().optional(),
+  nextEligibleDate: z.string().optional(),
+  currentTouches: z.number(),
+  maxTouches: z.number(),
+  cooldownDaysRemaining: z.number().optional(),
+});
+
+export type ContactEligibility = z.infer<typeof contactEligibilitySchema>;
+
+// Constraint summary for dashboard
+export const constraintSummarySchema = z.object({
+  capacity: z.array(z.object({
+    channel: z.string(),
+    dailyUsed: z.number(),
+    dailyLimit: z.number(),
+    weeklyUsed: z.number(),
+    weeklyLimit: z.number(),
+    monthlyUsed: z.number(),
+    monthlyLimit: z.number(),
+    utilizationPct: z.number(),
+    status: z.enum(["healthy", "warning", "critical"]),
+  })),
+  budget: z.object({
+    totalAllocated: z.number(),
+    totalSpent: z.number(),
+    totalCommitted: z.number(),
+    utilizationPct: z.number(),
+    byChannel: z.array(z.object({
+      channel: z.string(),
+      allocated: z.number(),
+      spent: z.number(),
+      remaining: z.number(),
+    })),
+  }),
+  compliance: z.object({
+    activeBlackouts: z.number(),
+    upcomingBlackouts: z.number(),
+    affectedHcpCount: z.number(),
+    windows: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      windowType: z.string(),
+      startDate: z.string(),
+      endDate: z.string(),
+      affectedCount: z.number(),
+    })),
+  }),
+  contactLimits: z.object({
+    hcpsAtLimit: z.number(),
+    hcpsNearLimit: z.number(),
+    avgUtilization: z.number(),
+  }),
+});
+
+export type ConstraintSummary = z.infer<typeof constraintSummarySchema>;
+
+// Proposed action for constraint checking
+export const proposedActionForConstraintSchema = z.object({
+  hcpId: z.string(),
+  channel: z.string(),
+  actionType: z.string(),
+  plannedDate: z.string().optional(),
+  estimatedCost: z.number().optional(),
+  campaignId: z.string().optional(),
+  repId: z.string().optional(),
+});
+
+export type ProposedActionForConstraint = z.infer<typeof proposedActionForConstraintSchema>;
+
+// ============================================================================
+// PHASE 7B: OUTCOME STREAM & ATTRIBUTION SCHEMA ADDITIONS
+// ============================================================================
+
+// ============================================================================
+// 7B: ATTRIBUTION CONFIG - Per-channel attribution settings
+// ============================================================================
+
+export const attributionModels = ["first_touch", "last_touch", "linear", "position_based", "time_decay"] as const;
+export type AttributionModel = (typeof attributionModels)[number];
+
+export const decayFunctions = ["none", "linear", "exponential"] as const;
+export type DecayFunction = (typeof decayFunctions)[number];
+
+export const attributionConfig = pgTable("attribution_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  channel: varchar("channel", { length: 20 }).notNull().unique(),
+
+  // Attribution window
+  windowDays: integer("window_days").notNull().default(7), // Days to look back for attributable actions
+
+  // Decay settings
+  decayFunction: varchar("decay_function", { length: 30 }).notNull().default("none"), // "linear", "exponential", "none"
+  decayHalfLifeDays: integer("decay_half_life_days"), // For exponential decay
+
+  // Multi-touch attribution model
+  multiTouchModel: varchar("multi_touch_model", { length: 30 }).notNull().default("last_touch"),
+
+  // Position-based weights (for position_based model)
+  firstTouchWeight: real("first_touch_weight").default(0.4),
+  lastTouchWeight: real("last_touch_weight").default(0.4),
+  middleTouchWeight: real("middle_touch_weight").default(0.2),
+
+  // Minimum confidence threshold for attribution
+  minConfidenceThreshold: real("min_confidence_threshold").default(0.3),
+
+  // Whether to attribute partial credit
+  allowPartialCredit: boolean("allow_partial_credit").notNull().default(true),
+
+  // Description
+  description: text("description"),
+
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAttributionConfigSchema = createInsertSchema(attributionConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAttributionConfig = z.infer<typeof insertAttributionConfigSchema>;
+export type AttributionConfigDB = typeof attributionConfig.$inferSelect;
+
+// ============================================================================
+// 7B: PREDICTION STALENESS - Tracking prediction freshness
+// ============================================================================
+
+export const predictionTypes = ["engagement", "conversion", "nba", "channel_response", "churn"] as const;
+export type PredictionType = (typeof predictionTypes)[number];
+
+export const predictionStaleness = pgTable("prediction_staleness", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+  predictionType: varchar("prediction_type", { length: 50 }).notNull(),
+
+  // Prediction info
+  lastPredictedAt: timestamp("last_predicted_at").notNull(),
+  lastPredictedValue: real("last_predicted_value"),
+  predictionConfidence: real("prediction_confidence"),
+
+  // Validation info
+  lastValidatedAt: timestamp("last_validated_at"),
+  lastActualValue: real("last_actual_value"),
+  validationError: real("validation_error"), // Absolute difference between predicted and actual
+
+  // Staleness metrics
+  predictionAgeDays: integer("prediction_age_days"), // Days since prediction
+  validationAgeDays: integer("validation_age_days"), // Days since last outcome
+  outcomeCount: integer("outcome_count").default(0), // Total outcomes for validation
+
+  // Staleness score (0-1, higher = more stale)
+  stalenessScore: real("staleness_score").default(0),
+
+  // Feature drift detection
+  featureDriftDetected: boolean("feature_drift_detected").default(false),
+  featureDriftScore: real("feature_drift_score"),
+  driftedFeatures: jsonb("drifted_features").$type<string[]>(),
+
+  // Recommendation
+  recommendRefresh: boolean("recommend_refresh").default(false),
+  refreshReason: varchar("refresh_reason", { length: 200 }),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertPredictionStalenessSchema = createInsertSchema(predictionStaleness).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPredictionStaleness = z.infer<typeof insertPredictionStalenessSchema>;
+export type PredictionStalenessDB = typeof predictionStaleness.$inferSelect;
+
+// ============================================================================
+// 7B: OUTCOME ATTRIBUTION RECORDS - Detailed attribution tracking
+// ============================================================================
+
+export const outcomeAttributions = pgTable("outcome_attributions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Outcome reference
+  outcomeEventId: varchar("outcome_event_id").notNull().references(() => outcomeEvents.id),
+
+  // Attributed action
+  stimulusId: varchar("stimulus_id").notNull().references(() => stimuliEvents.id),
+
+  // Attribution details
+  attributionModel: varchar("attribution_model", { length: 30 }).notNull(),
+  contributionWeight: real("contribution_weight").notNull(), // 0-1
+
+  // Timing
+  daysBetweenTouchAndOutcome: integer("days_between_touch_and_outcome").notNull(),
+  touchPosition: integer("touch_position"), // Position in the touch sequence (1 = first, -1 = last)
+  totalTouchesInWindow: integer("total_touches_in_window"),
+
+  // Decay applied
+  decayFactor: real("decay_factor").default(1.0), // Factor applied due to time decay
+
+  // Confidence
+  attributionConfidence: real("attribution_confidence").notNull(),
+
+  // Value attributed
+  attributedValue: real("attributed_value"), // Portion of outcome value attributed to this touch
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertOutcomeAttributionSchema = createInsertSchema(outcomeAttributions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOutcomeAttribution = z.infer<typeof insertOutcomeAttributionSchema>;
+export type OutcomeAttributionDB = typeof outcomeAttributions.$inferSelect;
+
+// ============================================================================
+// PHASE 7B: API TYPES
+// ============================================================================
+
+// Attribution Config (API type)
+export const attributionConfigApiSchema = z.object({
+  id: z.string(),
+  channel: z.string(),
+  windowDays: z.number(),
+  decayFunction: z.enum(decayFunctions),
+  decayHalfLifeDays: z.number().nullable(),
+  multiTouchModel: z.enum(attributionModels),
+  firstTouchWeight: z.number().nullable(),
+  lastTouchWeight: z.number().nullable(),
+  middleTouchWeight: z.number().nullable(),
+  minConfidenceThreshold: z.number().nullable(),
+  allowPartialCredit: z.boolean(),
+  description: z.string().nullable(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+});
+
+export type AttributionConfigApi = z.infer<typeof attributionConfigApiSchema>;
+
+// Prediction Staleness (API type)
+export const predictionStalenessApiSchema = z.object({
+  id: z.string(),
+  hcpId: z.string(),
+  predictionType: z.enum(predictionTypes),
+  lastPredictedAt: z.string(),
+  lastPredictedValue: z.number().nullable(),
+  predictionConfidence: z.number().nullable(),
+  lastValidatedAt: z.string().nullable(),
+  lastActualValue: z.number().nullable(),
+  validationError: z.number().nullable(),
+  predictionAgeDays: z.number().nullable(),
+  validationAgeDays: z.number().nullable(),
+  outcomeCount: z.number(),
+  stalenessScore: z.number(),
+  featureDriftDetected: z.boolean(),
+  featureDriftScore: z.number().nullable(),
+  driftedFeatures: z.array(z.string()).nullable(),
+  recommendRefresh: z.boolean(),
+  refreshReason: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type PredictionStalenessApi = z.infer<typeof predictionStalenessApiSchema>;
+
+// Outcome Attribution (API type)
+export const outcomeAttributionApiSchema = z.object({
+  id: z.string(),
+  outcomeEventId: z.string(),
+  stimulusId: z.string(),
+  attributionModel: z.enum(attributionModels),
+  contributionWeight: z.number(),
+  daysBetweenTouchAndOutcome: z.number(),
+  touchPosition: z.number().nullable(),
+  totalTouchesInWindow: z.number().nullable(),
+  decayFactor: z.number(),
+  attributionConfidence: z.number(),
+  attributedValue: z.number().nullable(),
+  createdAt: z.string(),
+});
+
+export type OutcomeAttributionApi = z.infer<typeof outcomeAttributionApiSchema>;
+
+// ============================================================================
+// 7B: ATTRIBUTION ENGINE TYPES
+// ============================================================================
+
+// Attributable action (action that could have caused an outcome)
+export const attributableActionSchema = z.object({
+  stimulusId: z.string(),
+  hcpId: z.string(),
+  channel: z.string(),
+  stimulusType: z.string(),
+  eventDate: z.string(),
+  daysSinceAction: z.number(),
+  predictedEngagementDelta: z.number().nullable(),
+  predictedConversionDelta: z.number().nullable(),
+});
+
+export type AttributableAction = z.infer<typeof attributableActionSchema>;
+
+// Attribution result
+export const attributionResultSchema = z.object({
+  outcomeEventId: z.string(),
+  primaryAttributedActionId: z.string().nullable(),
+  primaryAttributionConfidence: z.number(),
+  totalContributingActions: z.number(),
+  attributions: z.array(z.object({
+    stimulusId: z.string(),
+    contributionWeight: z.number(),
+    decayFactor: z.number(),
+    confidence: z.number(),
+    touchPosition: z.number(),
+  })),
+  attributionModel: z.enum(attributionModels),
+  windowDays: z.number(),
+});
+
+export type AttributionResult = z.infer<typeof attributionResultSchema>;
+
+// Staleness report
+export const stalenessReportSchema = z.object({
+  totalHcps: z.number(),
+  hcpsNeedingRefresh: z.number(),
+  avgStalenessScore: z.number(),
+  stalenessByType: z.array(z.object({
+    predictionType: z.string(),
+    count: z.number(),
+    avgStaleness: z.number(),
+    refreshRecommended: z.number(),
+  })),
+  driftDetected: z.number(),
+  recentlyValidated: z.number(),
+});
+
+export type StalenessReport = z.infer<typeof stalenessReportSchema>;
+
+// Outcome velocity metrics
+export const outcomeVelocitySchema = z.object({
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  totalOutcomes: z.number(),
+  outcomesPerHour: z.number(),
+  outcomesPerDay: z.number(),
+  attributionRate: z.number(), // % of outcomes attributed
+  avgLatencyHours: z.number(), // Time from action to outcome
+  byChannel: z.array(z.object({
+    channel: z.string(),
+    outcomes: z.number(),
+    attributionRate: z.number(),
+    avgLatencyHours: z.number(),
+  })),
+  byOutcomeType: z.array(z.object({
+    outcomeType: z.string(),
+    count: z.number(),
+    attributionRate: z.number(),
+  })),
+});
+
+export type OutcomeVelocity = z.infer<typeof outcomeVelocitySchema>;
+
+// ============================================================================
+// 7B: API REQUEST TYPES
+// ============================================================================
+
+// Record outcome request
+export const recordOutcomeWithAttributionRequestSchema = z.object({
+  hcpId: z.string(),
+  outcomeType: z.enum(outcomeTypes),
+  channel: z.string(),
+  outcomeValue: z.number().optional(),
+  qualityScore: z.number().min(1).max(10).optional(),
+  contentId: z.string().optional(),
+  contentName: z.string().optional(),
+  eventDate: z.string().optional(),
+  campaignId: z.string().optional(),
+  sourceSystem: z.string().optional(),
+  sourceEventId: z.string().optional(),
+  // If known, can provide explicit attribution
+  stimulusId: z.string().optional(),
+});
+
+export type RecordOutcomeWithAttributionRequest = z.infer<typeof recordOutcomeWithAttributionRequestSchema>;
+
+// Batch outcome ingestion request
+export const batchOutcomeIngestionRequestSchema = z.object({
+  outcomes: z.array(recordOutcomeWithAttributionRequestSchema),
+  processImmediately: z.boolean().optional(),
+  sourceSystem: z.string(),
+});
+
+export type BatchOutcomeIngestionRequest = z.infer<typeof batchOutcomeIngestionRequestSchema>;
+
+// Webhook outcome payload (for external systems)
+export const webhookOutcomePayloadSchema = z.object({
+  sourceSystem: z.enum(["veeva", "salesforce", "email_platform", "custom"]),
+  sourceEventId: z.string(),
+  eventType: z.string(),
+  timestamp: z.string(),
+  // HCP identification (one required)
+  hcpId: z.string().optional(),
+  npi: z.string().optional(),
+  email: z.string().optional(),
+  // Event data
+  data: z.record(z.unknown()),
+});
+
+export type WebhookOutcomePayload = z.infer<typeof webhookOutcomePayloadSchema>;
+
+// Attribution config update request
+export const updateAttributionConfigRequestSchema = z.object({
+  channel: z.string(),
+  windowDays: z.number().optional(),
+  decayFunction: z.enum(decayFunctions).optional(),
+  decayHalfLifeDays: z.number().optional(),
+  multiTouchModel: z.enum(attributionModels).optional(),
+  firstTouchWeight: z.number().optional(),
+  lastTouchWeight: z.number().optional(),
+  middleTouchWeight: z.number().optional(),
+  minConfidenceThreshold: z.number().optional(),
+  allowPartialCredit: z.boolean().optional(),
+  description: z.string().optional(),
+});
+
+export type UpdateAttributionConfigRequest = z.infer<typeof updateAttributionConfigRequestSchema>;
+
+// ============================================================================
+// PHASE 7C: UNCERTAINTY QUANTIFICATION SCHEMA
+// ============================================================================
+
+// ============================================================================
+// 7C: UNCERTAINTY METRICS - Full uncertainty decomposition per HCP/channel
+// ============================================================================
+
+export const uncertaintyMetrics = pgTable("uncertainty_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+  channel: varchar("channel", { length: 20 }),
+  predictionType: varchar("prediction_type", { length: 50 }).notNull(),
+
+  // Point estimate
+  predictedValue: real("predicted_value").notNull(),
+
+  // Confidence interval
+  ciLower: real("ci_lower").notNull(),
+  ciUpper: real("ci_upper").notNull(),
+  ciWidth: real("ci_width").notNull(),
+
+  // Uncertainty decomposition
+  epistemicUncertainty: real("epistemic_uncertainty").notNull(), // Reducible with more data
+  aleatoricUncertainty: real("aleatoric_uncertainty").notNull(), // Irreducible noise
+  totalUncertainty: real("total_uncertainty").notNull(),
+
+  // Data quality
+  sampleSize: integer("sample_size").notNull(), // How many historical outcomes
+  dataRecency: integer("data_recency"), // Days since most recent outcome
+  featureCompleteness: real("feature_completeness"), // 0-1, how complete is HCP profile
+
+  // Staleness
+  predictionAge: integer("prediction_age").notNull(), // Days since prediction made
+  lastValidationAge: integer("last_validation_age"), // Days since prediction was validated
+
+  // Drift detection
+  featureDriftScore: real("feature_drift_score"), // 0-1, how much have inputs changed
+  driftFeatures: jsonb("drift_features").$type<string[]>(), // Which features drifted
+
+  // Exploration signal
+  explorationValue: real("exploration_value"), // Value of learning more about this HCP
+  recommendExploration: boolean("recommend_exploration").default(false),
+
+  calculatedAt: timestamp("calculated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertUncertaintyMetricsSchema = createInsertSchema(uncertaintyMetrics).omit({
+  id: true,
+  calculatedAt: true,
+  createdAt: true,
+});
+
+export type InsertUncertaintyMetrics = z.infer<typeof insertUncertaintyMetricsSchema>;
+export type UncertaintyMetricsDB = typeof uncertaintyMetrics.$inferSelect;
+
+// ============================================================================
+// 7C: EXPLORATION HISTORY - Tracking exploration outcomes
+// ============================================================================
+
+export const explorationModes = ["epsilon_greedy", "ucb", "thompson_sampling"] as const;
+export type ExplorationMode = (typeof explorationModes)[number];
+
+export const explorationHistory = pgTable("exploration_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+  channel: varchar("channel", { length: 20 }).notNull(),
+  stimulusId: varchar("stimulus_id").references(() => stimuliEvents.id),
+
+  // Exploration decision
+  wasExploration: boolean("was_exploration").notNull(),
+  explorationMode: varchar("exploration_mode", { length: 30 }),
+  explorationScore: real("exploration_score"), // UCB score or Thompson sample
+
+  // Pre-exploration state
+  priorUncertainty: real("prior_uncertainty"),
+  priorPredictedValue: real("prior_predicted_value"),
+
+  // Post-exploration outcome
+  outcomeId: varchar("outcome_id").references(() => outcomeEvents.id),
+  actualValue: real("actual_value"),
+  predictionError: real("prediction_error"),
+
+  // Learning value
+  informationGain: real("information_gain"), // Reduction in uncertainty
+  posteriorUncertainty: real("posterior_uncertainty"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertExplorationHistorySchema = createInsertSchema(explorationHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertExplorationHistory = z.infer<typeof insertExplorationHistorySchema>;
+export type ExplorationHistoryDB = typeof explorationHistory.$inferSelect;
+
+// ============================================================================
+// 7C: EXPLORATION CONFIG - Global and channel-specific exploration settings
+// ============================================================================
+
+export const explorationConfig = pgTable("exploration_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  channel: varchar("channel", { length: 20 }), // null = global default
+
+  // Exploration mode
+  explorationMode: varchar("exploration_mode", { length: 30 }).notNull().default("epsilon_greedy"),
+
+  // Epsilon-greedy settings
+  epsilon: real("epsilon").default(0.1), // Probability of exploring
+  epsilonDecay: real("epsilon_decay").default(0.995), // Decay rate per episode
+  minEpsilon: real("min_epsilon").default(0.01), // Minimum epsilon
+
+  // UCB settings
+  ucbC: real("ucb_c").default(1.41), // Exploration parameter (sqrt(2) is common)
+
+  // Thompson Sampling settings
+  priorAlpha: real("prior_alpha").default(1.0), // Beta distribution alpha
+  priorBeta: real("prior_beta").default(1.0), // Beta distribution beta
+
+  // Budget allocation
+  explorationBudgetPct: real("exploration_budget_pct").default(10), // % of budget for exploration
+
+  // Thresholds
+  uncertaintyThreshold: real("uncertainty_threshold").default(0.7), // Above this, recommend exploration
+  minSampleSize: integer("min_sample_size").default(5), // Min samples before exploitation
+
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertExplorationConfigSchema = createInsertSchema(explorationConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertExplorationConfig = z.infer<typeof insertExplorationConfigSchema>;
+export type ExplorationConfigDB = typeof explorationConfig.$inferSelect;
+
+// ============================================================================
+// PHASE 7C: API TYPES
+// ============================================================================
+
+// Uncertainty Metrics API type
+export const uncertaintyMetricsApiSchema = z.object({
+  id: z.string(),
+  hcpId: z.string(),
+  channel: z.string().nullable(),
+  predictionType: z.string(),
+  predictedValue: z.number(),
+  ciLower: z.number(),
+  ciUpper: z.number(),
+  ciWidth: z.number(),
+  epistemicUncertainty: z.number(),
+  aleatoricUncertainty: z.number(),
+  totalUncertainty: z.number(),
+  sampleSize: z.number(),
+  dataRecency: z.number().nullable(),
+  featureCompleteness: z.number().nullable(),
+  predictionAge: z.number(),
+  lastValidationAge: z.number().nullable(),
+  featureDriftScore: z.number().nullable(),
+  driftFeatures: z.array(z.string()).nullable(),
+  explorationValue: z.number().nullable(),
+  recommendExploration: z.boolean(),
+  calculatedAt: z.string(),
+});
+
+export type UncertaintyMetricsApi = z.infer<typeof uncertaintyMetricsApiSchema>;
+
+// Data Quality Report
+export const dataQualityReportSchema = z.object({
+  hcpId: z.string(),
+  overallScore: z.number(), // 0-1
+  profileCompleteness: z.number(), // 0-1
+  engagementHistory: z.number(), // Number of historical engagements
+  outcomeHistory: z.number(), // Number of historical outcomes
+  lastEngagementDays: z.number().nullable(), // Days since last engagement
+  lastOutcomeDays: z.number().nullable(), // Days since last outcome
+  channelCoverage: z.record(z.boolean()), // Which channels have data
+  missingFields: z.array(z.string()),
+});
+
+export type DataQualityReport = z.infer<typeof dataQualityReportSchema>;
+
+// Drift Report
+export const driftReportSchema = z.object({
+  hcpId: z.string(),
+  overallDriftScore: z.number(), // 0-1
+  significantDrift: z.boolean(),
+  driftedFeatures: z.array(z.object({
+    feature: z.string(),
+    previousValue: z.unknown(),
+    currentValue: z.unknown(),
+    driftMagnitude: z.number(),
+  })),
+  recommendRecompute: z.boolean(),
+  lastCheckedAt: z.string(),
+});
+
+export type DriftReport = z.infer<typeof driftReportSchema>;
+
+// Exploration Decision
+export const explorationDecisionSchema = z.object({
+  hcpId: z.string(),
+  channel: z.string(),
+  shouldExplore: z.boolean(),
+  explorationMode: z.enum(explorationModes),
+  explorationScore: z.number(), // UCB score, Thompson sample, or random
+  exploitationScore: z.number(), // Expected value if exploiting
+  reason: z.string(),
+  suggestedAction: z.object({
+    actionType: z.string(),
+    expectedInformationGain: z.number(),
+    estimatedCost: z.number().nullable(),
+  }).nullable(),
+});
+
+export type ExplorationDecision = z.infer<typeof explorationDecisionSchema>;
+
+// Exploration Action
+export const explorationActionSchema = z.object({
+  hcpId: z.string(),
+  channel: z.string(),
+  actionType: z.string(),
+  reason: z.string(),
+  expectedInformationGain: z.number(),
+  currentUncertainty: z.number(),
+  estimatedCost: z.number().nullable(),
+});
+
+export type ExplorationAction = z.infer<typeof explorationActionSchema>;
+
+// ============================================================================
+// 7C: REQUEST TYPES
+// ============================================================================
+
+// Calculate uncertainty request
+export const calculateUncertaintyRequestSchema = z.object({
+  hcpId: z.string(),
+  channel: z.string().optional(),
+  predictionType: z.string().optional(),
+  forceRecalculate: z.boolean().optional(),
+});
+
+export type CalculateUncertaintyRequest = z.infer<typeof calculateUncertaintyRequestSchema>;
+
+// Batch uncertainty request
+export const batchUncertaintyRequestSchema = z.object({
+  hcpIds: z.array(z.string()),
+  channel: z.string().optional(),
+  predictionType: z.string().optional(),
+});
+
+export type BatchUncertaintyRequest = z.infer<typeof batchUncertaintyRequestSchema>;
+
+// Exploration decision request
+export const explorationDecisionRequestSchema = z.object({
+  hcpId: z.string(),
+  channel: z.string(),
+  campaignId: z.string().optional(),
+});
+
+export type ExplorationDecisionRequest = z.infer<typeof explorationDecisionRequestSchema>;
+
+// Update exploration config request
+export const updateExplorationConfigRequestSchema = z.object({
+  channel: z.string().nullable(),
+  explorationMode: z.enum(explorationModes).optional(),
+  epsilon: z.number().optional(),
+  epsilonDecay: z.number().optional(),
+  minEpsilon: z.number().optional(),
+  ucbC: z.number().optional(),
+  priorAlpha: z.number().optional(),
+  priorBeta: z.number().optional(),
+  explorationBudgetPct: z.number().optional(),
+  uncertaintyThreshold: z.number().optional(),
+  minSampleSize: z.number().optional(),
+});
+
+export type UpdateExplorationConfigRequest = z.infer<typeof updateExplorationConfigRequestSchema>;
+
+// ============================================================================
+// 7C: RESPONSE TYPES
+// ============================================================================
+
+// Uncertainty summary for dashboard
+export const uncertaintySummarySchema = z.object({
+  totalHcps: z.number(),
+  avgEpistemicUncertainty: z.number(),
+  avgAleatoricUncertainty: z.number(),
+  avgTotalUncertainty: z.number(),
+  highUncertaintyCount: z.number(), // HCPs with uncertainty > threshold
+  recommendExplorationCount: z.number(),
+  byChannel: z.array(z.object({
+    channel: z.string(),
+    avgUncertainty: z.number(),
+    hcpCount: z.number(),
+    explorationRecommended: z.number(),
+  })),
+  byPredictionType: z.array(z.object({
+    predictionType: z.string(),
+    avgUncertainty: z.number(),
+    hcpCount: z.number(),
+  })),
+  recentDriftDetected: z.number(),
+});
+
+export type UncertaintySummary = z.infer<typeof uncertaintySummarySchema>;
+
+// Exploration statistics
+export const explorationStatisticsSchema = z.object({
+  totalExplorations: z.number(),
+  successfulExplorations: z.number(), // Resulted in outcome
+  avgInformationGain: z.number(),
+  avgPredictionError: z.number(),
+  explorationByChannel: z.array(z.object({
+    channel: z.string(),
+    count: z.number(),
+    avgInformationGain: z.number(),
+  })),
+  explorationByMode: z.array(z.object({
+    mode: z.string(),
+    count: z.number(),
+    avgInformationGain: z.number(),
+  })),
+  currentEpsilon: z.number(),
+  budgetUtilization: z.number(),
+});
+
+export type ExplorationStatistics = z.infer<typeof explorationStatisticsSchema>;
+
+// ============================================================================
+// PHASE 7D: CAMPAIGN COORDINATION
+// ============================================================================
+
+// Reservation types
+export const reservationTypes = ["exclusive", "priority", "soft"] as const;
+export type ReservationType = (typeof reservationTypes)[number];
+
+// Reservation statuses
+export const reservationStatuses = ["active", "released", "executed", "expired", "preempted"] as const;
+export type ReservationStatus = (typeof reservationStatuses)[number];
+
+// Conflict types
+export const conflictTypes = ["overlap", "frequency", "preemption", "budget", "capacity"] as const;
+export type ConflictType = (typeof conflictTypes)[number];
+
+// Conflict resolutions
+export const conflictResolutions = ["campaign1_wins", "campaign2_wins", "merged", "deferred", "cancelled"] as const;
+export type ConflictResolution = (typeof conflictResolutions)[number];
+
+// HCP Reservations table
+export const hcpReservations = pgTable("hcp_reservations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+  channel: varchar("channel", { length: 20 }).notNull(),
+  reservationType: varchar("reservation_type", { length: 30 }).notNull().$type<ReservationType>(),
+  priority: integer("priority").notNull(), // Inherited from campaign
+  reservedFrom: timestamp("reserved_from").notNull(),
+  reservedUntil: timestamp("reserved_until").notNull(),
+  plannedActionDate: timestamp("planned_action_date"),
+  status: varchar("status", { length: 20 }).notNull().default("active").$type<ReservationStatus>(),
+  canPreempt: boolean("can_preempt").notNull().default(true), // Can higher priority campaign take over?
+  preemptedBy: varchar("preempted_by"),
+  executedAt: timestamp("executed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertHcpReservationSchema = createInsertSchema(hcpReservations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  preemptedBy: true,
+  executedAt: true,
+});
+
+export const updateHcpReservationSchema = insertHcpReservationSchema.partial();
+
+export type InsertHcpReservation = z.infer<typeof insertHcpReservationSchema>;
+export type HcpReservation = typeof hcpReservations.$inferSelect;
+
+// Conflict Log table
+export const conflictLog = pgTable("conflict_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+  channel: varchar("channel", { length: 20 }).notNull(),
+  conflictType: varchar("conflict_type", { length: 30 }).notNull().$type<ConflictType>(),
+  campaign1Id: varchar("campaign1_id").notNull().references(() => campaigns.id),
+  campaign2Id: varchar("campaign2_id").references(() => campaigns.id),
+  reservation1Id: varchar("reservation1_id").references(() => hcpReservations.id),
+  reservation2Id: varchar("reservation2_id").references(() => hcpReservations.id),
+  conflictDate: timestamp("conflict_date").notNull(),
+  severity: varchar("severity", { length: 20 }).notNull().default("medium"), // low, medium, high, critical
+  description: text("description"),
+  resolution: varchar("resolution", { length: 30 }).$type<ConflictResolution>(),
+  resolutionNotes: text("resolution_notes"),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by", { length: 100 }),
+  autoResolved: boolean("auto_resolved").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertConflictLogSchema = createInsertSchema(conflictLog).omit({
+  id: true,
+  createdAt: true,
+  resolution: true,
+  resolutionNotes: true,
+  resolvedAt: true,
+  resolvedBy: true,
+  autoResolved: true,
+});
+
+export type InsertConflictLog = z.infer<typeof insertConflictLogSchema>;
+export type ConflictLog = typeof conflictLog.$inferSelect;
+
+// ============================================================================
+// 7D: API TYPES
+// ============================================================================
+
+// Campaign with metadata
+export const campaignApiSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  brand: z.string().nullable(),
+  businessUnit: z.string().nullable(),
+  priority: z.number(),
+  status: z.enum(campaignStatuses),
+  startDate: z.string().nullable(),
+  endDate: z.string().nullable(),
+  targetAudienceId: z.string().nullable(),
+  channelMix: z.record(z.number()).nullable(),
+  budget: z.number().nullable(),
+  budgetSpent: z.number().nullable(),
+  targetHcpCount: z.number().nullable(),
+  actualHcpCount: z.number().nullable(),
+  createdBy: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  // Computed fields
+  reservationCount: z.number().optional(),
+  activeReservationCount: z.number().optional(),
+  conflictCount: z.number().optional(),
+});
+
+export type CampaignApi = z.infer<typeof campaignApiSchema>;
+
+// Reservation with campaign info
+export const reservationApiSchema = z.object({
+  id: z.string(),
+  campaignId: z.string(),
+  campaignName: z.string().optional(),
+  campaignPriority: z.number().optional(),
+  hcpId: z.string(),
+  hcpName: z.string().optional(),
+  channel: z.string(),
+  reservationType: z.enum(reservationTypes),
+  priority: z.number(),
+  reservedFrom: z.string(),
+  reservedUntil: z.string(),
+  plannedActionDate: z.string().nullable(),
+  status: z.enum(reservationStatuses),
+  canPreempt: z.boolean(),
+  preemptedBy: z.string().nullable(),
+  executedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type ReservationApi = z.infer<typeof reservationApiSchema>;
+
+// Conflict with full context
+export const conflictApiSchema = z.object({
+  id: z.string(),
+  hcpId: z.string(),
+  hcpName: z.string().optional(),
+  channel: z.string(),
+  conflictType: z.enum(conflictTypes),
+  campaign1Id: z.string(),
+  campaign1Name: z.string().optional(),
+  campaign2Id: z.string().nullable(),
+  campaign2Name: z.string().nullable().optional(),
+  reservation1Id: z.string().nullable(),
+  reservation2Id: z.string().nullable(),
+  conflictDate: z.string(),
+  severity: z.string(),
+  description: z.string().nullable(),
+  resolution: z.enum(conflictResolutions).nullable(),
+  resolutionNotes: z.string().nullable(),
+  resolvedAt: z.string().nullable(),
+  resolvedBy: z.string().nullable(),
+  autoResolved: z.boolean().nullable(),
+  createdAt: z.string(),
+});
+
+export type ConflictApi = z.infer<typeof conflictApiSchema>;
+
+// Time slot for availability
+export const timeSlotSchema = z.object({
+  start: z.string(),
+  end: z.string(),
+  available: z.boolean(),
+  reservedBy: z.string().nullable(), // Campaign ID if reserved
+  reservationType: z.enum(reservationTypes).nullable(),
+});
+
+export type TimeSlot = z.infer<typeof timeSlotSchema>;
+
+// ============================================================================
+// 7D: REQUEST TYPES
+// ============================================================================
+
+// Create campaign request
+export const createCampaignRequestSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  brand: z.string().optional(),
+  businessUnit: z.string().optional(),
+  priority: z.number().min(1).max(100).optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  targetAudienceId: z.string().optional(),
+  channelMix: z.record(z.number()).optional(),
+  budget: z.number().optional(),
+  targetHcpCount: z.number().optional(),
+});
+
+export type CreateCampaignRequest = z.infer<typeof createCampaignRequestSchema>;
+
+// Reserve HCP request
+export const reserveHcpRequestSchema = z.object({
+  campaignId: z.string(),
+  hcpId: z.string(),
+  channel: z.string(),
+  reservationType: z.enum(reservationTypes).optional(),
+  reservedFrom: z.string(),
+  reservedUntil: z.string(),
+  plannedActionDate: z.string().optional(),
+  canPreempt: z.boolean().optional(),
+});
+
+export type ReserveHcpRequest = z.infer<typeof reserveHcpRequestSchema>;
+
+// Batch reserve request
+export const batchReserveRequestSchema = z.object({
+  campaignId: z.string(),
+  reservations: z.array(z.object({
+    hcpId: z.string(),
+    channel: z.string(),
+    reservationType: z.enum(reservationTypes).optional(),
+    reservedFrom: z.string(),
+    reservedUntil: z.string(),
+    plannedActionDate: z.string().optional(),
+  })),
+});
+
+export type BatchReserveRequest = z.infer<typeof batchReserveRequestSchema>;
+
+// Check availability request
+export const checkAvailabilityRequestSchema = z.object({
+  hcpId: z.string(),
+  channel: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  excludeCampaignId: z.string().optional(),
+});
+
+export type CheckAvailabilityRequest = z.infer<typeof checkAvailabilityRequestSchema>;
+
+// Resolve conflict request
+export const resolveConflictRequestSchema = z.object({
+  conflictId: z.string(),
+  resolution: z.enum(conflictResolutions),
+  resolutionNotes: z.string().optional(),
+});
+
+export type ResolveConflictRequest = z.infer<typeof resolveConflictRequestSchema>;
+
+// Auto-resolve conflicts request
+export const autoResolveConflictsRequestSchema = z.object({
+  campaignId: z.string().optional(),
+  strategy: z.enum(["priority", "first_come", "budget_efficiency"]).optional(),
+});
+
+export type AutoResolveConflictsRequest = z.infer<typeof autoResolveConflictsRequestSchema>;
+
+// ============================================================================
+// 7D: RESPONSE TYPES
+// ============================================================================
+
+// Campaign summary for dashboard
+export const campaignSummarySchema = z.object({
+  totalCampaigns: z.number(),
+  activeCampaigns: z.number(),
+  draftCampaigns: z.number(),
+  pausedCampaigns: z.number(),
+  completedCampaigns: z.number(),
+  totalBudget: z.number(),
+  totalSpent: z.number(),
+  totalReservations: z.number(),
+  activeReservations: z.number(),
+  pendingConflicts: z.number(),
+  resolvedConflicts: z.number(),
+  byBrand: z.array(z.object({
+    brand: z.string(),
+    campaignCount: z.number(),
+    totalBudget: z.number(),
+    reservationCount: z.number(),
+  })),
+  byStatus: z.array(z.object({
+    status: z.string(),
+    count: z.number(),
+  })),
+});
+
+export type CampaignSummary = z.infer<typeof campaignSummarySchema>;
+
+// Reservation result (includes conflict detection)
+export const reservationResultSchema = z.object({
+  success: z.boolean(),
+  reservation: reservationApiSchema.nullable(),
+  conflicts: z.array(conflictApiSchema).optional(),
+  message: z.string().optional(),
+});
+
+export type ReservationResult = z.infer<typeof reservationResultSchema>;
+
+// Batch reservation result
+export const batchReservationResultSchema = z.object({
+  totalRequested: z.number(),
+  successCount: z.number(),
+  failedCount: z.number(),
+  conflictCount: z.number(),
+  reservations: z.array(reservationApiSchema),
+  conflicts: z.array(conflictApiSchema),
+  errors: z.array(z.object({
+    hcpId: z.string(),
+    channel: z.string(),
+    error: z.string(),
+  })),
+});
+
+export type BatchReservationResult = z.infer<typeof batchReservationResultSchema>;
+
+// Availability result
+export const availabilityResultSchema = z.object({
+  hcpId: z.string(),
+  channel: z.string(),
+  available: z.boolean(),
+  slots: z.array(timeSlotSchema),
+  existingReservations: z.array(z.object({
+    campaignId: z.string(),
+    campaignName: z.string(),
+    reservedFrom: z.string(),
+    reservedUntil: z.string(),
+    canPreempt: z.boolean(),
+    priority: z.number(),
+  })),
+});
+
+export type AvailabilityResult = z.infer<typeof availabilityResultSchema>;
+
+// Resolution report
+export const resolutionReportSchema = z.object({
+  totalConflicts: z.number(),
+  resolved: z.number(),
+  unresolved: z.number(),
+  byResolution: z.array(z.object({
+    resolution: z.string(),
+    count: z.number(),
+  })),
+  actions: z.array(z.object({
+    conflictId: z.string(),
+    resolution: z.string(),
+    affectedReservations: z.array(z.string()),
+  })),
+});
+
+export type ResolutionReport = z.infer<typeof resolutionReportSchema>;
+
+// HCP campaign view (what campaigns target this HCP)
+export const hcpCampaignViewSchema = z.object({
+  hcpId: z.string(),
+  campaigns: z.array(z.object({
+    campaignId: z.string(),
+    campaignName: z.string(),
+    priority: z.number(),
+    status: z.string(),
+    channels: z.array(z.string()),
+    reservations: z.array(z.object({
+      id: z.string(),
+      channel: z.string(),
+      reservedFrom: z.string(),
+      reservedUntil: z.string(),
+      status: z.string(),
+    })),
+  })),
+  totalReservations: z.number(),
+  activeReservations: z.number(),
+  upcomingActions: z.number(),
+});
+
+export type HcpCampaignView = z.infer<typeof hcpCampaignViewSchema>;
+
+// ============================================================================
+// PHASE 7E: SIMULATION COMPOSABILITY
+// ============================================================================
+
+// Batch statuses
+export const batchStatuses = ["pending", "running", "completed", "failed", "cancelled"] as const;
+export type BatchStatus = (typeof batchStatuses)[number];
+
+// Variant statuses
+export const variantStatuses = ["pending", "running", "completed", "failed", "skipped"] as const;
+export type VariantStatus = (typeof variantStatuses)[number];
+
+// Variant strategies
+export const variantStrategies = ["grid_search", "random_search", "bayesian", "manual"] as const;
+export type VariantStrategy = (typeof variantStrategies)[number];
+
+// Optimization metrics
+export const optimizationMetrics = ["engagement_rate", "response_rate", "roi", "reach", "conversion", "total_lift"] as const;
+export type OptimizationMetric = (typeof optimizationMetrics)[number];
+
+// Simulation Batches table
+export const simulationBatches = pgTable("simulation_batches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  baseScenarioId: varchar("base_scenario_id").references(() => simulationScenarios.id),
+  variantStrategy: varchar("variant_strategy", { length: 30 }).notNull().default("grid_search").$type<VariantStrategy>(),
+  variantCount: integer("variant_count").notNull(),
+  completedCount: integer("completed_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  status: varchar("status", { length: 20 }).notNull().default("pending").$type<BatchStatus>(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  bestVariantId: varchar("best_variant_id"),
+  optimizationMetric: varchar("optimization_metric", { length: 50 }).$type<OptimizationMetric>(),
+  parameterRanges: jsonb("parameter_ranges").$type<Record<string, { min: number; max: number; step?: number }>>(),
+  concurrency: integer("concurrency").notNull().default(5),
+  createdBy: varchar("created_by", { length: 100 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertSimulationBatchSchema = createInsertSchema(simulationBatches).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  completedCount: true,
+  failedCount: true,
+  startedAt: true,
+  completedAt: true,
+  bestVariantId: true,
+});
+
+export const updateSimulationBatchSchema = insertSimulationBatchSchema.partial();
+
+export type InsertSimulationBatch = z.infer<typeof insertSimulationBatchSchema>;
+export type SimulationBatch = typeof simulationBatches.$inferSelect;
+
+// Simulation Variants table
+export const simulationVariants = pgTable("simulation_variants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchId: varchar("batch_id").notNull().references(() => simulationBatches.id),
+  variantNumber: integer("variant_number").notNull(),
+  parameters: jsonb("parameters").notNull().$type<Record<string, unknown>>(),
+  deltaFromBase: jsonb("delta_from_base").$type<Record<string, unknown>>(),
+  scenarioId: varchar("scenario_id").references(() => simulationScenarios.id),
+  resultId: varchar("result_id").references(() => simulationResults.id),
+  score: real("score"),
+  rank: integer("rank"),
+  status: varchar("status", { length: 20 }).notNull().default("pending").$type<VariantStatus>(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+  executionTimeMs: integer("execution_time_ms"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertSimulationVariantSchema = createInsertSchema(simulationVariants).omit({
+  id: true,
+  createdAt: true,
+  resultId: true,
+  score: true,
+  rank: true,
+  startedAt: true,
+  completedAt: true,
+  errorMessage: true,
+  executionTimeMs: true,
+});
+
+export type InsertSimulationVariant = z.infer<typeof insertSimulationVariantSchema>;
+export type SimulationVariant = typeof simulationVariants.$inferSelect;
+
+// ============================================================================
+// 7E: API TYPES
+// ============================================================================
+
+// Batch with computed fields
+export const simulationBatchApiSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  baseScenarioId: z.string().nullable(),
+  baseScenarioName: z.string().nullable().optional(),
+  variantStrategy: z.enum(variantStrategies),
+  variantCount: z.number(),
+  completedCount: z.number(),
+  failedCount: z.number(),
+  status: z.enum(batchStatuses),
+  startedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+  bestVariantId: z.string().nullable(),
+  optimizationMetric: z.enum(optimizationMetrics).nullable(),
+  parameterRanges: z.record(z.object({
+    min: z.number(),
+    max: z.number(),
+    step: z.number().optional(),
+  })).nullable(),
+  concurrency: z.number(),
+  createdBy: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  progress: z.number().optional(), // 0-100 percentage
+  estimatedTimeRemainingMs: z.number().optional(),
+});
+
+export type SimulationBatchApi = z.infer<typeof simulationBatchApiSchema>;
+
+// Variant with computed fields
+export const simulationVariantApiSchema = z.object({
+  id: z.string(),
+  batchId: z.string(),
+  variantNumber: z.number(),
+  parameters: z.record(z.unknown()),
+  deltaFromBase: z.record(z.unknown()).nullable(),
+  scenarioId: z.string().nullable(),
+  resultId: z.string().nullable(),
+  score: z.number().nullable(),
+  rank: z.number().nullable(),
+  status: z.enum(variantStatuses),
+  startedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+  executionTimeMs: z.number().nullable(),
+  createdAt: z.string(),
+  // Computed from result
+  engagementRate: z.number().optional(),
+  responseRate: z.number().optional(),
+  totalLift: z.number().optional(),
+});
+
+export type SimulationVariantApi = z.infer<typeof simulationVariantApiSchema>;
+
+// Differential result between two scenarios
+export const differentialResultSchema = z.object({
+  scenarioAId: z.string(),
+  scenarioBId: z.string(),
+  scenarioAName: z.string().optional(),
+  scenarioBName: z.string().optional(),
+  metrics: z.object({
+    engagementRateDelta: z.number(),
+    responseRateDelta: z.number(),
+    totalLiftDelta: z.number(),
+    reachDelta: z.number(),
+  }),
+  hcpDeltas: z.array(z.object({
+    hcpId: z.string(),
+    engagementDelta: z.number(),
+    responseDelta: z.number(),
+    liftDelta: z.number(),
+  })),
+  channelDeltas: z.record(z.object({
+    countDelta: z.number(),
+    engagementDelta: z.number(),
+  })),
+  computedAt: z.string(),
+});
+
+export type DifferentialResult = z.infer<typeof differentialResultSchema>;
+
+// ============================================================================
+// 7E: REQUEST TYPES
+// ============================================================================
+
+// Create batch request
+export const createBatchRequestSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  baseScenarioId: z.string(),
+  variantStrategy: z.enum(variantStrategies).optional(),
+  optimizationMetric: z.enum(optimizationMetrics).optional(),
+  parameterRanges: z.record(z.object({
+    min: z.number(),
+    max: z.number(),
+    step: z.number().optional(),
+  })).optional(),
+  variantCount: z.number().min(1).max(1000).optional(),
+  concurrency: z.number().min(1).max(20).optional(),
+});
+
+export type CreateBatchRequest = z.infer<typeof createBatchRequestSchema>;
+
+// Run batch request
+export const runBatchRequestSchema = z.object({
+  batchId: z.string(),
+  concurrency: z.number().min(1).max(20).optional(),
+});
+
+export type RunBatchRequest = z.infer<typeof runBatchRequestSchema>;
+
+// Generate variants request
+export const generateVariantsRequestSchema = z.object({
+  baseScenarioId: z.string(),
+  strategy: z.enum(variantStrategies),
+  parameterRanges: z.record(z.object({
+    min: z.number(),
+    max: z.number(),
+    step: z.number().optional(),
+  })),
+  maxVariants: z.number().min(1).max(1000).optional(),
+});
+
+export type GenerateVariantsRequest = z.infer<typeof generateVariantsRequestSchema>;
+
+// Incremental simulation request
+export const incrementalSimulationRequestSchema = z.object({
+  baseResultId: z.string(),
+  addHcpIds: z.array(z.string()).optional(),
+  removeHcpIds: z.array(z.string()).optional(),
+});
+
+export type IncrementalSimulationRequest = z.infer<typeof incrementalSimulationRequestSchema>;
+
+// Compare scenarios request
+export const compareScenarioRequestSchema = z.object({
+  scenarioAId: z.string(),
+  scenarioBId: z.string(),
+});
+
+export type CompareScenarioRequest = z.infer<typeof compareScenarioRequestSchema>;
+
+// ============================================================================
+// 7E: RESPONSE TYPES
+// ============================================================================
+
+// Batch progress
+export const batchProgressSchema = z.object({
+  batchId: z.string(),
+  status: z.enum(batchStatuses),
+  totalVariants: z.number(),
+  completedVariants: z.number(),
+  failedVariants: z.number(),
+  runningVariants: z.number(),
+  pendingVariants: z.number(),
+  progressPercent: z.number(),
+  startedAt: z.string().nullable(),
+  estimatedCompletionAt: z.string().nullable(),
+  avgExecutionTimeMs: z.number().nullable(),
+  currentBestScore: z.number().nullable(),
+  currentBestVariantId: z.string().nullable(),
+});
+
+export type BatchProgress = z.infer<typeof batchProgressSchema>;
+
+// Batch result summary
+export const batchResultSummarySchema = z.object({
+  batchId: z.string(),
+  name: z.string(),
+  status: z.enum(batchStatuses),
+  optimizationMetric: z.string().nullable(),
+  totalVariants: z.number(),
+  completedVariants: z.number(),
+  bestVariant: simulationVariantApiSchema.nullable(),
+  worstVariant: simulationVariantApiSchema.nullable(),
+  scoreDistribution: z.object({
+    min: z.number(),
+    max: z.number(),
+    mean: z.number(),
+    median: z.number(),
+    stdDev: z.number(),
+  }).nullable(),
+  topVariants: z.array(simulationVariantApiSchema),
+  totalExecutionTimeMs: z.number(),
+  completedAt: z.string().nullable(),
+});
+
+export type BatchResultSummary = z.infer<typeof batchResultSummarySchema>;
+
+// Variant specs for generation
+export const variantSpecSchema = z.object({
+  variantNumber: z.number(),
+  parameters: z.record(z.unknown()),
+  deltaFromBase: z.record(z.unknown()),
+});
+
+export type VariantSpec = z.infer<typeof variantSpecSchema>;
+
+// Generated variants result
+export const generatedVariantsResultSchema = z.object({
+  strategy: z.enum(variantStrategies),
+  baseScenarioId: z.string(),
+  variants: z.array(variantSpecSchema),
+  parameterSpace: z.object({
+    dimensions: z.number(),
+    totalPossibleCombinations: z.number(),
+    sampledCombinations: z.number(),
+  }),
+});
+
+export type GeneratedVariantsResult = z.infer<typeof generatedVariantsResultSchema>;
+
+// ============================================================================
+// PHASE 7F: PORTFOLIO OPTIMIZER (CAPSTONE)
+// ============================================================================
+
+// Problem statuses
+export const optimizationStatuses = ["draft", "ready", "solving", "solved", "failed", "archived"] as const;
+export type OptimizationStatus = (typeof optimizationStatuses)[number];
+
+// Objective metrics
+export const objectiveMetrics = ["total_engagement_lift", "roi", "reach", "response_rate", "rx_lift"] as const;
+export type ObjectiveMetric = (typeof objectiveMetrics)[number];
+
+// Objective sense
+export const objectiveSenses = ["maximize", "minimize"] as const;
+export type ObjectiveSense = (typeof objectiveSenses)[number];
+
+// Allocation statuses
+export const allocationStatuses = ["planned", "booked", "executing", "completed", "cancelled", "failed"] as const;
+export type AllocationStatus = (typeof allocationStatuses)[number];
+
+// Execution plan statuses
+export const executionPlanStatuses = ["draft", "scheduled", "executing", "paused", "completed", "cancelled"] as const;
+export type ExecutionPlanStatus = (typeof executionPlanStatuses)[number];
+
+// Rebalance triggers
+export const rebalanceTriggers = ["constraint_change", "budget_change", "outcome_deviation", "manual", "schedule"] as const;
+export type RebalanceTrigger = (typeof rebalanceTriggers)[number];
+
+// Solver types
+export const solverTypes = ["greedy", "local_search", "simulated_annealing", "genetic"] as const;
+export type SolverType = (typeof solverTypes)[number];
+
+// ============================================================================
+// 7F: DATABASE TABLES
+// ============================================================================
+
+// Optimization Problems
+export const optimizationProblems = pgTable("optimization_problems", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+
+  // Scope
+  audienceId: varchar("audience_id").references(() => savedAudiences.id),
+  campaignId: varchar("campaign_id").references(() => campaigns.id),
+  hcpIds: jsonb("hcp_ids").$type<string[]>(),
+
+  // Objective
+  objectiveMetric: varchar("objective_metric", { length: 50 }).notNull().$type<ObjectiveMetric>(),
+  objectiveSense: varchar("objective_sense", { length: 10 }).notNull().default("maximize").$type<ObjectiveSense>(),
+
+  // Constraints
+  budgetLimit: real("budget_limit"),
+  budgetConstraintId: varchar("budget_constraint_id"),
+  capacityConstraintIds: jsonb("capacity_constraint_ids").$type<string[]>(),
+  includeContactLimits: integer("include_contact_limits").default(1),
+  includeComplianceWindows: integer("include_compliance_windows").default(1),
+  respectReservations: integer("respect_reservations").default(1),
+
+  // Exploration
+  explorationBudgetPct: real("exploration_budget_pct").default(10),
+
+  // Time horizon
+  planningHorizonDays: integer("planning_horizon_days").notNull().default(30),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+
+  // Solver settings
+  preferredSolver: varchar("preferred_solver", { length: 30 }).default("greedy").$type<SolverType>(),
+  maxSolveTimeMs: integer("max_solve_time_ms").default(30000),
+
+  // Status
+  status: varchar("status", { length: 20 }).notNull().default("draft").$type<OptimizationStatus>(),
+
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertOptimizationProblemSchema = createInsertSchema(optimizationProblems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertOptimizationProblem = z.infer<typeof insertOptimizationProblemSchema>;
+export type OptimizationProblem = typeof optimizationProblems.$inferSelect;
+
+// Constraint violation type for results
+export interface ConstraintViolation {
+  constraintType: string;
+  constraintId?: string;
+  severity: "warning" | "error";
+  message: string;
+  affectedCount?: number;
+}
+
+// Optimization Results
+export const optimizationResults = pgTable("optimization_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  problemId: varchar("problem_id").notNull().references(() => optimizationProblems.id),
+
+  // Solver info
+  solverType: varchar("solver_type", { length: 30 }).notNull().$type<SolverType>(),
+
+  // Solution quality
+  objectiveValue: real("objective_value").notNull(),
+  feasible: integer("feasible").notNull(),
+  optimalityGap: real("optimality_gap"),
+
+  // Allocation summary
+  totalActions: integer("total_actions").notNull(),
+  totalHcps: integer("total_hcps").notNull(),
+  actionsByChannel: jsonb("actions_by_channel").$type<Record<string, number>>(),
+  totalBudgetUsed: real("total_budget_used"),
+  budgetUtilization: real("budget_utilization"),
+
+  // Predicted outcomes
+  predictedTotalLift: real("predicted_total_lift"),
+  predictedEngagementRate: real("predicted_engagement_rate"),
+  predictedResponseRate: real("predicted_response_rate"),
+
+  // Exploration allocation
+  explorationActions: integer("exploration_actions"),
+  explorationBudgetUsed: real("exploration_budget_used"),
+
+  // Constraint satisfaction
+  constraintViolations: jsonb("constraint_violations").$type<ConstraintViolation[]>(),
+
+  // Timing
+  solveTimeMs: integer("solve_time_ms"),
+  iterations: integer("iterations"),
+
+  solvedAt: timestamp("solved_at").notNull().defaultNow(),
+});
+
+export const insertOptimizationResultSchema = createInsertSchema(optimizationResults).omit({
+  id: true,
+  solvedAt: true,
+});
+
+export type InsertOptimizationResult = z.infer<typeof insertOptimizationResultSchema>;
+export type OptimizationResult = typeof optimizationResults.$inferSelect;
+
+// Optimization Allocations (individual HCP-channel assignments)
+export const optimizationAllocations = pgTable("optimization_allocations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  resultId: varchar("result_id").notNull().references(() => optimizationResults.id),
+
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+  channel: varchar("channel", { length: 20 }).notNull().$type<Channel>(),
+  actionType: varchar("action_type", { length: 50 }).notNull(),
+
+  // Timing
+  plannedDate: timestamp("planned_date").notNull(),
+  windowStart: timestamp("window_start"),
+  windowEnd: timestamp("window_end"),
+
+  // Prediction
+  predictedLift: real("predicted_lift").notNull(),
+  confidence: real("confidence").notNull(),
+  isExploration: integer("is_exploration").default(0),
+
+  // Cost
+  estimatedCost: real("estimated_cost"),
+
+  // Execution
+  status: varchar("status", { length: 20 }).notNull().default("planned").$type<AllocationStatus>(),
+  executedAt: timestamp("executed_at"),
+  actualOutcome: real("actual_outcome"),
+
+  // Reasoning
+  selectionReason: text("selection_reason"),
+  alternativesConsidered: jsonb("alternatives_considered").$type<string[]>(),
+
+  priority: integer("priority").default(0),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertOptimizationAllocationSchema = createInsertSchema(optimizationAllocations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOptimizationAllocation = z.infer<typeof insertOptimizationAllocationSchema>;
+export type OptimizationAllocation = typeof optimizationAllocations.$inferSelect;
+
+// Execution Plans
+export const executionPlans = pgTable("execution_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  resultId: varchar("result_id").notNull().references(() => optimizationResults.id),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+
+  // Status
+  status: varchar("status", { length: 20 }).notNull().default("draft").$type<ExecutionPlanStatus>(),
+
+  // Schedule
+  scheduledStartAt: timestamp("scheduled_start_at"),
+  scheduledEndAt: timestamp("scheduled_end_at"),
+  actualStartAt: timestamp("actual_start_at"),
+  actualEndAt: timestamp("actual_end_at"),
+
+  // Progress
+  totalActions: integer("total_actions").notNull(),
+  completedActions: integer("completed_actions").notNull().default(0),
+  failedActions: integer("failed_actions").notNull().default(0),
+
+  // Budget tracking
+  budgetAllocated: real("budget_allocated"),
+  budgetSpent: real("budget_spent").default(0),
+
+  // Outcomes
+  actualTotalLift: real("actual_total_lift"),
+  actualEngagementRate: real("actual_engagement_rate"),
+
+  // Rebalancing
+  lastRebalanceAt: timestamp("last_rebalance_at"),
+  rebalanceCount: integer("rebalance_count").default(0),
+
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertExecutionPlanSchema = createInsertSchema(executionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertExecutionPlan = z.infer<typeof insertExecutionPlanSchema>;
+export type ExecutionPlan = typeof executionPlans.$inferSelect;
+
+// ============================================================================
+// 7F: API TYPES
+// ============================================================================
+
+// Problem API type
+export const optimizationProblemApiSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  audienceId: z.string().nullable(),
+  audienceName: z.string().nullable(),
+  campaignId: z.string().nullable(),
+  campaignName: z.string().nullable(),
+  hcpCount: z.number(),
+  objectiveMetric: z.enum(objectiveMetrics),
+  objectiveSense: z.enum(objectiveSenses),
+  budgetLimit: z.number().nullable(),
+  explorationBudgetPct: z.number().nullable(),
+  planningHorizonDays: z.number(),
+  preferredSolver: z.enum(solverTypes).nullable(),
+  status: z.enum(optimizationStatuses),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type OptimizationProblemApi = z.infer<typeof optimizationProblemApiSchema>;
+
+// Result API type
+export const optimizationResultApiSchema = z.object({
+  id: z.string(),
+  problemId: z.string(),
+  problemName: z.string(),
+  solverType: z.enum(solverTypes),
+  objectiveValue: z.number(),
+  feasible: z.boolean(),
+  optimalityGap: z.number().nullable(),
+  totalActions: z.number(),
+  totalHcps: z.number(),
+  actionsByChannel: z.record(z.number()),
+  totalBudgetUsed: z.number().nullable(),
+  budgetUtilization: z.number().nullable(),
+  predictedTotalLift: z.number().nullable(),
+  predictedEngagementRate: z.number().nullable(),
+  predictedResponseRate: z.number().nullable(),
+  explorationActions: z.number().nullable(),
+  explorationBudgetUsed: z.number().nullable(),
+  constraintViolations: z.array(z.object({
+    constraintType: z.string(),
+    constraintId: z.string().optional(),
+    severity: z.enum(["warning", "error"]),
+    message: z.string(),
+    affectedCount: z.number().optional(),
+  })),
+  solveTimeMs: z.number().nullable(),
+  iterations: z.number().nullable(),
+  solvedAt: z.string(),
+});
+
+export type OptimizationResultApi = z.infer<typeof optimizationResultApiSchema>;
+
+// Allocation API type
+export const optimizationAllocationApiSchema = z.object({
+  id: z.string(),
+  resultId: z.string(),
+  hcpId: z.string(),
+  hcpName: z.string(),
+  channel: z.enum(channels),
+  actionType: z.string(),
+  plannedDate: z.string(),
+  windowStart: z.string().nullable(),
+  windowEnd: z.string().nullable(),
+  predictedLift: z.number(),
+  confidence: z.number(),
+  isExploration: z.boolean(),
+  estimatedCost: z.number().nullable(),
+  status: z.enum(allocationStatuses),
+  executedAt: z.string().nullable(),
+  actualOutcome: z.number().nullable(),
+  selectionReason: z.string().nullable(),
+  priority: z.number(),
+});
+
+export type OptimizationAllocationApi = z.infer<typeof optimizationAllocationApiSchema>;
+
+// Execution plan API type
+export const executionPlanApiSchema = z.object({
+  id: z.string(),
+  resultId: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  status: z.enum(executionPlanStatuses),
+  scheduledStartAt: z.string().nullable(),
+  scheduledEndAt: z.string().nullable(),
+  actualStartAt: z.string().nullable(),
+  actualEndAt: z.string().nullable(),
+  totalActions: z.number(),
+  completedActions: z.number(),
+  failedActions: z.number(),
+  progressPercent: z.number(),
+  budgetAllocated: z.number().nullable(),
+  budgetSpent: z.number().nullable(),
+  actualTotalLift: z.number().nullable(),
+  actualEngagementRate: z.number().nullable(),
+  rebalanceCount: z.number(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type ExecutionPlanApi = z.infer<typeof executionPlanApiSchema>;
+
+// ============================================================================
+// 7F: REQUEST SCHEMAS
+// ============================================================================
+
+// Create optimization problem request
+export const createOptimizationProblemRequestSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  audienceId: z.string().optional(),
+  campaignId: z.string().optional(),
+  hcpIds: z.array(z.string()).optional(),
+  objectiveMetric: z.enum(objectiveMetrics),
+  objectiveSense: z.enum(objectiveSenses).optional(),
+  budgetLimit: z.number().positive().optional(),
+  explorationBudgetPct: z.number().min(0).max(100).optional(),
+  planningHorizonDays: z.number().min(1).max(365).optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  preferredSolver: z.enum(solverTypes).optional(),
+  maxSolveTimeMs: z.number().positive().optional(),
+  includeContactLimits: z.boolean().optional(),
+  includeComplianceWindows: z.boolean().optional(),
+  respectReservations: z.boolean().optional(),
+});
+
+export type CreateOptimizationProblemRequest = z.infer<typeof createOptimizationProblemRequestSchema>;
+
+// Solve problem request
+export const solveOptimizationRequestSchema = z.object({
+  solver: z.enum(solverTypes).optional(),
+  maxIterations: z.number().positive().optional(),
+  maxTimeMs: z.number().positive().optional(),
+  earlyStopThreshold: z.number().optional(),
+});
+
+export type SolveOptimizationRequest = z.infer<typeof solveOptimizationRequestSchema>;
+
+// What-if request
+export const whatIfRequestSchema = z.object({
+  type: z.enum(["add_budget", "remove_constraint", "change_objective"]),
+  additionalBudget: z.number().optional(),
+  constraintIdToRemove: z.string().optional(),
+  newObjectiveMetric: z.enum(objectiveMetrics).optional(),
+});
+
+export type WhatIfRequest = z.infer<typeof whatIfRequestSchema>;
+
+// Create execution plan request
+export const createExecutionPlanRequestSchema = z.object({
+  resultId: z.string(),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  scheduledStartAt: z.string().optional(),
+});
+
+export type CreateExecutionPlanRequest = z.infer<typeof createExecutionPlanRequestSchema>;
+
+// Rebalance request
+export const rebalancePlanRequestSchema = z.object({
+  trigger: z.enum(rebalanceTriggers),
+  reason: z.string().optional(),
+});
+
+export type RebalancePlanRequest = z.infer<typeof rebalancePlanRequestSchema>;
+
+// ============================================================================
+// 7F: RESPONSE SCHEMAS
+// ============================================================================
+
+// Sensitivity report
+export const sensitivityReportSchema = z.object({
+  problemId: z.string(),
+  resultId: z.string(),
+  budgetSensitivity: z.object({
+    currentBudget: z.number(),
+    marginalValuePerDollar: z.number(),
+    optimalBudget: z.number().nullable(),
+    diminishingReturnsAt: z.number().nullable(),
+  }).nullable(),
+  constraintSensitivities: z.array(z.object({
+    constraintType: z.string(),
+    constraintId: z.string().optional(),
+    shadowPrice: z.number(),
+    binding: z.boolean(),
+    slackAmount: z.number(),
+  })),
+  channelSensitivities: z.array(z.object({
+    channel: z.enum(channels),
+    currentAllocation: z.number(),
+    marginalLift: z.number(),
+    costPerLift: z.number(),
+  })),
+  computedAt: z.string(),
+});
+
+export type SensitivityReport = z.infer<typeof sensitivityReportSchema>;
+
+// What-if result
+export const whatIfResultSchema = z.object({
+  originalObjectiveValue: z.number(),
+  newObjectiveValue: z.number(),
+  improvement: z.number(),
+  improvementPercent: z.number(),
+  feasibilityChanged: z.boolean(),
+  newViolations: z.array(z.object({
+    constraintType: z.string(),
+    message: z.string(),
+  })),
+  resolvedViolations: z.array(z.string()),
+  affectedAllocations: z.number(),
+  recommendation: z.string(),
+});
+
+export type WhatIfResult = z.infer<typeof whatIfResultSchema>;
+
+// Rebalance suggestion
+export const rebalanceSuggestionSchema = z.object({
+  planId: z.string(),
+  trigger: z.enum(rebalanceTriggers),
+  reason: z.string(),
+  currentPerformance: z.number(),
+  projectedPerformance: z.number(),
+  improvementPercent: z.number(),
+  actionsToModify: z.number(),
+  actionsToAdd: z.number(),
+  actionsToRemove: z.number(),
+  estimatedCostChange: z.number(),
+  confidence: z.number(),
+  suggestedAt: z.string(),
+});
+
+export type RebalanceSuggestion = z.infer<typeof rebalanceSuggestionSchema>;
+
+// Execution report
+export const executionReportSchema = z.object({
+  planId: z.string(),
+  status: z.enum(executionPlanStatuses),
+  totalActions: z.number(),
+  completedActions: z.number(),
+  failedActions: z.number(),
+  pendingActions: z.number(),
+  progressPercent: z.number(),
+  predictedOutcome: z.number(),
+  actualOutcome: z.number().nullable(),
+  outcomeVariance: z.number().nullable(),
+  budgetAllocated: z.number(),
+  budgetSpent: z.number(),
+  budgetRemaining: z.number(),
+  topPerformingChannels: z.array(z.object({
+    channel: z.enum(channels),
+    completedActions: z.number(),
+    avgOutcome: z.number(),
+  })),
+  underperformingHcps: z.array(z.object({
+    hcpId: z.string(),
+    hcpName: z.string(),
+    expectedLift: z.number(),
+    actualLift: z.number(),
+    variance: z.number(),
+  })),
+  generatedAt: z.string(),
+});
+
+export type ExecutionReport = z.infer<typeof executionReportSchema>;
 
