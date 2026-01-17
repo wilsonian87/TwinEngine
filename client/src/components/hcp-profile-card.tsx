@@ -1,10 +1,25 @@
-import { Mail, Phone, Video, Globe, Calendar, Users, Heart, Brain, Bone, Pill, Stethoscope, Activity, Eye, Syringe, Microscope, Sparkles } from "lucide-react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+/**
+ * HCP Profile Card - OmniVor Signal Index
+ *
+ * Premium card design with:
+ * - Specialty icon and color coding
+ * - Channel engagement mini-bars
+ * - Hover glow and lift effects
+ * - Selection state styling
+ */
+
+import { Mail, Phone, Video, Globe, Calendar, Users, Heart, Brain, Bone, Pill, Stethoscope, Activity, Eye, Syringe, Microscope, Sparkles, ArrowRight } from "lucide-react";
+import { SignalCard, SignalCardContent, SignalCardHeader } from "@/components/ui/signal-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import type { HCPProfile, Channel, Specialty } from "@shared/schema";
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
 const channelIcons: Record<Channel, typeof Mail> = {
   email: Mail,
@@ -17,32 +32,46 @@ const channelIcons: Record<Channel, typeof Mail> = {
 
 const channelLabels: Record<Channel, string> = {
   email: "Email",
-  rep_visit: "Rep Visit",
+  rep_visit: "Rep",
   webinar: "Webinar",
-  conference: "Conference",
+  conference: "Events",
   digital_ad: "Digital",
   phone: "Phone",
 };
 
-const tierColors: Record<string, string> = {
-  "Tier 1": "bg-chart-1 text-primary-foreground",
-  "Tier 2": "bg-chart-2 text-primary-foreground",
-  "Tier 3": "bg-chart-3 text-primary-foreground",
+// Tier styling with brand colors
+const tierStyles: Record<string, { bg: string; text: string }> = {
+  "Tier 1": {
+    bg: "bg-purple-500/20",
+    text: "text-purple-400",
+  },
+  "Tier 2": {
+    bg: "bg-blue-500/20",
+    text: "text-blue-400",
+  },
+  "Tier 3": {
+    bg: "bg-slate-500/20",
+    text: "text-slate-400",
+  },
 };
 
-// Specialty icons and colors for visual distinction
+// Specialty icons and colors
 const specialtyConfig: Record<Specialty, { icon: typeof Heart; color: string; bgColor: string }> = {
-  "Oncology": { icon: Activity, color: "text-rose-500", bgColor: "bg-rose-500/10" },
-  "Cardiology": { icon: Heart, color: "text-red-500", bgColor: "bg-red-500/10" },
-  "Neurology": { icon: Brain, color: "text-purple-500", bgColor: "bg-purple-500/10" },
-  "Endocrinology": { icon: Pill, color: "text-amber-500", bgColor: "bg-amber-500/10" },
-  "Rheumatology": { icon: Bone, color: "text-orange-500", bgColor: "bg-orange-500/10" },
-  "Pulmonology": { icon: Stethoscope, color: "text-sky-500", bgColor: "bg-sky-500/10" },
-  "Gastroenterology": { icon: Microscope, color: "text-green-500", bgColor: "bg-green-500/10" },
-  "Nephrology": { icon: Syringe, color: "text-blue-500", bgColor: "bg-blue-500/10" },
-  "Dermatology": { icon: Sparkles, color: "text-pink-500", bgColor: "bg-pink-500/10" },
-  "Psychiatry": { icon: Eye, color: "text-indigo-500", bgColor: "bg-indigo-500/10" },
+  "Oncology": { icon: Activity, color: "text-rose-400", bgColor: "bg-rose-500/15" },
+  "Cardiology": { icon: Heart, color: "text-red-400", bgColor: "bg-red-500/15" },
+  "Neurology": { icon: Brain, color: "text-purple-400", bgColor: "bg-purple-500/15" },
+  "Endocrinology": { icon: Pill, color: "text-amber-400", bgColor: "bg-amber-500/15" },
+  "Rheumatology": { icon: Bone, color: "text-orange-400", bgColor: "bg-orange-500/15" },
+  "Pulmonology": { icon: Stethoscope, color: "text-sky-400", bgColor: "bg-sky-500/15" },
+  "Gastroenterology": { icon: Microscope, color: "text-emerald-400", bgColor: "bg-emerald-500/15" },
+  "Nephrology": { icon: Syringe, color: "text-blue-400", bgColor: "bg-blue-500/15" },
+  "Dermatology": { icon: Sparkles, color: "text-pink-400", bgColor: "bg-pink-500/15" },
+  "Psychiatry": { icon: Eye, color: "text-indigo-400", bgColor: "bg-indigo-500/15" },
 };
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 interface HCPProfileCardProps {
   hcp: HCPProfile;
@@ -62,11 +91,14 @@ export function HCPProfileCard({
   compact = false,
 }: HCPProfileCardProps) {
   const PreferredIcon = channelIcons[hcp.channelPreference];
+  const specialtyStyle = specialtyConfig[hcp.specialty as Specialty] || specialtyConfig["Oncology"];
+  const SpecialtyIcon = specialtyStyle.icon;
+  const tierStyle = tierStyles[hcp.tier] || tierStyles["Tier 3"];
 
   const getEngagementColor = (score: number) => {
-    if (score >= 70) return "text-chart-1";
-    if (score >= 40) return "text-chart-3";
-    return "text-muted-foreground";
+    if (score >= 70) return "text-emerald-400";
+    if (score >= 40) return "text-amber-400";
+    return "text-slate-400";
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -78,58 +110,64 @@ export function HCPProfileCard({
     }
   };
 
+  // Compact view
   if (compact) {
     return (
-      <Card
-        className={`cursor-pointer transition-all hover-elevate ${
-          isSelected ? "ring-2 ring-primary" : ""
-        } ${isMultiSelected ? "ring-2 ring-chart-1 bg-chart-1/5" : ""}`}
+      <SignalCard
+        variant="default"
+        glowOnHover
+        liftOnHover
+        clickable
+        selected={isMultiSelected || isSelected}
+        className="p-4"
         onClick={handleClick}
         data-testid={`card-hcp-${hcp.npi}`}
       >
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="truncate text-sm font-medium" data-testid={`text-hcp-name-${hcp.npi}`}>
-                  {hcp.firstName} {hcp.lastName}
-                </h3>
-                <Badge variant="secondary" className={`shrink-0 text-xs ${tierColors[hcp.tier]}`}>
-                  {hcp.tier}
-                </Badge>
-              </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {hcp.specialty} • NPI: {hcp.npi}
-              </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="truncate text-sm font-medium text-foreground" data-testid={`text-hcp-name-${hcp.npi}`}>
+                {hcp.firstName} {hcp.lastName}
+              </h3>
+              <Badge
+                variant="secondary"
+                className={cn("shrink-0 text-xs border-0", tierStyle.bg, tierStyle.text)}
+              >
+                {hcp.tier}
+              </Badge>
             </div>
-            <div className="text-right">
-              <span className={`font-mono text-lg font-semibold ${getEngagementColor(hcp.overallEngagementScore)}`}>
-                {hcp.overallEngagementScore}
-              </span>
-              <p className="text-xs text-muted-foreground">Engagement</p>
-            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {hcp.specialty} • NPI: {hcp.npi}
+            </p>
           </div>
-        </CardContent>
-      </Card>
+          <div className="text-right">
+            <span className={cn("font-mono text-lg font-semibold", getEngagementColor(hcp.overallEngagementScore))}>
+              {hcp.overallEngagementScore}
+            </span>
+            <p className="text-xs text-muted-foreground">Signal</p>
+          </div>
+        </div>
+      </SignalCard>
     );
   }
 
-  const specialtyStyle = specialtyConfig[hcp.specialty as Specialty] || specialtyConfig["Oncology"];
-  const SpecialtyIcon = specialtyStyle.icon;
-
+  // Full card view
   return (
-    <Card
-      className={`cursor-pointer transition-all hover-elevate relative overflow-hidden ${
-        isSelected ? "ring-2 ring-primary" : ""
-      } ${isMultiSelected ? "ring-2 ring-chart-1 bg-chart-1/5" : ""}`}
+    <SignalCard
+      variant="default"
+      glowOnHover
+      liftOnHover
+      clickable
+      selected={isMultiSelected || isSelected}
+      className="overflow-hidden"
       onClick={handleClick}
       data-testid={`card-hcp-${hcp.npi}`}
     >
-      {/* Specialty accent */}
-      <div className={`absolute top-0 right-0 p-2 ${specialtyStyle.bgColor} rounded-bl-xl`}>
+      {/* Specialty accent corner */}
+      <div className={cn("absolute top-0 right-0 p-2.5 rounded-bl-2xl", specialtyStyle.bgColor)}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <SpecialtyIcon className={`h-5 w-5 ${specialtyStyle.color}`} />
+            <SpecialtyIcon className={cn("h-5 w-5", specialtyStyle.color)} />
           </TooltipTrigger>
           <TooltipContent>
             <p>{hcp.specialty}</p>
@@ -137,18 +175,21 @@ export function HCPProfileCard({
         </Tooltip>
       </div>
 
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3 pr-10">
+      <SignalCardHeader>
+        <div className="flex items-start justify-between gap-3 pr-12">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold" data-testid={`text-hcp-name-${hcp.npi}`}>
+              <h3 className="text-base font-semibold text-foreground" data-testid={`text-hcp-name-${hcp.npi}`}>
                 Dr. {hcp.firstName} {hcp.lastName}
               </h3>
-              <Badge variant="secondary" className={`text-xs ${tierColors[hcp.tier]}`}>
+              <Badge
+                variant="secondary"
+                className={cn("text-xs border-0", tierStyle.bg, tierStyle.text)}
+              >
                 {hcp.tier}
               </Badge>
             </div>
-            <p className={`mt-1 text-sm ${specialtyStyle.color} font-medium`}>
+            <p className={cn("mt-1 text-sm font-medium", specialtyStyle.color)}>
               {hcp.specialty}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
@@ -156,57 +197,87 @@ export function HCPProfileCard({
             </p>
           </div>
         </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-3">
+      </SignalCardHeader>
+
+      <SignalCardContent>
+        {/* Metrics row */}
+        <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="text-center">
-            <span className={`block font-mono text-xl font-semibold ${getEngagementColor(hcp.overallEngagementScore)}`} data-testid={`text-engagement-${hcp.npi}`}>
+            <span
+              className={cn("block font-mono text-xl font-bold", getEngagementColor(hcp.overallEngagementScore))}
+              data-testid={`text-engagement-${hcp.npi}`}
+            >
               {hcp.overallEngagementScore}
             </span>
-            <span className="text-xs text-muted-foreground">Engagement</span>
+            <span className="text-xs text-muted-foreground">Signal</span>
           </div>
           <div className="text-center">
-            <span className="block font-mono text-xl font-semibold text-foreground" data-testid={`text-rxvolume-${hcp.npi}`}>
+            <span
+              className="block font-mono text-xl font-bold text-foreground"
+              data-testid={`text-rxvolume-${hcp.npi}`}
+            >
               {hcp.monthlyRxVolume}
             </span>
-            <span className="text-xs text-muted-foreground">Monthly Rx</span>
+            <span className="text-xs text-muted-foreground">Rx/mo</span>
           </div>
           <div className="text-center">
-            <span className="block font-mono text-xl font-semibold text-foreground" data-testid={`text-marketshare-${hcp.npi}`}>
+            <span
+              className="block font-mono text-xl font-bold text-foreground"
+              data-testid={`text-marketshare-${hcp.npi}`}
+            >
               {hcp.marketSharePct}%
             </span>
-            <span className="text-xs text-muted-foreground">Mkt Share</span>
+            <span className="text-xs text-muted-foreground">Share</span>
           </div>
         </div>
 
-        <div>
+        {/* Channel engagement bars */}
+        <div className="mb-4">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Channel Preference</span>
-            <div className="flex items-center gap-1">
-              <PreferredIcon className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-medium text-muted-foreground">Channel Signals</span>
+            <div className="flex items-center gap-1.5">
+              <PreferredIcon
+                className="h-3.5 w-3.5"
+                style={{ color: "var(--catalyst-gold, #d97706)" }}
+              />
               <span className="text-xs font-medium">{channelLabels[hcp.channelPreference]}</span>
             </div>
           </div>
-          <div className="flex gap-1">
-            {hcp.channelEngagements.slice(0, 4).map((engagement) => {
+          <div className="grid grid-cols-6 gap-1">
+            {hcp.channelEngagements.map((engagement) => {
               const Icon = channelIcons[engagement.channel];
+              const isPreferred = engagement.channel === hcp.channelPreference;
+              const barHeight = Math.max(8, Math.min(32, (engagement.score / 100) * 32));
+
               return (
                 <Tooltip key={engagement.channel}>
                   <TooltipTrigger asChild>
-                    <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-md ${
-                        engagement.channel === hcp.channelPreference
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
+                    <div className="flex flex-col items-center gap-1">
+                      <div
+                        className="w-full rounded-sm transition-all duration-200"
+                        style={{
+                          height: `${barHeight}px`,
+                          backgroundColor: isPreferred
+                            ? "var(--catalyst-gold, #d97706)"
+                            : engagement.score >= 60
+                            ? "var(--process-violet, #a855f7)"
+                            : "var(--muted-gray, #52525b)",
+                          opacity: engagement.score > 0 ? 1 : 0.3,
+                        }}
+                      />
+                      <Icon
+                        className={cn(
+                          "h-3 w-3",
+                          isPreferred ? "text-amber-400" : "text-muted-foreground"
+                        )}
+                      />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="font-medium">{channelLabels[engagement.channel]}</p>
-                    <p className="text-xs">Score: {engagement.score} | Response: {engagement.responseRate}%</p>
+                    <p className="text-xs text-muted-foreground">
+                      Score: {engagement.score} • Response: {engagement.responseRate}%
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               );
@@ -214,22 +285,40 @@ export function HCPProfileCard({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Conversion Likelihood</span>
-            <span className="font-medium">{hcp.conversionLikelihood}%</span>
+        {/* Conversion likelihood */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <span className="text-muted-foreground">Conversion Potential</span>
+            <span
+              className="font-mono font-medium"
+              style={{ color: "var(--catalyst-gold, #d97706)" }}
+            >
+              {hcp.conversionLikelihood}%
+            </span>
           </div>
-          <Progress value={hcp.conversionLikelihood} className="h-1.5" />
+          <Progress
+            value={hcp.conversionLikelihood}
+            className="h-1.5"
+            style={{
+              // @ts-ignore - CSS custom property
+              "--progress-indicator": "var(--catalyst-gold, #d97706)",
+            }}
+          />
         </div>
 
-        <div className="flex items-center justify-between pt-2">
-          <Badge variant="outline" className="text-xs" data-testid={`badge-segment-${hcp.npi}`}>
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-3 border-t border-border/50">
+          <Badge
+            variant="outline"
+            className="text-xs"
+            data-testid={`badge-segment-${hcp.npi}`}
+          >
             {hcp.segment}
           </Badge>
           <Button
             variant="ghost"
             size="sm"
-            className="text-xs"
+            className="text-xs h-7 px-2 hover:text-purple-400"
             onClick={(e) => {
               e.stopPropagation();
               onSelect?.(hcp);
@@ -237,9 +326,10 @@ export function HCPProfileCard({
             data-testid={`button-view-profile-${hcp.npi}`}
           >
             View Profile
+            <ArrowRight className="ml-1 h-3 w-3" />
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </SignalCardContent>
+    </SignalCard>
   );
 }

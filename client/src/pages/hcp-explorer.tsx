@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, List, RefreshCw, AlertCircle, Download, Save, X, CheckSquare } from "lucide-react";
+import { RefreshCw, AlertCircle, Download, Save, X, CheckSquare, Search, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -18,13 +18,14 @@ import {
 import { HCPProfileCard } from "@/components/hcp-profile-card";
 import { HCPFilterSidebar } from "@/components/hcp-filter-sidebar";
 import { HCPDetailPanel } from "@/components/hcp-detail-panel";
+import { ViewCustomizer, useViewSettings } from "@/components/view-customizer";
 import { useToast } from "@/hooks/use-toast";
 import type { HCPProfile, HCPFilter } from "@shared/schema";
 
 export default function HCPExplorer() {
   const [filter, setFilter] = useState<HCPFilter>({});
   const [selectedHcp, setSelectedHcp] = useState<HCPProfile | null>(null);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const { settings: viewSettings, setSettings: setViewSettings, gridClasses, isCompactCards } = useViewSettings();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastClickedId, setLastClickedId] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -197,9 +198,9 @@ export default function HCPExplorer() {
       <div className="flex-1 overflow-hidden">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-6 py-3">
           <div>
-            <h1 className="text-lg font-semibold" data-testid="text-page-title">HCP Explorer</h1>
+            <h1 className="text-lg font-semibold" data-testid="text-page-title">Signal Index</h1>
             <p className="text-sm text-muted-foreground">
-              Browse and analyze healthcare professional profiles
+              Explore and analyze HCP engagement signals
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -222,26 +223,11 @@ export default function HCPExplorer() {
             >
               <RefreshCw className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`} />
             </Button>
-            <div className="flex rounded-md border">
-              <Button
-                variant={viewMode === "grid" ? "secondary" : "ghost"}
-                size="icon"
-                className="rounded-r-none"
-                onClick={() => setViewMode("grid")}
-                data-testid="button-view-grid"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "secondary" : "ghost"}
-                size="icon"
-                className="rounded-l-none"
-                onClick={() => setViewMode("list")}
-                data-testid="button-view-list"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
+            <ViewCustomizer
+              settings={viewSettings}
+              onSettingsChange={setViewSettings}
+              data-testid="view-customizer"
+            />
           </div>
         </div>
 
@@ -308,12 +294,9 @@ export default function HCPExplorer() {
               </Button>
             </div>
           ) : isLoading ? (
-            <div className={viewMode === "grid" 
-              ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-              : "space-y-3"
-            }>
+            <div className={gridClasses}>
               {Array.from({ length: 9 }).map((_, i) => (
-                <Skeleton key={i} className={viewMode === "grid" ? "h-64" : "h-24"} data-testid={`skeleton-hcp-${i}`} />
+                <Skeleton key={i} className={isCompactCards ? "h-24" : "h-64"} data-testid={`skeleton-hcp-${i}`} />
               ))}
             </div>
           ) : filteredHcps.length === 0 ? (
@@ -334,21 +317,8 @@ export default function HCPExplorer() {
                 Clear all filters
               </Button>
             </div>
-          ) : viewMode === "grid" ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredHcps.map((hcp) => (
-                <HCPProfileCard
-                  key={hcp.id}
-                  hcp={hcp}
-                  onSelect={setSelectedHcp}
-                  isSelected={selectedHcp?.id === hcp.id}
-                  isMultiSelected={selectedIds.has(hcp.id)}
-                  onMultiSelectClick={handleCardClick}
-                />
-              ))}
-            </div>
           ) : (
-            <div className="space-y-3">
+            <div className={gridClasses}>
               {filteredHcps.map((hcp) => (
                 <HCPProfileCard
                   key={hcp.id}
@@ -357,7 +327,7 @@ export default function HCPExplorer() {
                   isSelected={selectedHcp?.id === hcp.id}
                   isMultiSelected={selectedIds.has(hcp.id)}
                   onMultiSelectClick={handleCardClick}
-                  compact
+                  compact={isCompactCards}
                 />
               ))}
             </div>

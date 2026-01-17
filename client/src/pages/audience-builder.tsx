@@ -6,9 +6,9 @@ export default function AudienceBuilder() {
       <div className="sticky top-0 z-10 border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold" data-testid="text-page-title">Audience Builder</h1>
+            <h1 className="text-lg font-semibold" data-testid="text-page-title">Cohort Lab</h1>
             <p className="text-sm text-muted-foreground">
-              Build and explore HCP audiences using natural language
+              Build and explore HCP cohorts using natural language
             </p>
           </div>
         </div>

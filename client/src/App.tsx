@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { BrandProvider } from "@/contexts/BrandContext";
 import NotFound from "@/pages/not-found";
 import HCPExplorer from "@/pages/hcp-explorer";
 import Simulations from "@/pages/simulations";
@@ -95,13 +96,15 @@ function AuthenticatedApp() {
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="light" storageKey="hcp-twin-theme">
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <AuthenticatedApp />
-          <Toaster />
-        </TooltipProvider>
-      </QueryClientProvider>
+    <ThemeProvider defaultTheme="dark" storageKey="omnivor-theme">
+      <BrandProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <AuthenticatedApp />
+            <Toaster />
+          </TooltipProvider>
+        </QueryClientProvider>
+      </BrandProvider>
     </ThemeProvider>
   );
 }

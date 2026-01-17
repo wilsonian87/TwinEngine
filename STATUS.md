@@ -1189,3 +1189,84 @@ test/server/agents.test.ts  # Agent infrastructure tests
 - Created integration API endpoints
 - Added IntegrationManager UI component
 - Added 35 integration tests
+
+### Session: 2026-01-17 (Phase 8: UI Polish & OmniVor Rebrand)
+**Focus:** Premium UI Overhaul & Brand System Implementation
+**Completed:**
+
+**Phase 8A: Brand Configuration Infrastructure**
+- Created `client/src/lib/brand-config.ts` - Central brand tokens
+  - Colors: voidBlack, consumptionPurple, processViolet, catalystGold, signalWhite
+  - Module naming system, typography, animations, gradients
+  - Helper functions: getModuleLabel, getColor, getRandomTagline
+- Updated `client/src/index.css` - Brand CSS variables & animations
+  - CSS custom properties for entire palette
+  - Keyframes: omnivor-converge, omnivor-pulse-glow, omnivor-shimmer
+  - Utility classes: .omnivor-glow, .omnivor-glass, .omnivor-card-elevated
+- Created `client/src/contexts/BrandContext.tsx` - React context
+  - BrandProvider with session-based tagline rotation
+  - Hooks: useBrand, useTagline, useModuleName, useBrandColors, useBrandCopy
+- Modified `client/src/App.tsx` - BrandProvider wrapper, dark theme default
+
+**Phase 8B: Splash Page Rebrand**
+- Created `client/src/components/brand/Wordmark.tsx`
+  - Variants: split (OMNIVOR + LABS), heavy (both bold)
+  - Sizes: sm, md, lg, xl, 2xl, display
+  - WordmarkDisplay, WordmarkCompact, LogoIcon components
+- Created `client/src/components/brand/index.ts` - Barrel export
+- Rewrote `client/src/pages/landing.tsx` - Full OmniVor branded splash
+  - Heavy wordmark with hero glow animation
+  - Rotating taglines per session
+  - Glass-morphism access form with catalyst-gold CTA
+
+**Phase 8C: Navigation & Module Naming**
+- Rewrote `client/src/components/app-sidebar.tsx` - OmniVor nomenclature
+  - Intelligence: Signal Index, Cohort Lab
+  - Activation: Catalyst Queue, Scenario Lab
+  - Analytics: Nerve Center
+  - System: Agent Orchestrator, Constraint Surface, Allocation Lab
+  - OmniVor Labs footer with purple accent
+- Updated page headers:
+  - hcp-explorer.tsx → "Signal Index"
+  - dashboard.tsx → "Nerve Center"
+  - audience-builder.tsx → "Cohort Lab"
+  - simulations.tsx → "Scenario Lab"
+  - action-queue.tsx → "Catalyst Queue"
+
+**Phase 8D: Signal Index Premium UI**
+- Created `client/src/components/ui/signal-card.tsx` - Premium card system
+  - Variants: default, elevated, glass, accent
+  - Props: glowOnHover, liftOnHover, selected, clickable
+  - Sub-components: SignalCardHeader, SignalCardContent, SignalCardFooter
+- Created `client/src/components/view-customizer.tsx` - View settings popover
+  - ViewSettings interface: mode, density, gridColumns, sortField, sortDirection
+  - useViewSettings hook with localStorage persistence
+  - Dynamic grid classes generation
+- Created `client/src/components/ui/glass-dialog.tsx` - Glass-morphism dialog
+  - Backdrop blur, brand border accents, smooth animations
+  - Full dialog component suite (Header, Body, Footer, Title, Description)
+- Rewrote `client/src/components/hcp-profile-card.tsx`
+  - Uses SignalCard with glowOnHover, liftOnHover
+  - Channel engagement mini-bars visualization
+  - Specialty icons with color coding
+  - Renamed "Engagement" → "Signal"
+- Modified `client/src/pages/hcp-explorer.tsx`
+  - Integrated ViewCustomizer component
+  - Dynamic grid layout based on view settings
+
+**Phase 8E: Global UI Polish (Partial)**
+- Modified `client/src/components/dashboard-metrics.tsx`
+  - Brand-aligned COLORS array
+  - MetricCard uses SignalCard with brand styling
+  - Catalyst-gold metric values
+
+**Build Status:**
+- TypeScript: Clean (no errors)
+- Build: Success (1.3MB client, 1.4MB server)
+- Tests: 358 passing
+
+**Notes:**
+- OmniVor Labs brand system ready for white-label expansion
+- SignalCard provides consistent premium styling across platform
+- View customizer persists settings to localStorage
+- Dark theme set as default for brand cohesion

@@ -1,11 +1,24 @@
-import { useState } from "react";
+/**
+ * OmniVor Labs Splash Page
+ *
+ * Brand-first entry point with:
+ * - Heavy Extended wordmark
+ * - Rotating taglines (session-based)
+ * - Hero glow animation
+ * - Branded invite code form
+ */
+
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Activity, Users, BarChart3, Sparkles, Shield, Zap } from "lucide-react";
+import { Loader2, ArrowRight, Hexagon, Search, Users, FlaskConical, Zap } from "lucide-react";
+import { WordmarkDisplay, LogoIcon } from "@/components/brand";
+import { useBrand } from "@/contexts/BrandContext";
+import { BRAND_CONFIG } from "@/lib/brand-config";
+import { cn } from "@/lib/utils";
 
 interface ValidateResponse {
   success?: boolean;
@@ -16,9 +29,17 @@ interface ValidateResponse {
 
 export default function Landing() {
   const queryClient = useQueryClient();
+  const { currentTagline, config } = useBrand();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [taglineVisible, setTaglineVisible] = useState(false);
+
+  // Animate tagline on mount
+  useEffect(() => {
+    const timer = setTimeout(() => setTaglineVisible(true), 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   const validateMutation = useMutation({
     mutationFn: async () => {
@@ -29,12 +50,11 @@ export default function Landing() {
       });
       const data: ValidateResponse = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Invalid invite code");
+        throw new Error(data.error || "Access denied");
       }
       return data;
     },
     onSuccess: () => {
-      // Invalidate session query to trigger re-check and show main app
       queryClient.invalidateQueries({ queryKey: ["session"] });
     },
     onError: (err: Error) => {
@@ -49,193 +69,315 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+    <div
+      className="min-h-screen flex flex-col relative overflow-hidden"
+      style={{ backgroundColor: "var(--void-black, #0a0a0b)" }}
+    >
+      {/* Hero Glow Background */}
+      <div className="absolute inset-0 pointer-events-none">
+        {/* Central glow */}
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] omnivor-hero-glow"
+          style={{
+            background: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(107, 33, 168, 0.25), transparent)",
+          }}
+        />
+        {/* Secondary ambient glow */}
+        <div
+          className="absolute bottom-0 left-1/4 w-[600px] h-[400px] opacity-30"
+          style={{
+            background: "radial-gradient(ellipse at center, rgba(107, 33, 168, 0.2), transparent 70%)",
+            animation: "omnivor-converge 12s ease-in-out infinite",
+          }}
+        />
+        <div
+          className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] opacity-20"
+          style={{
+            background: "radial-gradient(ellipse at center, rgba(217, 119, 6, 0.15), transparent 70%)",
+            animation: "omnivor-converge 10s ease-in-out infinite reverse",
+          }}
+        />
       </div>
 
       {/* Header */}
       <header className="relative z-10 p-6">
-        <div className="flex items-center gap-2">
-          <Activity className="h-8 w-8 text-blue-400" />
-          <span className="text-2xl font-bold text-white">TwinEngine</span>
+        <div className="flex items-center gap-3">
+          <LogoIcon size="md" />
+          <span
+            className="text-lg font-semibold tracking-wide"
+            style={{ color: "var(--signal-white, #fafafa)" }}
+          >
+            {config.product.name}
+          </span>
         </div>
       </header>
 
-      {/* Main content */}
+      {/* Main Content */}
       <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left side - Hero content */}
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm">
-                <Sparkles className="h-4 w-4" />
-                AI-Powered HCP Analytics
-              </div>
-              <h1 className="text-4xl lg:text-5xl font-bold text-white leading-tight">
-                Digital Twin Simulation for{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
-                  Healthcare Engagement
-                </span>
-              </h1>
-              <p className="text-lg text-slate-300 max-w-lg">
-                Predict, simulate, and optimize your HCP engagement strategies with
-                AI-powered analytics built for life sciences.
+        <div className="w-full max-w-5xl">
+          {/* Hero Section */}
+          <div className="text-center mb-16 space-y-8">
+            {/* Wordmark */}
+            <div className="omnivor-animate-in">
+              <WordmarkDisplay />
+            </div>
+
+            {/* Tagline with fade animation */}
+            <div
+              className={cn(
+                "transition-all duration-700 ease-out",
+                taglineVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+              )}
+            >
+              <p
+                className="text-xl md:text-2xl font-light tracking-wide"
+                style={{ color: "rgba(250, 250, 250, 0.7)" }}
+              >
+                {currentTagline}
               </p>
             </div>
 
-            {/* Feature highlights */}
-            <div className="grid grid-cols-2 gap-4">
-              <FeatureCard
-                icon={<Users className="h-5 w-5" />}
-                title="HCP Profiling"
-                description="Deep insights into healthcare professional behavior"
+            {/* Subtle divider */}
+            <div className="flex items-center justify-center gap-4 pt-4">
+              <div
+                className="h-px w-16"
+                style={{ background: "linear-gradient(90deg, transparent, var(--border-gray, #27272a), transparent)" }}
               />
-              <FeatureCard
-                icon={<BarChart3 className="h-5 w-5" />}
-                title="Predictive Simulation"
-                description="What-if scenarios for campaign optimization"
+              <Hexagon
+                className="h-4 w-4"
+                style={{ color: "var(--consumption-purple, #6b21a8)" }}
               />
-              <FeatureCard
-                icon={<Zap className="h-5 w-5" />}
-                title="Channel Intelligence"
-                description="Optimize omnichannel engagement mix"
+              <div
+                className="h-px w-16"
+                style={{ background: "linear-gradient(90deg, transparent, var(--border-gray, #27272a), transparent)" }}
               />
-              <FeatureCard
-                icon={<Shield className="h-5 w-5" />}
-                title="Enterprise Ready"
-                description="Built for pharma compliance requirements"
-              />
-            </div>
-
-            {/* Trust signals */}
-            <div className="flex items-center gap-6 pt-4 border-t border-slate-700">
-              <div className="text-sm text-slate-400">Built for Life Sciences</div>
-              <div className="h-4 w-px bg-slate-700" />
-              <div className="text-sm text-slate-400">SOC 2 Compliant Architecture</div>
             </div>
           </div>
 
-          {/* Right side - Gate form */}
-          <div className="flex justify-center lg:justify-end">
-            <Card className="w-full max-w-md bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-              <CardHeader className="space-y-1">
-                <CardTitle className="text-2xl text-white">Request Access</CardTitle>
-                <CardDescription className="text-slate-400">
-                  Enter your email and invite code to access the platform
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {error && (
-                    <Alert variant="destructive" className="bg-red-500/10 border-red-500/30">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
+          {/* Access Form Card */}
+          <div className="max-w-md mx-auto omnivor-animate-slide-up">
+            <div
+              className="p-8 rounded-2xl omnivor-glass"
+              style={{
+                background: "rgba(10, 10, 11, 0.85)",
+                backdropFilter: "blur(16px)",
+                border: "1px solid rgba(107, 33, 168, 0.2)",
+              }}
+            >
+              <div className="text-center mb-6">
+                <h2
+                  className="text-xl font-semibold mb-2"
+                  style={{ color: "var(--signal-white, #fafafa)" }}
+                >
+                  Access {config.product.name}
+                </h2>
+                <p
+                  className="text-sm"
+                  style={{ color: "var(--data-gray, #71717a)" }}
+                >
+                  Enter your credentials to connect
+                </p>
+              </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-slate-200">
-                      Email Address
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@company.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="code" className="text-slate-200">
-                      Invite Code
-                    </Label>
-                    <Input
-                      id="code"
-                      type="text"
-                      placeholder="Enter your invite code"
-                      value={code}
-                      onChange={(e) => setCode(e.target.value.toUpperCase())}
-                      required
-                      className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-blue-500 uppercase"
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white"
-                    disabled={validateMutation.isPending}
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {error && (
+                  <Alert
+                    variant="destructive"
+                    className="border-red-500/30"
+                    style={{ background: "rgba(239, 68, 68, 0.1)" }}
                   >
-                    {validateMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Validating...
-                      </>
-                    ) : (
-                      "Access Platform"
-                    )}
-                  </Button>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
 
-                  <p className="text-xs text-center text-slate-500 pt-2">
-                    Don't have an invite code?{" "}
-                    <a href="mailto:demo@twinengine.ai" className="text-blue-400 hover:underline">
-                      Request access
-                    </a>
-                  </p>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="email"
+                    className="text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: "var(--muted-gray, #52525b)" }}
+                  >
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12 border-0 focus-visible:ring-2"
+                    style={{
+                      backgroundColor: "var(--void-black, #0a0a0b)",
+                      color: "var(--signal-white, #fafafa)",
+                      borderRadius: "8px",
+                    }}
+                  />
+                </div>
 
-                  {/* Dev mode skip button */}
-                  {import.meta.env.DEV && (
-                    <div className="pt-4 border-t border-slate-700 mt-4">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full text-slate-400 hover:text-white hover:bg-slate-700"
-                        onClick={async () => {
-                          const response = await fetch("/api/invite/dev-bypass", {
-                            method: "POST",
-                          });
-                          if (response.ok) {
-                            queryClient.invalidateQueries({ queryKey: ["session"] });
-                          }
-                        }}
-                      >
-                        Skip (Dev Mode)
-                      </Button>
-                    </div>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="code"
+                    className="text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: "var(--muted-gray, #52525b)" }}
+                  >
+                    Invite Code
+                  </Label>
+                  <Input
+                    id="code"
+                    type="text"
+                    placeholder="XXXX-XXXX"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    required
+                    className="h-12 border-0 uppercase tracking-widest text-center font-mono focus-visible:ring-2"
+                    style={{
+                      backgroundColor: "var(--void-black, #0a0a0b)",
+                      color: "var(--signal-white, #fafafa)",
+                      borderRadius: "8px",
+                    }}
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-base font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                  style={{
+                    backgroundColor: "var(--catalyst-gold, #d97706)",
+                    color: "var(--void-black, #0a0a0b)",
+                    borderRadius: "8px",
+                  }}
+                  disabled={validateMutation.isPending}
+                >
+                  {validateMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Connect
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
                   )}
-                </form>
-              </CardContent>
-            </Card>
+                </Button>
+
+                <p
+                  className="text-xs text-center pt-2"
+                  style={{ color: "var(--muted-gray, #52525b)" }}
+                >
+                  Need an invite?{" "}
+                  <a
+                    href="mailto:access@omnivorlabs.com"
+                    className="hover:underline transition-colors"
+                    style={{ color: "var(--process-violet, #a855f7)" }}
+                  >
+                    Request access
+                  </a>
+                </p>
+
+                {/* Dev mode skip */}
+                {import.meta.env.DEV && (
+                  <div
+                    className="pt-4 mt-4"
+                    style={{ borderTop: "1px solid var(--border-gray, #27272a)" }}
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full text-xs"
+                      style={{ color: "var(--data-gray, #71717a)" }}
+                      onClick={async () => {
+                        const response = await fetch("/api/invite/dev-bypass", {
+                          method: "POST",
+                        });
+                        if (response.ok) {
+                          queryClient.invalidateQueries({ queryKey: ["session"] });
+                        }
+                      }}
+                    >
+                      Skip (Dev Mode)
+                    </Button>
+                  </div>
+                )}
+              </form>
+            </div>
+          </div>
+
+          {/* Capability Hints */}
+          <div className="mt-16 max-w-3xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+              <CapabilityHint
+                icon={<Search className="h-5 w-5" />}
+                label="Signal Index"
+                description="HCP exploration"
+              />
+              <CapabilityHint
+                icon={<Users className="h-5 w-5" />}
+                label="Cohort Lab"
+                description="Audience building"
+              />
+              <CapabilityHint
+                icon={<FlaskConical className="h-5 w-5" />}
+                label="Scenario Lab"
+                description="Campaign simulation"
+              />
+              <CapabilityHint
+                icon={<Zap className="h-5 w-5" />}
+                label="Catalyst Queue"
+                description="Next best actions"
+              />
+            </div>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 p-6 text-center text-sm text-slate-500">
-        <p>&copy; {new Date().getFullYear()} TwinEngine. All rights reserved.</p>
+      <footer className="relative z-10 p-6 text-center">
+        <p
+          className="text-xs"
+          style={{ color: "var(--muted-gray, #52525b)" }}
+        >
+          {config.company.copyright}
+        </p>
       </footer>
     </div>
   );
 }
 
-function FeatureCard({
+function CapabilityHint({
   icon,
-  title,
+  label,
   description,
 }: {
   icon: React.ReactNode;
-  title: string;
+  label: string;
   description: string;
 }) {
   return (
-    <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700/50 space-y-2">
-      <div className="text-blue-400">{icon}</div>
-      <h3 className="font-medium text-white">{title}</h3>
-      <p className="text-sm text-slate-400">{description}</p>
+    <div className="space-y-2 opacity-60 hover:opacity-100 transition-opacity duration-200">
+      <div
+        className="mx-auto w-10 h-10 rounded-lg flex items-center justify-center"
+        style={{
+          backgroundColor: "rgba(107, 33, 168, 0.15)",
+          color: "var(--process-violet, #a855f7)",
+        }}
+      >
+        {icon}
+      </div>
+      <div>
+        <p
+          className="text-sm font-medium"
+          style={{ color: "var(--signal-white, #fafafa)" }}
+        >
+          {label}
+        </p>
+        <p
+          className="text-xs"
+          style={{ color: "var(--data-gray, #71717a)" }}
+        >
+          {description}
+        </p>
+      </div>
     </div>
   );
 }

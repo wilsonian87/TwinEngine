@@ -89,9 +89,9 @@ export default function Simulations() {
       <div className="sticky top-0 z-10 border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold" data-testid="text-page-title">Campaign Simulations</h1>
+            <h1 className="text-lg font-semibold" data-testid="text-page-title">Scenario Lab</h1>
             <p className="text-sm text-muted-foreground">
-              Build and run what-if scenarios to optimize HCP engagement
+              Build and run what-if scenarios to optimize engagement
             </p>
           </div>
           <Badge variant="outline" className="gap-1">

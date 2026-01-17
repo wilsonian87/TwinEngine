@@ -23,9 +23,9 @@ export default function Dashboard() {
       <div className="sticky top-0 z-10 border-b bg-background px-6 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold" data-testid="text-page-title">Analytics Dashboard</h1>
+            <h1 className="text-lg font-semibold" data-testid="text-page-title">Nerve Center</h1>
             <p className="text-sm text-muted-foreground">
-              Monitor HCP engagement performance and simulation insights
+              Monitor engagement signals and simulation insights
             </p>
           </div>
           <div className="flex items-center gap-3">

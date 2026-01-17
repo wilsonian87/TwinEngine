@@ -1,19 +1,31 @@
+/**
+ * OmniVor Application Sidebar
+ *
+ * Navigation with branded module names:
+ * - Signal Index (HCP Explorer)
+ * - Cohort Lab (Audience Builder)
+ * - Catalyst Queue (Action Queue)
+ * - Scenario Lab (Simulations)
+ * - Nerve Center (Dashboard)
+ */
+
 import { useLocation, Link } from "wouter";
 import {
+  Search,
   Users,
   FlaskConical,
-  LayoutDashboard,
+  Activity,
   Settings,
   Database,
-  Activity,
   TrendingUp,
-  MessageSquare,
   BarChart3,
-  ListTodo,
   GitCompare,
   Bot,
   Shield,
   Beaker,
+  Zap,
+  Hexagon,
+  Info,
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,46 +40,50 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { LogoIcon } from "@/components/brand";
+import { BRAND_CONFIG } from "@/lib/brand-config";
 
+// Primary navigation - data exploration & analysis modules
 const navigationItems = [
   {
-    title: "HCP Explorer",
+    title: "Signal Index",
     url: "/",
-    icon: Users,
-    description: "Search & analyze HCP profiles",
+    icon: Search,
+    description: "HCP profile exploration",
   },
   {
-    title: "Audience Builder",
+    title: "Cohort Lab",
     url: "/audience-builder",
-    icon: MessageSquare,
-    description: "Build cohorts with AI",
+    icon: Users,
+    description: "AI-powered audience building",
   },
   {
-    title: "Action Queue",
+    title: "Catalyst Queue",
     url: "/action-queue",
-    icon: ListTodo,
+    icon: Zap,
     description: "Next best actions",
   },
   {
-    title: "Compare Cohorts",
+    title: "Cohort Compare",
     url: "/cohort-compare",
     icon: GitCompare,
-    description: "Side-by-side comparison",
+    description: "Side-by-side analysis",
   },
   {
-    title: "Simulations",
+    title: "Scenario Lab",
     url: "/simulations",
     icon: FlaskConical,
-    description: "Run campaign scenarios",
+    description: "Campaign simulation",
   },
   {
-    title: "Dashboard",
+    title: "Nerve Center",
     url: "/dashboard",
-    icon: LayoutDashboard,
-    description: "Analytics & metrics",
+    icon: Activity,
+    description: "Analytics dashboard",
   },
 ];
 
+// System modules - configuration & infrastructure
 const systemItems = [
   {
     title: "Feature Store",
@@ -79,16 +95,16 @@ const systemItems = [
     title: "Model Evaluation",
     url: "/model-evaluation",
     icon: BarChart3,
-    description: "Track prediction accuracy",
+    description: "Prediction accuracy tracking",
   },
   {
-    title: "Agents",
+    title: "Agent Orchestrator",
     url: "/agents",
     icon: Bot,
     description: "Autonomous agents & alerts",
   },
   {
-    title: "Constraints",
+    title: "Constraint Surface",
     url: "/constraints",
     icon: Shield,
     description: "Capacity, budget & compliance",
@@ -98,6 +114,16 @@ const systemItems = [
     url: "/allocation-lab",
     icon: Beaker,
     description: "Portfolio optimization",
+  },
+];
+
+// OmniVor Labs section
+const labsItems = [
+  {
+    title: "About OmniVor",
+    url: "/settings",
+    icon: Info,
+    description: "Product information",
   },
   {
     title: "Settings",
@@ -112,39 +138,53 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
+      {/* Header with OmniVor branding */}
       <SidebarHeader className="border-b border-sidebar-border px-4 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Activity className="h-5 w-5" />
-          </div>
+          <LogoIcon size="md" />
           <div className="flex flex-col">
-            <span className="text-sm font-semibold tracking-tight" data-testid="text-app-title">
-              Digital Twin Engine
+            <span
+              className="text-sm font-bold tracking-wide"
+              style={{ color: "var(--signal-white, #fafafa)" }}
+              data-testid="text-app-title"
+            >
+              {BRAND_CONFIG.product.name}
             </span>
-            <span className="text-xs text-muted-foreground">
-              HCP Engagement Platform
+            <span
+              className="text-xs"
+              style={{ color: "var(--muted-gray, #52525b)" }}
+            >
+              {BRAND_CONFIG.product.subtitle}
             </span>
           </div>
         </div>
       </SidebarHeader>
-      
+
       <SidebarContent>
+        {/* Primary Navigation */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground px-4">
-            Navigation
+          <SidebarGroupLabel
+            className="text-xs font-semibold uppercase tracking-wider px-4"
+            style={{ color: "var(--muted-gray, #52525b)" }}
+          >
+            Modules
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigationItems.map((item) => {
-                const isActive = location === item.url;
+                const isActive = location === item.url || (item.url === "/" && location === "/hcp-explorer");
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
                       tooltip={item.description}
+                      className="transition-all duration-200"
                     >
-                      <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                      <Link
+                        href={item.url}
+                        data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
@@ -156,8 +196,12 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* System Modules */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wider text-muted-foreground px-4">
+          <SidebarGroupLabel
+            className="text-xs font-semibold uppercase tracking-wider px-4"
+            style={{ color: "var(--muted-gray, #52525b)" }}
+          >
             System
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -170,8 +214,48 @@ export function AppSidebar() {
                       asChild
                       isActive={isActive}
                       tooltip={item.description}
+                      className="transition-all duration-200"
                     >
-                      <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                      <Link
+                        href={item.url}
+                        data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* OmniVor Labs Section */}
+        <SidebarGroup>
+          <SidebarGroupLabel
+            className="text-xs font-semibold uppercase tracking-wider px-4 flex items-center gap-2"
+            style={{ color: "var(--consumption-purple, #6b21a8)" }}
+          >
+            <Hexagon className="h-3 w-3" />
+            OmniVor Labs
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {labsItems.map((item) => {
+                const isActive = location === item.url;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.description}
+                      className="transition-all duration-200"
+                    >
+                      <Link
+                        href={item.url}
+                        data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
@@ -184,18 +268,38 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
+      {/* Footer with status */}
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-chart-1" />
-            <span className="text-xs text-muted-foreground">Model Status</span>
+            <TrendingUp
+              className="h-4 w-4"
+              style={{ color: "var(--catalyst-gold, #d97706)" }}
+            />
+            <span
+              className="text-xs"
+              style={{ color: "var(--muted-gray, #52525b)" }}
+            >
+              Signal Status
+            </span>
           </div>
-          <Badge variant="outline" className="text-xs" data-testid="badge-model-status">
+          <Badge
+            variant="outline"
+            className="text-xs"
+            style={{
+              borderColor: "var(--consumption-purple, #6b21a8)",
+              color: "var(--process-violet, #a855f7)",
+            }}
+            data-testid="badge-model-status"
+          >
             Active
           </Badge>
         </div>
-        <div className="mt-2 text-xs text-muted-foreground">
-          Last sync: 2 min ago
+        <div
+          className="mt-2 text-xs"
+          style={{ color: "var(--muted-gray, #52525b)" }}
+        >
+          {BRAND_CONFIG.company.copyright}
         </div>
       </SidebarFooter>
     </Sidebar>

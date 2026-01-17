@@ -1,5 +1,6 @@
 import { TrendingUp, TrendingDown, Users, Activity, FlaskConical, Target, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { SignalCard } from "@/components/ui/signal-card";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -23,13 +24,14 @@ import {
 } from "recharts";
 import type { DashboardMetrics, Channel } from "@shared/schema";
 
+// Brand-aligned chart colors
 const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "hsl(var(--muted))",
+  "#6b21a8", // consumption-purple
+  "#a855f7", // process-violet
+  "#d97706", // catalyst-gold
+  "#22c55e", // success
+  "#3b82f6", // info
+  "#52525b", // muted
 ];
 
 const channelLabels: Record<Channel, string> = {
@@ -52,10 +54,12 @@ interface MetricCardProps {
 
 function MetricCard({ title, value, subtitle, trend, icon: Icon, tooltip }: MetricCardProps) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+    <SignalCard variant="default" glowOnHover className="p-4">
+      <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>
+            {title}
+          </span>
           {tooltip && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -67,31 +71,33 @@ function MetricCard({ title, value, subtitle, trend, icon: Icon, tooltip }: Metr
             </Tooltip>
           )}
         </div>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold font-mono" data-testid={`text-metric-${title.toLowerCase().replace(/\s+/g, "-")}`}>
-          {value}
+        <Icon className="h-4 w-4" style={{ color: "var(--process-violet, #a855f7)" }} />
+      </div>
+      <div
+        className="text-3xl font-extrabold font-mono"
+        style={{ color: "var(--catalyst-gold, #d97706)" }}
+        data-testid={`text-metric-${title.toLowerCase().replace(/\s+/g, "-")}`}
+      >
+        {value}
+      </div>
+      {(subtitle || trend !== undefined) && (
+        <div className="flex items-center gap-2 mt-2">
+          {trend !== undefined && (
+            <div className={`flex items-center text-xs font-medium ${trend >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {trend >= 0 ? (
+                <TrendingUp className="mr-1 h-3 w-3" />
+              ) : (
+                <TrendingDown className="mr-1 h-3 w-3" />
+              )}
+              {trend >= 0 ? "+" : ""}{trend}%
+            </div>
+          )}
+          {subtitle && (
+            <p className="text-xs text-muted-foreground">{subtitle}</p>
+          )}
         </div>
-        {(subtitle || trend !== undefined) && (
-          <div className="flex items-center gap-2 mt-1">
-            {trend !== undefined && (
-              <div className={`flex items-center text-xs ${trend >= 0 ? "text-chart-1" : "text-destructive"}`}>
-                {trend >= 0 ? (
-                  <TrendingUp className="mr-1 h-3 w-3" />
-                ) : (
-                  <TrendingDown className="mr-1 h-3 w-3" />
-                )}
-                {trend >= 0 ? "+" : ""}{trend}%
-              </div>
-            )}
-            {subtitle && (
-              <p className="text-xs text-muted-foreground">{subtitle}</p>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </SignalCard>
   );
 }
 
