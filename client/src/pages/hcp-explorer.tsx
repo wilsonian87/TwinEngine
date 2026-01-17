@@ -19,7 +19,9 @@ import { HCPProfileCard } from "@/components/hcp-profile-card";
 import { HCPFilterSidebar } from "@/components/hcp-filter-sidebar";
 import { HCPDetailPanel } from "@/components/hcp-detail-panel";
 import { ViewCustomizer, useViewSettings } from "@/components/view-customizer";
+import { KeyboardNavHint } from "@/components/ui/focus-indicator";
 import { useToast } from "@/hooks/use-toast";
+import { useKeyboardNavigation } from "@/hooks/use-command-palette";
 import type { HCPProfile, HCPFilter } from "@shared/schema";
 
 export default function HCPExplorer() {
@@ -111,6 +113,33 @@ export default function HCPExplorer() {
 
     return result;
   }, [hcps, filter]);
+
+  // Keyboard navigation for HCP list
+  const hcpIds = useMemo(() => filteredHcps.map((h) => h.id), [filteredHcps]);
+
+  const handleKeyboardSelect = useCallback((id: string) => {
+    const hcp = filteredHcps.find((h) => h.id === id);
+    if (hcp) {
+      setSelectedHcp(hcp);
+    }
+  }, [filteredHcps]);
+
+  const handleKeyboardAction = useCallback((id: string, action: 'edit' | 'delete' | 'view') => {
+    const hcp = filteredHcps.find((h) => h.id === id);
+    if (!hcp) return;
+
+    if (action === 'view') {
+      setSelectedHcp(hcp);
+    }
+    // Note: edit and delete actions can be implemented as needed
+  }, [filteredHcps]);
+
+  const { focusedIndex, focusedId } = useKeyboardNavigation({
+    items: hcpIds,
+    onSelect: handleKeyboardSelect,
+    onAction: handleKeyboardAction,
+    enabled: !selectedHcp && !saveDialogOpen, // Disable when detail panel or dialog is open
+  });
 
   // Multi-select handlers
   const handleCardClick = useCallback((hcp: HCPProfile, event: React.MouseEvent) => {
@@ -318,19 +347,26 @@ export default function HCPExplorer() {
               </Button>
             </div>
           ) : (
-            <div className={gridClasses}>
-              {filteredHcps.map((hcp) => (
-                <HCPProfileCard
-                  key={hcp.id}
-                  hcp={hcp}
-                  onSelect={setSelectedHcp}
-                  isSelected={selectedHcp?.id === hcp.id}
-                  isMultiSelected={selectedIds.has(hcp.id)}
-                  onMultiSelectClick={handleCardClick}
-                  compact={isCompactCards}
-                />
-              ))}
-            </div>
+            <>
+              <div className={gridClasses}>
+                {filteredHcps.map((hcp) => (
+                  <HCPProfileCard
+                    key={hcp.id}
+                    hcp={hcp}
+                    onSelect={setSelectedHcp}
+                    isSelected={selectedHcp?.id === hcp.id}
+                    isMultiSelected={selectedIds.has(hcp.id)}
+                    onMultiSelectClick={handleCardClick}
+                    compact={isCompactCards}
+                    isKeyboardFocused={focusedId === hcp.id}
+                  />
+                ))}
+              </div>
+              <KeyboardNavHint
+                show={filteredHcps.length > 0}
+                hint="navigate • Enter to view"
+              />
+            </>
           )}
         </div>
       </div>

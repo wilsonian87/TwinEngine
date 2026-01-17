@@ -81,6 +81,15 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        // OmniVor Brand Colors
+        "void-black": "var(--void-black)",
+        "consumption-purple": "var(--consumption-purple)",
+        "process-violet": "var(--process-violet)",
+        "catalyst-gold": "var(--catalyst-gold)",
+        "signal-white": "var(--signal-white)",
+        "data-gray": "var(--data-gray)",
+        "muted-gray": "var(--muted-gray)",
+        "border-gray": "var(--border-gray)",
       },
       fontFamily: {
         sans: ["IBM Plex Sans", "var(--font-sans)"],
@@ -96,10 +105,35 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        shimmer: {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
+        convergence: {
+          "0%, 100%": { transform: "scale(1)", opacity: "0.4" },
+          "50%": { transform: "scale(0.6)", opacity: "0.8" },
+        },
+        "pulse-glow": {
+          "0%, 100%": { opacity: "0.4", boxShadow: "0 0 0 0 rgba(107, 33, 168, 0)" },
+          "50%": { opacity: "0.7", boxShadow: "0 0 20px 4px rgba(107, 33, 168, 0.3)" },
+        },
+        "toast-slide-in": {
+          "0%": { transform: "translateX(100%)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+        "toast-slide-out": {
+          "0%": { transform: "translateX(0)", opacity: "1" },
+          "100%": { transform: "translateX(100%)", opacity: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        shimmer: "shimmer 1.5s ease-in-out infinite",
+        convergence: "convergence 2s ease-in-out infinite",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "toast-slide-in": "toast-slide-in 0.3s ease-out",
+        "toast-slide-out": "toast-slide-out 0.2s ease-in",
       },
     },
   },

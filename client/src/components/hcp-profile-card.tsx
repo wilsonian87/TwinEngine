@@ -8,6 +8,7 @@
  * - Selection state styling
  */
 
+import React from "react";
 import { Mail, Phone, Video, Globe, Calendar, Users, Heart, Brain, Bone, Pill, Stethoscope, Activity, Eye, Syringe, Microscope, Sparkles, ArrowRight } from "lucide-react";
 import { SignalCard, SignalCardContent, SignalCardHeader } from "@/components/ui/signal-card";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +81,8 @@ interface HCPProfileCardProps {
   isMultiSelected?: boolean;
   onMultiSelectClick?: (hcp: HCPProfile, event: React.MouseEvent) => void;
   compact?: boolean;
+  /** Whether this card is focused via keyboard navigation */
+  isKeyboardFocused?: boolean;
 }
 
 export function HCPProfileCard({
@@ -89,7 +92,19 @@ export function HCPProfileCard({
   isMultiSelected = false,
   onMultiSelectClick,
   compact = false,
+  isKeyboardFocused = false,
 }: HCPProfileCardProps) {
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
+  // Scroll into view when keyboard focused
+  React.useEffect(() => {
+    if (isKeyboardFocused && cardRef.current) {
+      cardRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [isKeyboardFocused]);
   const PreferredIcon = channelIcons[hcp.channelPreference];
   const specialtyStyle = specialtyConfig[hcp.specialty as Specialty] || specialtyConfig["Oncology"];
   const SpecialtyIcon = specialtyStyle.icon;
@@ -113,16 +128,20 @@ export function HCPProfileCard({
   // Compact view
   if (compact) {
     return (
-      <SignalCard
-        variant="default"
-        glowOnHover
-        liftOnHover
-        clickable
-        selected={isMultiSelected || isSelected}
-        className="p-4"
-        onClick={handleClick}
-        data-testid={`card-hcp-${hcp.npi}`}
-      >
+      <div ref={cardRef}>
+        <SignalCard
+          variant="default"
+          glowOnHover
+          liftOnHover
+          clickable
+          selected={isMultiSelected || isSelected}
+          className={cn(
+            "p-4",
+            isKeyboardFocused && "ring-2 ring-consumption-purple ring-offset-2 ring-offset-void-black shadow-[0_0_12px_rgba(107,33,168,0.3)]"
+          )}
+          onClick={handleClick}
+          data-testid={`card-hcp-${hcp.npi}`}
+        >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
@@ -147,22 +166,27 @@ export function HCPProfileCard({
             <p className="text-xs text-muted-foreground">Signal</p>
           </div>
         </div>
-      </SignalCard>
+        </SignalCard>
+      </div>
     );
   }
 
   // Full card view
   return (
-    <SignalCard
-      variant="default"
-      glowOnHover
-      liftOnHover
-      clickable
-      selected={isMultiSelected || isSelected}
-      className="overflow-hidden"
-      onClick={handleClick}
-      data-testid={`card-hcp-${hcp.npi}`}
-    >
+    <div ref={cardRef}>
+      <SignalCard
+        variant="default"
+        glowOnHover
+        liftOnHover
+        clickable
+        selected={isMultiSelected || isSelected}
+        className={cn(
+          "overflow-hidden",
+          isKeyboardFocused && "ring-2 ring-consumption-purple ring-offset-2 ring-offset-void-black shadow-[0_0_12px_rgba(107,33,168,0.3)]"
+        )}
+        onClick={handleClick}
+        data-testid={`card-hcp-${hcp.npi}`}
+      >
       {/* Specialty accent corner */}
       <div className={cn("absolute top-0 right-0 p-2.5 rounded-bl-2xl", specialtyStyle.bgColor)}>
         <Tooltip>
@@ -330,6 +354,7 @@ export function HCPProfileCard({
           </Button>
         </div>
       </SignalCardContent>
-    </SignalCard>
+      </SignalCard>
+    </div>
   );
 }

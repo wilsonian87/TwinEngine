@@ -42,6 +42,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { LogoIcon } from "@/components/brand";
 import { BRAND_CONFIG } from "@/lib/brand-config";
+import { FeatureTooltip, NOMENCLATURE_TOOLTIPS } from "@/components/onboarding";
 
 // Primary navigation - data exploration & analysis modules
 const navigationItems = [
@@ -50,12 +51,14 @@ const navigationItems = [
     url: "/",
     icon: Search,
     description: "HCP profile exploration",
+    tooltip: NOMENCLATURE_TOOLTIPS.signalIndex,
   },
   {
     title: "Cohort Lab",
     url: "/audience-builder",
     icon: Users,
     description: "AI-powered audience building",
+    tooltip: NOMENCLATURE_TOOLTIPS.cohortLab,
   },
   {
     title: "Catalyst Queue",
@@ -74,12 +77,14 @@ const navigationItems = [
     url: "/simulations",
     icon: FlaskConical,
     description: "Campaign simulation",
+    tooltip: NOMENCLATURE_TOOLTIPS.scenarioLab,
   },
   {
     title: "Nerve Center",
     url: "/dashboard",
     icon: Activity,
     description: "Analytics dashboard",
+    tooltip: NOMENCLATURE_TOOLTIPS.nerveCenter,
   },
 ];
 
@@ -114,6 +119,7 @@ const systemItems = [
     url: "/allocation-lab",
     icon: Beaker,
     description: "Portfolio optimization",
+    tooltip: NOMENCLATURE_TOOLTIPS.allocationLab,
   },
 ];
 
@@ -173,22 +179,38 @@ export function AppSidebar() {
             <SidebarMenu>
               {navigationItems.map((item) => {
                 const isActive = location === item.url || (item.url === "/" && location === "/hcp-explorer");
+                const menuButton = (
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    tooltip={item.description}
+                    className="transition-all duration-200"
+                  >
+                    <Link
+                      href={item.url}
+                      data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                );
+
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.description}
-                      className="transition-all duration-200"
-                    >
-                      <Link
-                        href={item.url}
-                        data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
+                    {item.tooltip ? (
+                      <FeatureTooltip
+                        id={item.tooltip.id}
+                        title={item.tooltip.title}
+                        description={item.tooltip.description}
+                        formerName={item.tooltip.formerName}
+                        position="right"
                       >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
+                        {menuButton}
+                      </FeatureTooltip>
+                    ) : (
+                      menuButton
+                    )}
                   </SidebarMenuItem>
                 );
               })}
@@ -208,22 +230,38 @@ export function AppSidebar() {
             <SidebarMenu>
               {systemItems.map((item) => {
                 const isActive = location === item.url;
+                const menuButton = (
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    tooltip={item.description}
+                    className="transition-all duration-200"
+                  >
+                    <Link
+                      href={item.url}
+                      data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                );
+
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.description}
-                      className="transition-all duration-200"
-                    >
-                      <Link
-                        href={item.url}
-                        data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
+                    {item.tooltip ? (
+                      <FeatureTooltip
+                        id={item.tooltip.id}
+                        title={item.tooltip.title}
+                        description={item.tooltip.description}
+                        formerName={item.tooltip.formerName}
+                        position="right"
                       >
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
+                        {menuButton}
+                      </FeatureTooltip>
+                    ) : (
+                      menuButton
+                    )}
                   </SidebarMenuItem>
                 );
               })}

@@ -1,9 +1,9 @@
 # STATUS.md
 
-**Last Updated:** 2026-01-16
-**Project:** TwinEngine - HCP Digital Twin Platform
-**Current Phase:** 7F - Portfolio Optimizer (Capstone)
-**Overall Status:** Complete
+**Last Updated:** 2026-01-17
+**Project:** TwinEngine - HCP Digital Twin Platform (OmniVor)
+**Current Phase:** 9 Complete - Interaction & Experience Design
+**Overall Status:** Phase 9 Complete
 
 ---
 
@@ -26,7 +26,767 @@
 | 7C | Uncertainty Quantification | Complete | 100% |
 | 7D | Campaign Coordination | Complete | 100% |
 | 7E | Simulation Composability | Complete | 100% |
-| **7F** | **Portfolio Optimizer (Capstone)** | **Complete** | 100% |
+| 7F | Portfolio Optimizer (Capstone) | Complete | 100% |
+| 8 | UI Polish & OmniVor Rebrand | Complete | 100% |
+| 9A | Data Visualization System | Complete | 100% |
+| 9B | Page Transitions & Data Flow | Complete | 100% |
+| 9C | Command Palette | Complete | 100% |
+| 9D | Empty/Loading/Error States | Complete | 100% |
+| 9E | Nerve Center Redesign | Complete | 100% |
+| 9F | Notification System | Complete | 100% |
+| 9G | Keyboard Navigation | Complete | 100% |
+| **9H** | **Onboarding & Contextual Help** | **Complete** | 100% |
+
+---
+
+## Phase 9A Progress: Data Visualization System
+
+### Completed Milestones
+
+- [x] **M9A.1**: Chart Theme Configuration
+  - Created `client/src/lib/chart-theme.tsx`
+  - Color scales (primary, secondary, diverging, sequential, categorical)
+  - Typography, axis, grid, tooltip styles
+  - BrandedTooltip component for Recharts
+  - Animation timing constants
+  - SVG gradient definitions
+  - Helper functions (getPrimaryColor, formatChartValue, renderChartGradients)
+
+- [x] **M9A.2**: Motion Configuration
+  - Created `client/src/lib/motion-config.ts`
+  - Page transition variants (pageVariants, fadePageVariants)
+  - Shared element transitions for data flow
+  - Stagger container/child variants
+  - Modal/dialog variants
+  - Micro-interaction presets (buttonPress, cardHover, glowHover)
+  - Data animation presets (numberReveal, barGrow, lineDraw)
+  - Toast/accordion variants
+
+- [x] **M9A.3**: Chart Animation Utilities
+  - Created `client/src/lib/chart-animations.ts`
+  - Easing functions (easeOut, easeInOut, linear, bounce)
+  - useCountAnimation hook for number animations
+  - useDrawAnimation hook for SVG path draw
+  - staggeredEntrance utility for grid animations
+  - useInViewAnimation hook for intersection observer
+  - useReducedMotion hook for accessibility
+  - useBarAnimation hook for bar chart animations
+  - interpolate and interpolateColor utilities
+
+- [x] **M9A.4**: AnimatedNumber Component
+  - Created `client/src/components/charts/animated-number.tsx`
+  - RAF-based 60fps animation
+  - Format options: number, currency, percent, compact
+  - Size variants: sm, md, lg, xl, 2xl
+  - Color variants: gold, purple, white, gray
+  - Trend indicator support
+  - Respects prefers-reduced-motion
+  - Variants: MetricNumber, InlineNumber, CurrencyNumber, PercentNumber
+
+- [x] **M9A.5**: BrandedBarChart Component
+  - Created `client/src/components/charts/branded-bar-chart.tsx`
+  - Recharts wrapper with brand theming
+  - Gradient fill support
+  - Hover/click interactions
+  - Staggered entrance animation
+  - Color variants: primary (purple), gold, secondary
+  - Variants: CompactBarChart, RankingBarChart
+
+- [x] **M9A.6**: BrandedLineChart Component
+  - Created `client/src/components/charts/branded-line-chart.tsx`
+  - Multi-line support with legend
+  - Area fill under lines
+  - Custom active dot with glow
+  - Draw animation on mount
+  - Variants: SimpleLineChart, ComparisonLineChart
+
+- [x] **M9A.7**: EngagementHeatmap Component
+  - Created `client/src/components/charts/engagement-heatmap.tsx`
+  - CSS Grid-based heatmap
+  - Brand color scale (void → purple → gold)
+  - Staggered cell entrance animation
+  - Hover tooltips with metadata
+  - Row/column labels
+  - Variants: CompactHeatmap, ChannelHeatmap
+
+- [x] **M9A.8**: SparkLine Component
+  - Created `client/src/components/charts/spark-line.tsx`
+  - Pure SVG implementation (no Recharts dependency)
+  - Lightweight for tables/cards
+  - Trend-based coloring (green/red)
+  - Area fill with gradient
+  - Variants: TrendSparkLine, MinimalSparkLine, CardSparkLine, TableSparkLine
+
+### New Files Created (Phase 9A)
+
+```
+client/src/lib/
+├── chart-theme.tsx        # Chart theming and gradients (~400 lines)
+├── motion-config.ts       # Framer Motion presets (~350 lines)
+└── chart-animations.ts    # Animation utilities (~380 lines)
+
+client/src/components/charts/
+├── index.ts               # Barrel exports
+├── animated-number.tsx    # Animated number counter (~250 lines)
+├── branded-bar-chart.tsx  # Brand bar chart (~330 lines)
+├── branded-line-chart.tsx # Brand line chart (~320 lines)
+├── engagement-heatmap.tsx # Engagement heatmap (~350 lines)
+└── spark-line.tsx         # Inline sparkline (~280 lines)
+```
+
+### Build Status
+
+- TypeScript: Clean
+- Build: Success (1.5MB client, 1.4MB server)
+
+---
+
+## Phase 9B Progress: Page Transitions & Data Flow
+
+### Completed Milestones
+
+- [x] **M9B.1**: Motion Configuration (completed in Phase 9A)
+  - Page transition variants in `motion-config.ts`
+  - Shared element transition config
+  - Stagger presets for lists/grids
+
+- [x] **M9B.2**: Page Transition Wrapper
+  - Created `client/src/components/transitions/page-transition.tsx`
+  - PageTransition component with enter/exit animations
+  - RouteTransition wrapper for AnimatePresence
+  - SectionTransition for conditional content
+  - LoadingTransition for loading/loaded states
+  - Supports variants: default, fade, slide-up, slide-left
+  - Respects prefers-reduced-motion
+
+- [x] **M9B.3**: Shared Element Transitions (Data Flow)
+  - Created `client/src/components/transitions/data-flow-transition.tsx`
+  - DataFlowElement for layoutId-based morphing
+  - DataFlowGroup for isolating animation groups
+  - DataFlowValue for formatted values that travel
+  - DataFlowCard for expandable card transitions
+  - DataFlowMetric with label and trend badge
+  - HeroValue for inline-to-hero transitions
+
+- [x] **M9B.4**: Content Stagger Animations
+  - Created `client/src/components/transitions/stagger-container.tsx`
+  - StaggerContainer with timing presets (default, fast, slow)
+  - StaggerItem with variants (default, card, fade, scale)
+  - StaggerGrid for responsive grid layouts
+  - StaggerList for list animations with dividers
+  - AnimatedList for add/remove animations
+
+- [x] **M9B.5**: App.tsx Integration
+  - Added AnimatePresence wrapper around routes
+  - Integrated PageTransition with route location key
+  - Pages now animate smoothly on navigation
+
+### New Files Created (Phase 9B)
+
+```
+client/src/components/transitions/
+├── index.ts                  # Barrel exports
+├── page-transition.tsx       # Page transition components (~220 lines)
+├── data-flow-transition.tsx  # Shared element transitions (~330 lines)
+└── stagger-container.tsx     # Stagger animation components (~340 lines)
+```
+
+### Modified Files (Phase 9B)
+
+```
+client/src/App.tsx            # AnimatePresence + PageTransition integration
+```
+
+### Build Status
+
+- TypeScript: Clean
+- Build: Success (1.5MB client, 1.4MB server)
+
+---
+
+## Phase 9C Progress: Command Palette
+
+### Completed Milestones
+
+- [x] **M9C.1**: Command Palette Hook
+  - Created `client/src/hooks/use-command-palette.ts`
+  - Global keyboard handler (⌘K / Ctrl+K / Escape / /)
+  - Open/close/toggle state management
+  - Search query state
+  - Recent items with localStorage persistence (max 5 items)
+  - Navigation utilities with wouter integration
+  - Context provider pattern for app-wide access
+  - Keyboard navigation hook for lists (j/k, arrow keys, Enter, Home/End)
+
+- [x] **M9C.2**: Command Palette Component
+  - Created `client/src/components/ui/command-palette.tsx`
+  - Built on cmdk library for accessible command menu
+  - Framer Motion animations (overlay fade, modal scale)
+  - Navigation items organized by category:
+    - Intelligence: Signal Index, Cohort Lab, Nerve Center
+    - Activation: Scenario Lab, Catalyst Queue, Cohort Compare
+    - System: Signal Diagnostic, Agent Orchestrator, Constraint Surface, Allocation Lab
+    - Settings: Settings
+  - Quick actions: Create New Audience, Run Simulation, Export Data
+  - Recent items section with history
+  - Search with keyword matching
+  - Keyboard hints in footer (↑↓ Navigate, ↵ Select, esc Close)
+  - CommandPaletteTrigger button with ⌘K badge
+
+- [x] **M9C.3**: Command Palette Styling
+  - Added CSS styles to `client/src/index.css`
+  - cmdk group headings with OmniVor label styling
+  - Command items with hover/selected states (purple highlight)
+  - Custom scrollbar styling
+  - Brand-aligned transitions using --duration-micro
+
+- [x] **M9C.4**: App.tsx Integration
+  - CommandPaletteWrapper component with context provider
+  - CommandPalette rendered at app level
+  - CommandPaletteTrigger added to header
+
+### New Files Created (Phase 9C)
+
+```
+client/src/hooks/
+└── use-command-palette.ts    # Command palette hook (~325 lines)
+
+client/src/components/ui/
+└── command-palette.tsx       # Command palette component (~450 lines)
+```
+
+### Modified Files (Phase 9C)
+
+```
+client/src/index.css          # Added command palette CSS styles
+client/src/App.tsx            # Integrated CommandPalette with provider
+```
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| ⌘K / Ctrl+K | Toggle command palette |
+| / | Open command palette (when not in input) |
+| Escape | Close command palette |
+| ↑ / ↓ | Navigate items |
+| Enter | Select item |
+
+### Build Status
+
+- TypeScript: Clean
+- Build: Success (1.5MB client, 1.4MB server)
+
+---
+
+## Phase 9D Progress: Empty/Loading/Error States
+
+### Completed Milestones
+
+- [x] **M9D.1**: Branded Skeleton Loader
+  - Updated `client/src/components/ui/skeleton.tsx`
+  - Purple-tinted shimmer gradient animation
+  - Variant shapes: default, card, text, avatar, button, badge
+  - Preset skeletons: HCPCardSkeleton, MetricCardSkeleton, TableRowSkeleton, ListItemSkeleton, ChartSkeleton
+  - Added `animate-shimmer` keyframe to Tailwind config
+
+- [x] **M9D.2**: Empty State Component
+  - Created `client/src/components/ui/empty-state.tsx`
+  - Framer Motion entrance animation (scale + fade)
+  - Icon mapping for common use cases
+  - Variants: default, search, error, minimal
+  - Size variants: sm, md, lg
+  - Primary and secondary action buttons
+  - Brand copy presets: signalIndex, cohortLab, scenarioLab, catalystQueue, etc.
+  - Preset components: SignalIndexEmptyState, SearchEmptyState, CohortLabEmptyState, etc.
+
+- [x] **M9D.3**: Convergence Loading Animation
+  - Created `client/src/components/ui/convergence-animation.tsx`
+  - Pure CSS animation (8 dots converging to center)
+  - Center glow effect with Catalyst Gold
+  - Size variants: sm, md, lg
+  - Speed variants: slow, normal, fast
+  - Additional components: InlineLoader, FullPageLoader, SectionLoader
+  - Added `animate-convergence` and `animate-pulse-glow` to Tailwind config
+
+- [x] **M9D.4**: Error State Component
+  - Created `client/src/components/ui/error-state.tsx`
+  - Error type detection: network, server, auth, notFound, generic
+  - Custom icons per error type
+  - Retry button with refresh icon
+  - Brand voice (no apologetic language)
+  - Additional components: InlineError, ErrorBoundaryFallback, OfflineIndicator, QueryError
+
+- [x] **M9D.5**: Tailwind Configuration Updates
+  - Added OmniVor brand color utilities
+  - Added shimmer, convergence, pulse-glow keyframes
+  - Added corresponding animation utilities
+
+### New Files Created (Phase 9D)
+
+```
+client/src/components/ui/
+├── skeleton.tsx              # Updated with brand shimmer (~200 lines)
+├── convergence-animation.tsx # Loading animation component (~180 lines)
+├── empty-state.tsx           # Empty state component (~320 lines)
+└── error-state.tsx           # Error state component (~280 lines)
+```
+
+### Modified Files (Phase 9D)
+
+```
+tailwind.config.ts            # Brand colors, shimmer/convergence/pulse-glow animations
+```
+
+### Component Variants
+
+| Component | Variants |
+|-----------|----------|
+| Skeleton | default, card, text, avatar, button, badge |
+| EmptyState | default, search, error, minimal |
+| ErrorState | network, server, auth, notFound, generic |
+| ConvergenceAnimation | sm, md, lg sizes; slow, normal, fast speeds |
+
+### Brand Copy Presets
+
+| Module | Title | Description |
+|--------|-------|-------------|
+| Signal Index | "No signals yet." | "Connect your data sources and let OmniVor feed." |
+| Search | "No signals match." | "Try adjusting your filters or search terms." |
+| Cohort Lab | "No audiences captured." | "Build your first audience using natural language queries." |
+| Scenario Lab | "No scenarios projected." | "Select an audience and define your engagement strategy." |
+| Catalyst Queue | "Queue empty." | "All recommended actions have been processed." |
+
+### Build Status
+
+- TypeScript: Clean
+- Build: Success (1.5MB client, 1.4MB server)
+
+---
+
+## Phase 9E Progress: Nerve Center Redesign
+
+### Completed Milestones
+
+- [x] **M9E.1**: Welcome Message Component
+  - Created `client/src/components/dashboard/welcome-message.tsx`
+  - Personalized greeting with time-based salutation
+  - Animated signal count (gold highlight)
+  - Animated pattern count (purple highlight)
+  - Uses AnimatedNumber component from Phase 9A
+  - CompactWelcome variant for mobile
+
+- [x] **M9E.2**: Metric Card Component
+  - Created `client/src/components/dashboard/metric-card.tsx`
+  - Animated number counters with stagger delays
+  - Trend indicators (up/down/flat with colors)
+  - SparkLine integration for trends
+  - Tooltip support for metric descriptions
+  - Icon support (Lucide icons)
+  - Click handlers for drill-down navigation
+  - Variants: MetricCard, HighlightMetricCard, CompactMetricCard
+  - MetricsGrid container with responsive columns
+
+- [x] **M9E.3**: Pattern Highlights Component
+  - Created `client/src/components/dashboard/pattern-highlights.tsx`
+  - "Patterns Crystallized" section header
+  - Severity-based left border accent:
+    - Purple for insight
+    - Gold for opportunity
+    - Amber for warning
+  - Relative timestamps (2h ago, 1d ago)
+  - Related HCP count badges
+  - Category icons (engagement, audience, channel, trend)
+  - Stagger animation on mount
+  - Click-to-navigate to related module
+  - CompactPatternList variant
+
+- [x] **M9E.4**: Quick Actions Component
+  - Created `client/src/components/dashboard/quick-actions.tsx`
+  - Default actions: New Audience, Run Scenario, Export Report, Diagnostic
+  - Primary/outline button variants
+  - Navigation handler integration
+  - ExpandedQuickActions variant with descriptions
+
+- [x] **M9E.5**: Dashboard Page Assembly
+  - Redesigned `client/src/pages/dashboard.tsx`
+  - 6-metric card grid layout
+  - Three-column layout: charts (2) + patterns (1)
+  - Loading skeleton with shimmer animation
+  - Error state with retry option
+  - Empty state for no data
+  - Mock pattern data for demo
+
+### New Files Created (Phase 9E)
+
+```
+client/src/components/dashboard/
+├── index.ts                # Barrel exports
+├── welcome-message.tsx     # Personalized welcome (~115 lines)
+├── metric-card.tsx         # Metric cards with animations (~240 lines)
+├── pattern-highlights.tsx  # Pattern insights section (~280 lines)
+└── quick-actions.tsx       # Quick action buttons (~190 lines)
+```
+
+### Modified Files (Phase 9E)
+
+```
+client/src/pages/dashboard.tsx  # Complete redesign (~335 lines)
+```
+
+### Dashboard Layout
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ HEADER: Nerve Center | Time Range | Refresh | Export                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Welcome back, {User}. OmniVor has processed 12,847 signals...               │
+│                                                                             │
+│ QUICK ACTIONS: [+ New Audience] [Run Scenario] [Export] [Diagnostic]        │
+│                                                                             │
+│ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐
+│ │ SIGNALS    │ │ AUDIENCES  │ │ SCENARIOS  │ │ PATTERNS   │ │ CHANNEL    │ │ ACTIONS    │
+│ │ 12,847     │ │    23      │ │     8      │ │     4      │ │   72%      │ │   156      │
+│ │ ↑ 14%      │ │ 3 need act │ │ 2 pending  │ │ 5 new today│ │ ↓ -3%      │ │ 24 high-pri│
+│ └────────────┘ └────────────┘ └────────────┘ └────────────┘ └────────────┘ └────────────┘
+│                                                                             │
+│ ┌─────────────────────────────────────────┐ ┌─────────────────────────────┐ │
+│ │ CHARTS (existing DashboardMetrics)      │ │ PATTERNS CRYSTALLIZED       │ │
+│ │ - Segment Distribution (pie)            │ │ ┌─────────────────────────┐ │ │
+│ │ - Channel Effectiveness (bar)           │ │ │ ◆ Engagement spike...   │ │ │
+│ │ - Tier Breakdown (bar)                  │ │ │ 142 HCPs • 2h ago       │ │ │
+│ │ - Engagement Trend (line)               │ │ └─────────────────────────┘ │ │
+│ │                                         │ │ ┌─────────────────────────┐ │ │
+│ │                                         │ │ │ ⚠ Rep visit declining.. │ │ │
+│ │                                         │ │ │ 89 HCPs • 5h ago        │ │ │
+│ │                                         │ │ └─────────────────────────┘ │ │
+│ └─────────────────────────────────────────┘ └─────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Build Status
+
+- TypeScript: Clean
+- Build: Success (1.5MB client, 1.4MB server)
+
+---
+
+## Phase 9F Progress: Notification System
+
+### Completed Milestones
+
+- [x] **M9F.1**: Brand-Aligned Toast System
+  - Updated `client/src/components/ui/toast.tsx`
+  - Variants: default, success, error, warning, info, loading, destructive
+  - Variant icons: CheckCircle, AlertCircle, AlertTriangle, Info, Loader2
+  - Progress bar with pause-on-hover
+  - Brand border colors per variant
+  - Slide-in/slide-out animations
+  - Icon colors matching variant theme
+
+- [x] **M9F.2**: Toast Hook Enhancement
+  - Updated `client/src/hooks/use-toast.ts`
+  - Default durations by variant (success: 4s, error: 6s, loading: Infinity)
+  - Helper functions:
+    - `toast.success(title, description)` - Green success toast
+    - `toast.error(title, description)` - Red error toast
+    - `toast.warning(title, description)` - Amber warning toast
+    - `toast.info(title, description)` - Purple info toast
+    - `toast.loading(title, description)` - Loading spinner, no auto-dismiss
+    - `toast.promise(promise, { loading, success, error })` - Promise-based toast
+  - Progress bar support (showProgress: true/false)
+
+- [x] **M9F.3**: Toaster Component Update
+  - Updated `client/src/components/ui/toaster.tsx`
+  - Passes variant, showProgress, duration to Toast component
+  - Maintains existing structure with new props
+
+- [x] **M9F.4**: Toast CSS Animations
+  - Updated `tailwind.config.ts`
+  - Added `toast-slide-in` keyframe (translateX 100% → 0)
+  - Added `toast-slide-out` keyframe (translateX 0 → 100%)
+  - Added animation utilities for both animations
+
+- [x] **M9F.5**: Notification Center Component
+  - Created `client/src/components/ui/notification-center.tsx`
+  - Popover-based notification drawer
+  - NotificationItem with type-based styling:
+    - Success: emerald border/icon
+    - Error: red border/icon
+    - Warning: amber border/icon
+    - Info: purple border/icon
+  - Relative timestamps (Just now, 5m ago, 2h ago, Yesterday)
+  - Unread indicator dots
+  - Mark as read / Mark all read
+  - Dismiss individual notifications
+  - Clear all notifications
+  - Settings button slot
+  - NotificationBadge component for unread count
+  - AnimatePresence for enter/exit animations
+
+### New Files Created (Phase 9F)
+
+```
+client/src/components/ui/
+└── notification-center.tsx   # In-app notification center (~340 lines)
+```
+
+### Modified Files (Phase 9F)
+
+```
+client/src/components/ui/toast.tsx      # Brand variants, icons, progress bar (~310 lines)
+client/src/components/ui/toaster.tsx    # Variant props passthrough (~47 lines)
+client/src/hooks/use-toast.ts           # Helper functions (~347 lines)
+tailwind.config.ts                      # Toast slide animations
+```
+
+### Toast Variants
+
+| Variant | Icon | Border Color | Duration |
+|---------|------|--------------|----------|
+| default | - | border-gray | 5000ms |
+| success | CheckCircle | emerald-500/30 | 4000ms |
+| error | AlertCircle | red-500/30 | 6000ms |
+| warning | AlertTriangle | amber-500/30 | 5000ms |
+| info | Info | consumption-purple/30 | 5000ms |
+| loading | Loader2 (spin) | border-gray | Infinity |
+| destructive | AlertCircle | red-500/30 | 6000ms |
+
+### Usage Examples
+
+```typescript
+// Simple toasts
+toast.success('Profile saved', 'Your changes have been applied.');
+toast.error('Upload failed', 'Please try again.');
+toast.warning('Storage low', 'Consider cleaning up old files.');
+toast.info('New features', 'Check out the latest updates.');
+
+// Loading toast (manual dismiss)
+const { dismiss } = toast.loading('Processing...');
+// Later: dismiss();
+
+// Promise-based toast
+await toast.promise(fetchData(), {
+  loading: 'Fetching data...',
+  success: 'Data loaded successfully',
+  error: 'Failed to fetch data',
+});
+```
+
+### Build Status
+
+- TypeScript: Clean
+- Build: Success (1.5MB client, 1.4MB server)
+
+---
+
+## Phase 9G Progress: Keyboard Navigation
+
+### Completed Milestones
+
+- [x] **M9G.1**: Keyboard Shortcuts Modal
+  - Created `client/src/components/ui/shortcuts-modal.tsx`
+  - Brand-aligned modal design (glass effect, purple accents)
+  - Grouped shortcuts: Navigation, List Navigation, Item Actions
+  - KeyBadge component for styled keyboard keys
+  - Escape to close, AnimatePresence for animations
+  - Footer hint for `?` shortcut
+
+- [x] **M9G.2**: Global Keyboard Handler
+  - Created `client/src/hooks/use-keyboard-shortcuts.ts`
+  - `?` key opens shortcuts help modal globally
+  - Ignores keypresses when in input fields
+  - Context provider for keyboard state
+  - Utility functions: `isInputFocused()`, `isModalOpen()`
+  - `usePrefersReducedMotion()` hook for accessibility
+
+- [x] **M9G.3**: Focus Indicator Components
+  - Created `client/src/components/ui/focus-indicator.tsx`
+  - `FocusIndicator` wrapper component with focus ring
+  - Variants: default (white), purple, gold
+  - Glow effect on focus
+  - `FocusOutline` absolute-positioned outline
+  - `KeyboardNavItem` list item wrapper with auto-scroll
+  - `KeyboardNavHint` visual hint component
+
+- [x] **M9G.4**: Keyboard Navigation Hook (Phase 9C extended)
+  - Extended `client/src/hooks/use-command-palette.ts`
+  - `useKeyboardNavigation` hook with:
+    - J/K and arrow key navigation
+    - Enter to select
+    - E for edit, V for view, D for delete actions
+    - Home/End for first/last item
+    - Wrap-around option
+    - Input field detection
+
+- [x] **M9G.5**: Signal Index Integration
+  - Updated `client/src/pages/hcp-explorer.tsx`
+  - Keyboard navigation for HCP card grid
+  - Focus state passed to `HCPProfileCard`
+  - Navigation disabled when detail panel or dialog open
+  - `KeyboardNavHint` shown at bottom of list
+
+- [x] **M9G.6**: HCP Card Focus Styling
+  - Updated `client/src/components/hcp-profile-card.tsx`
+  - `isKeyboardFocused` prop for focus state
+  - Purple ring and glow on keyboard focus
+  - Auto-scroll into view when focused
+  - Works for both compact and full card views
+
+- [x] **M9G.7**: App Integration
+  - Updated `client/src/App.tsx`
+  - `KeyboardShortcutsProvider` wrapping app
+  - `ShortcutsModal` rendered at app level
+  - Global `?` shortcut accessible everywhere
+
+### New Files Created (Phase 9G)
+
+```
+client/src/components/ui/
+├── shortcuts-modal.tsx        # Keyboard shortcuts help modal (~210 lines)
+└── focus-indicator.tsx        # Focus indicator components (~180 lines)
+
+client/src/hooks/
+└── use-keyboard-shortcuts.ts  # Global keyboard context (~120 lines)
+```
+
+### Modified Files (Phase 9G)
+
+```
+client/src/App.tsx                          # KeyboardShortcutsProvider, ShortcutsModal
+client/src/pages/hcp-explorer.tsx           # Keyboard navigation for HCP grid
+client/src/components/hcp-profile-card.tsx  # isKeyboardFocused prop, focus styling
+```
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `⌘ K` / `Ctrl K` | Open command palette |
+| `/` | Open command palette |
+| `?` | Show keyboard shortcuts help |
+| `J` / `↓` | Move down in list |
+| `K` / `↑` | Move up in list |
+| `Enter` | Select/view item |
+| `E` | Edit selected item |
+| `V` | View selected item |
+| `D` | Delete selected item |
+| `Home` | Go to first item |
+| `End` | Go to last item |
+| `Esc` | Close modal or palette |
+
+### Build Status
+
+- TypeScript: Clean
+- Build: Success (1.5MB client, 1.4MB server)
+
+---
+
+## Phase 9H Progress: Onboarding & Contextual Help
+
+### Completed Milestones
+
+- [x] **M9H.1**: Feature Tooltip Component
+  - Created `client/src/components/onboarding/feature-tooltip.tsx`
+  - Contextual tooltips for explaining new nomenclature
+  - Dismissal tracking in localStorage (per tooltip ID)
+  - Brand-aligned styling with sparkle icon
+  - `formerName` prop for showing old names
+  - `FeatureHighlight` component with pulse animation
+  - `NOMENCLATURE_TOOLTIPS` predefined content:
+    - Signal Index (formerly HCP Explorer)
+    - Cohort Lab (formerly Audience Builder)
+    - Scenario Lab (formerly Simulations)
+    - Nerve Center (formerly Dashboard)
+    - Allocation Lab (formerly Portfolio Optimizer)
+  - Utility functions: `resetAllTooltips()`, `resetTooltip()`
+
+- [x] **M9H.2**: First-Run Welcome Guide
+  - Created `client/src/components/onboarding/first-run-guide.tsx`
+  - Multi-step onboarding modal for new users
+  - 6 steps: Welcome, Signal Index, Cohort Lab, Scenario Lab, Nerve Center, Power User Tips
+  - Step indicator with animated progress dots
+  - Skip/Next/Back navigation
+  - Stores completion state in localStorage
+  - AnimatePresence for smooth transitions
+  - `useFirstRunGuide()` hook for programmatic control
+  - `resetFirstRun()` utility for testing
+
+- [x] **M9H.3**: Sidebar Integration
+  - Updated `client/src/components/app-sidebar.tsx`
+  - Feature tooltips on primary navigation items:
+    - Signal Index
+    - Cohort Lab
+    - Scenario Lab
+    - Nerve Center
+  - Feature tooltip on Allocation Lab (System section)
+  - Tooltips appear on hover, dismissible with "Got it"
+
+- [x] **M9H.4**: App Integration
+  - Updated `client/src/App.tsx`
+  - `FirstRunGuide` component rendered in AppLayout
+  - Shows on first app load (with 800ms delay)
+  - Never shows again after completion/skip
+
+- [x] **M9H.5**: Index Exports
+  - Created `client/src/components/onboarding/index.ts`
+  - Barrel exports for all onboarding components
+
+### New Files Created (Phase 9H)
+
+```
+client/src/components/onboarding/
+├── feature-tooltip.tsx   # Contextual tooltips (~230 lines)
+├── first-run-guide.tsx   # Welcome guide modal (~340 lines)
+└── index.ts              # Barrel exports
+```
+
+### Modified Files (Phase 9H)
+
+```
+client/src/App.tsx                  # FirstRunGuide integration
+client/src/components/app-sidebar.tsx  # FeatureTooltip on nav items
+```
+
+### Onboarding Flow
+
+1. **First Visit**: Welcome guide modal appears automatically
+2. **Guide Steps**:
+   - Welcome to OmniVor
+   - Signal Index (HCP exploration)
+   - Cohort Lab (audience building)
+   - Scenario Lab (simulations)
+   - Nerve Center (dashboard)
+   - Keyboard shortcuts tips
+3. **Navigation Tooltips**: Hover over renamed nav items for context
+4. **Dismiss & Remember**: All tooltips track dismissal state
+
+### Build Status
+
+- TypeScript: Clean
+- Build: Success (1.5MB client, 1.4MB server)
+
+---
+
+## Phase 9 Complete Summary
+
+Phase 9 (Interaction & Experience Design) has been fully implemented with all 8 sub-phases complete:
+
+| Sub-Phase | Description | Key Deliverables |
+|-----------|-------------|------------------|
+| 9A | Data Visualization System | Chart theme, animated numbers, branded charts, sparklines |
+| 9B | Page Transitions | Motion config, PageTransition, DataFlowElement, stagger animations |
+| 9C | Command Palette | cmdk integration, global search, recent items |
+| 9D | Empty/Loading/Error States | Brand shimmer, convergence animation, empty states |
+| 9E | Nerve Center Redesign | Welcome message, metric cards, pattern highlights, quick actions |
+| 9F | Notification System | Toast variants, progress bar, notification center |
+| 9G | Keyboard Navigation | Shortcuts modal, J/K navigation, focus indicators |
+| 9H | Onboarding & Contextual Help | Feature tooltips, first-run guide, nomenclature explanations |
+
+**Total New Files Created in Phase 9:** 25+
+**Total Lines of Code:** ~5,000+
+
+The platform now delivers a premium, experientially differentiated user experience that embodies the OmniVor brand metaphor: "consumption → transformation → intelligence".
 
 ---
 
