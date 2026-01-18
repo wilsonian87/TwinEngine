@@ -1,0 +1,11 @@
+metric,description,computed?
+Engagement Score,"Weighted, multi-channel",Yes
+Channel Affinity,% engagement by channel,Yes
+Message Affinity,Theme responsiveness,Yes
+Rx Volume,Total / period,Raw
+Rx Trend,Δ over time,Derived
+Share of Brand,Brand Rx / Total Rx,Derived
+Adoption Stage,Aware → Trial → Regular,Modeled
+Recency,Days since last touch,Raw
+Velocity,Engagement acceleration,Derived
+Saturation Index,Touches vs response,Modeled

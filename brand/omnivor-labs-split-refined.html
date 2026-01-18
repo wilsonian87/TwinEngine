@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OMNIVOR LABS — Split Emphasis Refined</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #030303;
+      color: #fafafa;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 80px 40px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    header h1 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #6b21a8;
+      margin-bottom: 16px;
+    }
+
+    header p {
+      font-size: 1rem;
+      color: #71717a;
+    }
+
+    /* Hero Display */
+    .hero-display {
+      background: #0a0a0b;
+      border: 1px solid rgba(107, 33, 168, 0.2);
+      border-radius: 24px;
+      padding: 100px 60px;
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .split-emphasis-hero {
+      font-size: 5rem;
+      letter-spacing: 0.1em;
+    }
+
+    .split-emphasis-hero .omnivor {
+      font-weight: 900;
+      color: #fafafa;
+    }
+
+    .split-emphasis-hero .labs {
+      font-weight: 300;
+      color: #6b21a8;
+    }
+
+    /* Variants Grid */
+    .variants-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+
+    .variant-card {
+      border-radius: 16px;
+      padding: 48px 32px;
+      text-align: center;
+    }
+
+    .variant-card.dark {
+      background: #0a0a0b;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .variant-card.light {
+      background: #fafafa;
+    }
+
+    .variant-card.purple {
+      background: linear-gradient(135deg, #6b21a8 0%, #4c1d95 100%);
+    }
+
+    .variant-label {
+      font-size: 0.625rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 24px;
+    }
+
+    .variant-card.dark .variant-label {
+      color: #52525b;
+    }
+
+    .variant-card.light .variant-label {
+      color: #a1a1aa;
+    }
+
+    .variant-card.purple .variant-label {
+      color: rgba(255,255,255,0.5);
+    }
+
+    .split-emphasis {
+      font-size: 1.75rem;
+      letter-spacing: 0.1em;
+    }
+
+    .split-emphasis .omnivor {
+      font-weight: 900;
+    }
+
+    .split-emphasis .labs {
+      font-weight: 300;
+    }
+
+    /* Dark variant */
+    .variant-card.dark .split-emphasis .omnivor {
+      color: #fafafa;
+    }
+
+    .variant-card.dark .split-emphasis .labs {
+      color: #6b21a8;
+    }
+
+    /* Light variant */
+    .variant-card.light .split-emphasis .omnivor {
+      color: #0a0a0b;
+    }
+
+    .variant-card.light .split-emphasis .labs {
+      color: #6b21a8;
+    }
+
+    /* Purple variant */
+    .variant-card.purple .split-emphasis .omnivor {
+      color: #fafafa;
+    }
+
+    .variant-card.purple .split-emphasis .labs {
+      font-weight: 400;
+      color: #d97706;
+    }
+
+    /* Comparison Section */
+    .comparison {
+      margin-top: 80px;
+      padding-top: 60px;
+      border-top: 1px solid rgba(107, 33, 168, 0.2);
+    }
+
+    .comparison h2 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #6b21a8;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    .comparison-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    .comparison-card {
+      background: #0a0a0b;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 20px;
+      padding: 60px 40px;
+      text-align: center;
+    }
+
+    .comparison-card .label {
+      font-size: 0.625rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #52525b;
+      margin-bottom: 32px;
+    }
+
+    .comparison-card .descriptor {
+      font-size: 0.875rem;
+      color: #71717a;
+      margin-top: 32px;
+    }
+
+    /* Heavy Extended for comparison */
+    .heavy-extended {
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      font-size: 2rem;
+    }
+
+    .heavy-extended .labs {
+      color: #6b21a8;
+    }
+
+    /* Application Mockups */
+    .applications {
+      margin-top: 80px;
+    }
+
+    .applications h2 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #6b21a8;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+
+    .app-mockup {
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(107, 33, 168, 0.2);
+    }
+
+    .app-mockup .bar {
+      background: #0a0a0b;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .app-mockup .bar .dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .app-mockup .bar .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #27272a;
+    }
+
+    .app-mockup .bar .title {
+      font-size: 0.75rem;
+      color: #52525b;
+      margin-left: auto;
+    }
+
+    .app-mockup .content {
+      background: linear-gradient(180deg, #0f0f10 0%, #0a0a0b 100%);
+      padding: 32px;
+      min-height: 180px;
+    }
+
+    .app-mockup .nav {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      margin-bottom: 24px;
+    }
+
+    .app-mockup .logo-lockup {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .app-mockup .logo-lockup .mark {
+      width: 28px;
+      height: 28px;
+      background: #6b21a8;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .app-mockup .logo-lockup .mark svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .app-mockup .wordmark {
+      font-size: 0.875rem;
+      letter-spacing: 0.08em;
+    }
+
+    .app-mockup .wordmark .omnivor {
+      font-weight: 800;
+      color: #fafafa;
+    }
+
+    .app-mockup .wordmark .labs {
+      font-weight: 300;
+      color: #6b21a8;
+    }
+
+    .app-mockup .nav-items {
+      display: flex;
+      gap: 20px;
+      margin-left: auto;
+      font-size: 0.75rem;
+      color: #52525b;
+    }
+
+    .app-mockup .nav-items .active {
+      color: #d97706;
+    }
+
+    .app-mockup .metric {
+      background: rgba(107, 33, 168, 0.1);
+      border: 1px solid rgba(107, 33, 168, 0.2);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .app-mockup .metric .label {
+      font-size: 0.625rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #52525b;
+      margin-bottom: 8px;
+    }
+
+    .app-mockup .metric .value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #d97706;
+    }
+
+    /* Splash mockup */
+    .splash-mockup {
+      background: radial-gradient(ellipse at center, rgba(107, 33, 168, 0.15) 0%, #0a0a0b 70%);
+      border: 1px solid rgba(107, 33, 168, 0.2);
+      border-radius: 16px;
+      padding: 80px 40px;
+      text-align: center;
+    }
+
+    .splash-mockup .hero-logo {
+      font-size: 3rem;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+    }
+
+    .splash-mockup .hero-logo .omnivor {
+      font-weight: 900;
+      color: #fafafa;
+    }
+
+    .splash-mockup .hero-logo .labs {
+      font-weight: 300;
+      color: #6b21a8;
+    }
+
+    .splash-mockup .tagline {
+      font-size: 1.125rem;
+      color: #a1a1aa;
+      margin-bottom: 40px;
+    }
+
+    .splash-mockup .cta {
+      display: inline-block;
+      background: #6b21a8;
+      color: #fafafa;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 14px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+    }
+
+    footer {
+      text-align: center;
+      padding: 80px 0 40px;
+      color: #3f3f46;
+      font-size: 0.75rem;
+    }
+
+    @media (max-width: 900px) {
+      .variants-grid,
+      .comparison-row,
+      .app-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .split-emphasis-hero {
+        font-size: 2.5rem;
+      }
+
+      .container {
+        padding: 40px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <header>
+      <h1>Split Emphasis — Refined</h1>
+      <p>LABS in purple for visual unity with brand color</p>
+    </header>
+
+    <!-- Hero Display -->
+    <div class="hero-display">
+      <span class="split-emphasis-hero"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+    </div>
+
+    <!-- Variants -->
+    <div class="variants-grid">
+      <div class="variant-card dark">
+        <p class="variant-label">Dark Background</p>
+        <span class="split-emphasis"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+      </div>
+      <div class="variant-card light">
+        <p class="variant-label">Light Background</p>
+        <span class="split-emphasis"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+      </div>
+      <div class="variant-card purple">
+        <p class="variant-label">Brand Background</p>
+        <span class="split-emphasis"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+      </div>
+    </div>
+
+    <!-- Comparison with Heavy Extended -->
+    <section class="comparison">
+      <h2>Side by Side: Your Two Finalists</h2>
+      <div class="comparison-row">
+        <div class="comparison-card">
+          <p class="label">Option 1: Heavy Extended</p>
+          <span class="heavy-extended">OMNIVOR <span class="labs">LABS</span></span>
+          <p class="descriptor">Maximum presence. Equal weight distribution.<br/>Statement piece energy.</p>
+        </div>
+        <div class="comparison-card">
+          <p class="label">Option 3: Split Emphasis (Refined)</p>
+          <span class="split-emphasis"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+          <p class="descriptor">Sophisticated hierarchy. OMNIVOR dominates.<br/>LABS qualifies in brand purple.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Application Mockups -->
+    <section class="applications">
+      <h2>In Application</h2>
+      <div class="app-grid">
+        <div class="app-mockup">
+          <div class="bar">
+            <div class="dots">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+            </div>
+            <span class="title">Product UI — Nav Bar</span>
+          </div>
+          <div class="content">
+            <div class="nav">
+              <div class="logo-lockup">
+                <div class="mark">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2 L22 12 L12 22 L2 12 Z" stroke="#fafafa" stroke-width="1.5" fill="none"/>
+                    <circle cx="12" cy="12" r="3" fill="#d97706"/>
+                  </svg>
+                </div>
+                <span class="wordmark"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+              </div>
+              <div class="nav-items">
+                <span class="active">Nerve Center</span>
+                <span>Signal Index</span>
+                <span>Cohort Lab</span>
+              </div>
+            </div>
+            <div class="metric">
+              <p class="label">Signals Processed</p>
+              <p class="value">2,847</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="splash-mockup">
+          <p class="label" style="font-size: 0.625rem; color: #52525b; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 24px;">Splash Page Hero</p>
+          <div class="hero-logo"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></div>
+          <p class="tagline">Feeds on complexity.</p>
+          <a href="#" class="cta">Enter Access Code</a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    <p>OMNIVOR LABS — Split Emphasis Refined — January 2025</p>
+  </footer>
+
+</body>
+</html>

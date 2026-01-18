@@ -20,14 +20,14 @@ import { useFrame } from '@react-three/fiber';
 import { useConstellationStore } from '@/stores/constellationStore';
 import { useStoryStore } from '@/stores/storyStore';
 
-// Status colors matching node colors
+// Status colors for light background (more saturated/darker)
 const STATUS_COLORS = {
-  healthy: new Color('#22c55e'),
-  warning: new Color('#f59e0b'),
-  critical: new Color('#ef4444'),
+  healthy: new Color('#16a34a'),  // green-600
+  warning: new Color('#d97706'),  // amber-600
+  critical: new Color('#dc2626'), // red-600
 };
 
-const DIM_COLOR = new Color('#1e293b');
+const DIM_COLOR = new Color('#cbd5e1'); // slate-300 for dimmed edges on light bg
 
 export function EdgeLines() {
   const lineRef = useRef<LineSegments>(null);
@@ -73,9 +73,9 @@ export function EdgeLines() {
         color = STATUS_COLORS[target.status] || STATUS_COLORS.healthy;
       }
 
-      // Opacity based on weight and focus
-      const baseOpacity = isFocused ? 0.4 : 0.1;
-      const opacity = baseOpacity * edge.weight;
+      // Opacity based on weight and focus (higher values for light bg visibility)
+      const baseOpacity = isFocused ? 0.7 : 0.25;
+      const opacity = baseOpacity * (0.5 + edge.weight * 0.5); // Ensure minimum visibility
 
       // Apply color with opacity baked in (since we're using vertexColors)
       colorArray.push(color.r * opacity, color.g * opacity, color.b * opacity);
@@ -151,9 +151,9 @@ export function EdgeLines() {
         ref={materialRef}
         vertexColors
         transparent
-        opacity={1}
+        opacity={0.6}
         depthWrite={false}
-        blending={2} // AdditiveBlending for glow effect
+        blending={1} // NormalBlending for light background
       />
     </lineSegments>
   );

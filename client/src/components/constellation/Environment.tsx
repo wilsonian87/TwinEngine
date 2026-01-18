@@ -1,11 +1,10 @@
 /**
  * Environment - Constellation 3D Environment Setup
  *
- * Sets up fog, lighting, and background for cinematic effect.
- * Features:
- * - Dynamic fog that adjusts with zoom level
- * - Accent lighting based on story mode state
- * - Starfield background for depth
+ * Light analytics theme (GA4/Tableau style) with:
+ * - Subtle depth fog on light background
+ * - Clean, professional lighting
+ * - Accent lighting for story mode emphasis
  */
 
 import { useEffect, useRef } from 'react';
@@ -13,21 +12,23 @@ import { useThree, useFrame } from '@react-three/fiber';
 import { Fog, Color, PointLight } from 'three';
 import { useConstellationStore } from '@/stores/constellationStore';
 import { useStoryStore } from '@/stores/storyStore';
-import { Starfield } from './Starfield';
 
-// Fog distances per zoom level
+// Light background color (slate-100)
+const BACKGROUND_COLOR = '#f1f5f9';
+
+// Fog distances per zoom level - lighter fog for depth cues
 const FOG_CONFIG = {
-  ecosystem: { near: 150, far: 500 },
-  campaign: { near: 80, far: 300 },
-  hcp: { near: 30, far: 150 },
+  ecosystem: { near: 200, far: 600 },
+  campaign: { near: 120, far: 400 },
+  hcp: { near: 60, far: 200 },
 };
 
-// Accent colors per visual state
+// Accent colors per visual state (more saturated for light bg)
 const ACCENT_COLORS = {
-  healthy: new Color('#22c55e'),
-  warning: new Color('#f59e0b'),
-  critical: new Color('#ef4444'),
-  bypass: new Color('#a855f7'),
+  healthy: new Color('#16a34a'),  // green-600
+  warning: new Color('#d97706'),  // amber-600
+  critical: new Color('#dc2626'), // red-600
+  bypass: new Color('#9333ea'),   // purple-600
 };
 
 export function Environment() {
@@ -41,10 +42,10 @@ export function Environment() {
   const currentBeatIndex = useStoryStore((s) => s.currentBeatIndex);
   const currentBeat = beats[currentBeatIndex];
 
-  // Initialize scene
+  // Initialize scene with light background
   useEffect(() => {
-    scene.background = new Color('#0a0a0f');
-    scene.fog = new Fog('#0a0a0f', FOG_CONFIG.ecosystem.near, FOG_CONFIG.ecosystem.far);
+    scene.background = new Color(BACKGROUND_COLOR);
+    scene.fog = new Fog(BACKGROUND_COLOR, FOG_CONFIG.ecosystem.near, FOG_CONFIG.ecosystem.far);
 
     return () => {
       scene.fog = null;
@@ -58,7 +59,6 @@ export function Environment() {
     const config = FOG_CONFIG[zoomLevel];
     const fog = scene.fog as Fog;
 
-    // Smooth transition would require animation, for now instant update
     fog.near = config.near;
     fog.far = config.far;
   }, [scene, zoomLevel]);
@@ -67,62 +67,46 @@ export function Environment() {
   useFrame((state) => {
     if (!accentLightRef.current) return;
 
-    // Pulse the accent light
-    const pulse = Math.sin(state.clock.elapsedTime * 2) * 0.1 + 0.9;
-    accentLightRef.current.intensity = 0.3 * pulse;
+    // Subtle pulse for accent light
+    const pulse = Math.sin(state.clock.elapsedTime * 1.5) * 0.05 + 0.95;
+    accentLightRef.current.intensity = 0.4 * pulse;
 
     // Update color based on story beat
     if (storyModeActive && currentBeat) {
       const targetColor = ACCENT_COLORS[currentBeat.visualState] || ACCENT_COLORS.healthy;
       accentLightRef.current.color.lerp(targetColor, 0.05);
     } else {
-      // Default purple accent
-      accentLightRef.current.color.lerp(new Color('#6b21a8'), 0.05);
+      // Default indigo accent
+      accentLightRef.current.color.lerp(new Color('#4f46e5'), 0.05);
     }
   });
 
   return (
     <>
-      {/* Starfield background */}
-      <Starfield count={1500} radius={600} size={1.2} opacity={0.3} />
-
-      {/* Soft ambient light - base illumination */}
-      <ambientLight intensity={0.25} color="#e2e8f0" />
+      {/* Strong ambient light for light theme - ensures visibility */}
+      <ambientLight intensity={0.8} color="#ffffff" />
 
       {/* Key light - main illumination from top-front */}
-      <pointLight
+      <directionalLight
         position={[100, 150, 200]}
-        intensity={0.4}
+        intensity={0.6}
         color="#ffffff"
-        distance={600}
-        decay={2}
       />
 
-      {/* Fill light - soften shadows from bottom */}
-      <pointLight
-        position={[-80, -100, 100]}
-        intensity={0.15}
-        color="#94a3b8"
-        distance={400}
-        decay={2}
+      {/* Fill light - even illumination from opposite side */}
+      <directionalLight
+        position={[-80, -50, 100]}
+        intensity={0.3}
+        color="#f8fafc"
       />
 
       {/* Accent light - colored based on story state */}
       <pointLight
         ref={accentLightRef}
-        position={[0, 0, 300]}
-        intensity={0.3}
-        color="#6b21a8"
+        position={[0, 0, 250]}
+        intensity={0.4}
+        color="#4f46e5"
         distance={500}
-        decay={2}
-      />
-
-      {/* Rim light - edge definition from back */}
-      <pointLight
-        position={[0, 50, -200]}
-        intensity={0.2}
-        color="#3b82f6"
-        distance={400}
         decay={2}
       />
     </>

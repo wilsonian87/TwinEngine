@@ -19,6 +19,7 @@ import { EdgeLines } from './EdgeLines';
 import { EdgeFlow } from './EdgeFlow';
 import { Environment } from './Environment';
 import { StoryCameraController } from './StoryCameraController';
+import { ZoomCameraController } from './ZoomCameraController';
 import { getZoomLevelFromDistance, ZOOM_THRESHOLDS } from './SemanticZoom';
 
 // Type-safe worker import (Vite handles the ?worker suffix)
@@ -89,6 +90,7 @@ function ConstellationScene() {
         <ChannelNodes />
       </Suspense>
       <ZoomLevelController />
+      <ZoomCameraController />
       {storyModeActive && <StoryCameraController />}
     </>
   );
@@ -143,7 +145,7 @@ export function ConstellationCanvas() {
   }, [setNodes, setEdges, updatePositions, setPhysicsSettled]);
 
   return (
-    <div className="w-full h-full bg-slate-950">
+    <div className="w-full h-full bg-slate-100">
       <Canvas
         gl={{
           antialias: true,
@@ -152,7 +154,7 @@ export function ConstellationCanvas() {
         }}
         dpr={[1, 2]} // Limit pixel ratio for performance
         camera={{ position: [0, 0, 300], fov: 60 }}
-        style={{ background: '#0a0a0f' }}
+        style={{ background: '#f1f5f9' }} // slate-100 - light analytics background
       >
         <ConstellationScene />
       </Canvas>

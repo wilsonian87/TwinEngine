@@ -1,9 +1,9 @@
 # STATUS.md
 
-**Last Updated:** 2026-01-17
+**Last Updated:** 2026-01-18
 **Project:** TwinEngine - HCP Digital Twin Platform (OmniVor)
-**Current Phase:** 9 Complete - Interaction & Experience Design
-**Overall Status:** Phase 9 Complete
+**Current Phase:** 11 In Development - HCP-Centric Visualization Hierarchy
+**Overall Status:** Phase 11 Stable (In Development)
 
 ---
 
@@ -35,7 +35,115 @@
 | 9E | Nerve Center Redesign | Complete | 100% |
 | 9F | Notification System | Complete | 100% |
 | 9G | Keyboard Navigation | Complete | 100% |
-| **9H** | **Onboarding & Contextual Help** | **Complete** | 100% |
+| 9H | Onboarding & Contextual Help | Complete | 100% |
+| 10A-H | Constellation Visualization | Complete | 100% |
+| **11A** | **Data Layer & Mock Generation** | **Complete** | 100% |
+| **11B** | **L1 Solar System View** | **Complete** | 100% |
+| **11C** | **L2 Campaign Orbit View** | **Complete** | 100% |
+| **11D** | **L3 HCP Constellation View** | **Complete** | 100% |
+| **11E** | **Navigation & Transitions** | **Complete** | 100% |
+| **11F** | **Story Mode Integration** | **Complete** | 100% |
+| **11G** | **Bug Fixes & Stabilization** | **In Progress** | 80% |
+
+---
+
+## Phase 11: HCP-Centric Visualization Hierarchy - In Development (Stable)
+
+### Overview
+
+Phase 11 reorients the Ecosystem Explorer from a channel-centric to an HCP-centric "Solar System" model. This isn't just a visual refactor—it's a conceptual reorientation where HCPs are the center of gravity and channels/campaigns orbit as layers of influence.
+
+### The Shift
+
+| Dimension | Before (Phase 10) | After (Phase 11) |
+|-----------|-------------------|------------------|
+| Mental Model | "Where are we reaching people?" | "What does this HCP believe, and what pressure acts on that belief?" |
+| Center of Gravity | Channels | HCPs |
+| Navigation | Ecosystem → Channel → HCP | HCP Nucleus → Channel → Campaign → HCP Constellation |
+| Edge Semantics | Visual grouping | Actual HCP overlap (shared audience) |
+
+### Completed Milestones
+
+#### Phase 11A: Data Layer & Mock Generation ✓
+- Added schema tables: `messagingThemes`, `campaignThemes`, `channelOverlap`
+- Added API schemas: `L1SolarSystemData`, `L2CampaignOrbitData`, `L3HcpConstellationData`
+- Created mock data: themes.json, campaigns.json (24 campaigns), channelOverlap.json, channelKPIs.json
+- Created data service abstraction layer
+- Created channel colors system (6 channels with distinct identities)
+- Created specialty icons mapping (15 specialties)
+
+#### Phase 11B: L1 Solar System View ✓
+- HCPNucleus with GLSL shader noise texture
+- ChannelPlanet components (sized by reach, colored by channel)
+- ChannelEdges showing HCP overlap between channels
+- Radial positioning algorithm
+- Channel tooltips with reach/engagement/health
+
+#### Phase 11C: L2 Campaign Orbit View ✓
+- L2CampaignOrbit container with contextual nucleus
+- CampaignNode components (theme-colored)
+- Channel-specific KPI tooltips (Email: OR/CTR/Fatigue, Field: Reach/Freq/Access, etc.)
+
+#### Phase 11D: L3 HCP Constellation View ✓
+- L3HCPConstellation with specialty clustering
+- HCPNode components with specialty colors
+- Golden ratio spiral positioning algorithm
+- Signal Index tooltips (sparkline, Rx trend, adoption stage)
+
+#### Phase 11E: Navigation & Transitions ✓
+- Phase11CameraController with spring animations
+- usePhase11Keyboard hook (Esc/Backspace/Home)
+- LevelIndicator breadcrumb component
+- Navigation context state management
+
+#### Phase 11F: Story Mode Integration ✓
+- Updated StoryBeat interface with level awareness
+- 6-beat "Inverted Narrative" story:
+  - Beat 1 (L1): Universe overview
+  - Beat 2 (L1): Webinar strength
+  - Beat 3 (L1): Email fatigue warning
+  - Beat 4 (L2): Campaign decomposition
+  - Beat 5 (L3): HCP human stories
+  - Beat 6 (L1): Optimization path
+- usePhase11Story hook for level sync
+- Rich deep dive content structure
+
+### New Files Created
+
+```
+client/src/lib/constellation/
+├── mockData/ (4 JSON files)
+├── dataService.ts
+├── channelColors.ts
+├── specialtyIcons.ts
+├── types.ts (extended)
+└── shaders/ (2 GLSL files)
+
+client/src/components/constellation/
+├── HCPNucleus.tsx
+├── ChannelPlanet.tsx
+├── ChannelEdgesL1.tsx
+├── ChannelTooltip.tsx
+├── L1SolarSystem.tsx
+├── CampaignNode.tsx
+├── L2CampaignOrbit.tsx
+├── HCPNode.tsx
+├── L3HCPConstellation.tsx
+├── Phase11Canvas.tsx
+├── Phase11CameraController.tsx
+├── LevelIndicator.tsx
+└── NavigationBreadcrumb.tsx
+
+client/src/hooks/
+├── usePhase11Keyboard.ts
+└── usePhase11Story.ts
+```
+
+### Build Status
+
+- TypeScript: ✅ Clean
+- Build: ✅ Success
+- Phase 11 chunk: ~66KB (lazy-loaded)
 
 ---
 

@@ -3,13 +3,18 @@
  *
  * Manages: story beats, navigation, deep dive toggle, auto-playback
  * Implements "Headline + Deep Dive" pattern to solve long text problem
+ *
+ * Phase 11F: Updated for L1/L2/L3 hierarchy navigation
  */
 
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 
 export type VisualState = 'healthy' | 'warning' | 'critical' | 'bypass';
+export type PanelPosition = 'bottom' | 'top' | 'right';
+export type NavigationLevel = 'L1' | 'L2' | 'L3';
 
+// Phase 11 Enhanced Story Beat with level-aware navigation
 export interface StoryBeat {
   id: string;
   headline: string;        // Max 60 chars - The "Quick Look"
@@ -19,6 +24,22 @@ export interface StoryBeat {
   visualState: VisualState;
   nodeFocusId?: string;    // Optional: specific node/cluster to highlight
   channelFocus?: string;   // Optional: channel to emphasize
+
+  // Phase 11: Level navigation
+  level?: NavigationLevel;
+  channelContext?: string;   // For L2 beats
+  campaignContext?: string;  // For L3 beats
+  autoAdvanceDelay?: number; // Custom timing per beat
+
+  // Phase 11: Richer deep dive content
+  deepDiveContent?: {
+    paragraphs: string[];
+    keyStats?: { label: string; value: string }[];
+    campaignTable?: { name: string; openRate: string; status: 'healthy' | 'warning' | 'critical' }[];
+    sampleHCPs?: { name: string; specialty: string; lastTouch: string; trend: 'up' | 'down' | 'flat' }[];
+    actionItems?: string[];
+  };
+  diagnostic?: string;  // What insight this beat delivers
 }
 
 interface StoryState {
@@ -27,6 +48,7 @@ interface StoryState {
   isDeepDiveOpen: boolean;
   isPlaying: boolean;
   beats: StoryBeat[];
+  panelPosition: PanelPosition;
 
   // Actions
   nextBeat: () => void;
@@ -35,104 +57,207 @@ interface StoryState {
   toggleDeepDive: () => void;
   togglePlayback: () => void;
   stopPlayback: () => void;
+  setPanelPosition: (position: PanelPosition) => void;
 }
 
-// Hardcoded demo scenario: "Digital Fatigue vs. Physical Access"
+// Phase 11: HCP-Centric Story Beats - "The Inverted Narrative"
+// Tells a customer-pressure story, not a channel-first report
 const DEMO_BEATS: StoryBeat[] = [
-  // === BEAT 1: Ecosystem Overview ===
+  // === BEAT 1: The Universe (L1 - Overview) ===
   {
-    id: 'ecosystem-health',
-    headline: "The Ecosystem is Breathing",
-    deepDive: `At the 30,000-foot view, the ecosystem shows a robust 60% health rating.
-Conference and Webinar channels are over-performing by 15% against the Q1 benchmark.
-However, this macro-stability masks underlying 'vascular' friction in digital-to-field handoffs.
-The green pulse you see represents healthy engagement velocity—but watch what happens as we zoom in.`,
-    cameraTarget: [0, 50, 200],
+    id: 'beat-1-universe',
+    headline: "2,500 HCPs. Five Channels. One Truth.",
+    deepDive: `This is your promotional universe — every Healthcare Professional your brand touches, and every channel carrying your message to them.
+
+The nucleus represents 2,500 active HCPs across Oncology, Cardiology, and Respiratory. The orbiting bodies are your five engagement channels, sized by reach and connected by shared audience overlap.
+
+From here, you can see the ecosystem breathing. But not all channels are breathing at the same rate.`,
+    cameraTarget: [0, 120, 280],
     cameraLookAt: [0, 0, 0],
     visualState: 'healthy',
+    level: 'L1',
+    autoAdvanceDelay: 10000,
+    deepDiveContent: {
+      paragraphs: [
+        "This is your promotional universe — every Healthcare Professional your brand touches, and every channel carrying your message to them.",
+        "The nucleus represents 2,500 active HCPs across Oncology, Cardiology, and Respiratory. The orbiting bodies are your five engagement channels, sized by reach and connected by shared audience overlap.",
+        "From here, you can see the ecosystem breathing. But not all channels are breathing at the same rate.",
+      ],
+      keyStats: [
+        { label: 'Total HCPs', value: '2,500' },
+        { label: 'Active Channels', value: '5' },
+        { label: 'Avg Engagement', value: '67%' },
+      ],
+    },
+    diagnostic: "Orientation — establish the customer-centric mental model",
   },
 
-  // === BEAT 2: Conference/Webinar Success ===
+  // === BEAT 2: The Workhorse (L1 - Healthy Channel) ===
   {
-    id: 'webinar-success',
-    headline: "Conferences & Webinars: Your Growth Engine",
-    deepDive: `This cluster represents 1,500 HCPs actively engaged through virtual and live events.
-Key metrics:
-• 78% attendance-to-engagement conversion
-• 3.2x higher content recall vs. email
-• 45% of these HCPs have increased Rx writing in the past 90 days
+    id: 'beat-2-workhorse',
+    headline: "Webinars: Your Highest-Signal Channel",
+    deepDive: `Webinars reach 690 HCPs with a 71% average engagement score — your highest-performing channel by signal quality.
 
-The bright green glow indicates sustained information flow.
-These HCPs are receiving, processing, and acting on medical updates.`,
-    cameraTarget: [-40, 20, 80],
+Unlike passive channels, webinar attendees self-select for interest. When an oncologist spends 45 minutes in your MoA deep-dive, that's not an impression — that's intent.
+
+Notice the strong overlap with Email (55%) — your webinar promotion engine is working. The moderate Congress connection (38%) suggests opportunity for post-event digital follow-through.`,
+    cameraTarget: [-60, 80, 180],
     cameraLookAt: [-40, 0, 0],
     visualState: 'healthy',
     channelFocus: 'webinar',
+    level: 'L1',
+    autoAdvanceDelay: 9000,
+    deepDiveContent: {
+      paragraphs: [
+        "Webinars reach 690 HCPs with a 71% average engagement score — your highest-performing channel by signal quality.",
+        "Unlike passive channels, webinar attendees self-select for interest. When an oncologist spends 45 minutes in your MoA deep-dive, that's not an impression — that's intent.",
+        "Notice the strong overlap with Email (55%) — your webinar promotion engine is working. The moderate Congress connection (38%) suggests opportunity for post-event digital follow-through.",
+      ],
+      keyStats: [
+        { label: 'HCP Reach', value: '690' },
+        { label: 'Avg Engagement', value: '71%' },
+        { label: 'Email Overlap', value: '55%' },
+      ],
+    },
+    diagnostic: "Identify strength — what channel is generating real signal",
   },
 
-  // === BEAT 3: Digital Fatigue Warning ===
+  // === BEAT 3: The Pressure Point (L1 - Struggling Channel) ===
   {
-    id: 'digital-fatigue',
-    headline: "Email Engagement Declining: Digital Fatigue",
-    deepDive: `The amber glow signals declining engagement in your digital channels.
-625 HCPs show classic fatigue patterns:
-• Open rates dropped 23% over 6 months
-• Click-through at historic low (2.1%)
-• 40% haven't engaged with any email in 45+ days
+    id: 'beat-3-pressure',
+    headline: "Email: 1,925 HCPs, But Fatigue is Building",
+    deepDive: `Email is your largest channel by reach — 1,925 HCPs, 77% of your universe. But scale is masking a problem.
 
-This isn't failure—it's saturation. These HCPs need channel diversification,
-not more volume. The system is recommending webinar invites as the bypass route.`,
-    cameraTarget: [30, -10, 60],
-    cameraLookAt: [30, -10, 0],
+Average engagement has dropped to 62%, down from 71% twelve months ago. Open rates are declining 2-3% per quarter. You're not losing reach — you're losing attention.
+
+The high overlap with Field (68%) and Paid Media (61%) means these HCPs are being touched from multiple directions. Some of that is orchestration. Some of it is noise.`,
+    cameraTarget: [70, 60, 160],
+    cameraLookAt: [50, 0, 0],
     visualState: 'warning',
     channelFocus: 'email',
+    level: 'L1',
+    autoAdvanceDelay: 10000,
+    deepDiveContent: {
+      paragraphs: [
+        "Email is your largest channel by reach — 1,925 HCPs, 77% of your universe. But scale is masking a problem.",
+        "Average engagement has dropped to 62%, down from 71% twelve months ago. Open rates are declining 2-3% per quarter. You're not losing reach — you're losing attention.",
+        "The high overlap with Field (68%) and Paid Media (61%) means these HCPs are being touched from multiple directions. Some of that is orchestration. Some of it is noise.",
+      ],
+      keyStats: [
+        { label: 'HCP Reach', value: '1,925' },
+        { label: 'Avg Engagement', value: '62% ↓' },
+        { label: 'YoY Trend', value: '-9pts' },
+      ],
+    },
+    diagnostic: "Identify weakness — where is pressure creating resistance instead of movement",
   },
 
-  // === BEAT 4: Critical Field Blockage ===
+  // === BEAT 4: Inside the Machine (L2 - Email Campaign Orbit) ===
   {
-    id: 'field-blockage',
-    headline: "Critical Blockage: Northeast MSL Cluster",
-    deepDive: `We have detected a complete information 'stroke' in the NY/NJ Oncology segment.
-Physical rep access has dropped 40% due to new institutional privacy guardrails.
+    id: 'beat-4-campaigns',
+    headline: "Six Campaigns. Uneven Performance.",
+    deepDive: `Drilling into Email reveals six active campaigns — but they're not created equal.
 
-2,500 HCPs are currently disconnected from medical updates, creating a high-risk
-information void during the launch window.
+Your Oncology launch wave (C001) is performing: 34% open rate, 8% CTR, healthy engagement. The RWE Digest (C006) is even stronger at 38% open rate — Cardiology HCPs are hungry for real-world data.
 
-The red shivering nodes indicate HCPs who:
-• Haven't had MSL contact in 90+ days
-• Are in high-value prescribing segments
-• Have no viable digital fallback channel
+But look at Access Update (C005) and Safety Profile (C007). Open rates below 30%, fatigue indices above 0.50. These campaigns aren't informing — they're contributing to inbox blindness.`,
+    cameraTarget: [0, 50, 120],
+    cameraLookAt: [0, 0, 0],
+    visualState: 'warning',
+    channelFocus: 'email',
+    level: 'L2',
+    channelContext: 'email',
+    autoAdvanceDelay: 12000,
+    deepDiveContent: {
+      paragraphs: [
+        "Drilling into Email reveals six active campaigns — but they're not created equal.",
+        "Your Oncology launch wave (C001) is performing: 34% open rate, 8% CTR, healthy engagement. The RWE Digest (C006) is even stronger at 38% open rate — Cardiology HCPs are hungry for real-world data.",
+        "But look at Access Update (C005) and Safety Profile (C007). Open rates below 30%, fatigue indices above 0.50. These campaigns aren't informing — they're contributing to inbox blindness.",
+      ],
+      keyStats: [
+        { label: 'Active Campaigns', value: '6' },
+        { label: 'Top Performer', value: 'RWE Digest (38% OR)' },
+        { label: 'Fatigued', value: '2 campaigns' },
+      ],
+      campaignTable: [
+        { name: 'ONC Launch Wave 1', openRate: '34%', status: 'healthy' },
+        { name: 'RWE Outcomes Digest', openRate: '38%', status: 'healthy' },
+        { name: 'Access Update Q1', openRate: '29%', status: 'warning' },
+        { name: 'Safety Profile Series', openRate: '27%', status: 'warning' },
+      ],
+    },
+    diagnostic: "Decompose channel performance into campaign-level contributors",
+  },
 
-Recommended action: Deploy targeted webinar series with CME accreditation
-to bypass physical access barriers.`,
-    cameraTarget: [45, -12, 30],
-    cameraLookAt: [45, -10, 0],
+  // === BEAT 5: The Humans Behind the Data (L3 - Affected HCPs) ===
+  {
+    id: 'beat-5-hcps',
+    headline: "560 HCPs. 40% Haven't Opened in 60 Days.",
+    deepDive: `Behind every metric is a physician making decisions about your brand. Let's look at who's actually disengaging.
+
+Of the 560 HCPs in your Access Update campaign, 224 haven't opened an email in 60+ days. These aren't lost causes — they're signals. Something about this message, this frequency, or this timing isn't working for them.
+
+Notice the specialty pattern: 62% of disengaged HCPs are Oncologists. They're drowning in access communications from every brand. Your message isn't breaking through — it's blending in.`,
+    cameraTarget: [0, 40, 90],
+    cameraLookAt: [0, 0, 0],
     visualState: 'critical',
-    channelFocus: 'field',
-    nodeFocusId: 'cluster-ne-onc',
+    level: 'L3',
+    channelContext: 'email',
+    campaignContext: 'C005',
+    autoAdvanceDelay: 12000,
+    deepDiveContent: {
+      paragraphs: [
+        "Behind every metric is a physician making decisions about your brand. Let's look at who's actually disengaging.",
+        "Of the 560 HCPs in your Access Update campaign, 224 haven't opened an email in 60+ days. These aren't lost causes — they're signals. Something about this message, this frequency, or this timing isn't working for them.",
+        "Notice the specialty pattern: 62% of disengaged HCPs are Oncologists. They're drowning in access communications from every brand. Your message isn't breaking through — it's blending in.",
+      ],
+      keyStats: [
+        { label: 'Campaign Reach', value: '560' },
+        { label: 'Disengaged (60d+)', value: '224 (40%)' },
+        { label: 'Top Disengaged Specialty', value: 'Oncology (62%)' },
+      ],
+      sampleHCPs: [
+        { name: 'Dr. Sarah Chen', specialty: 'ONC', lastTouch: '68 days', trend: 'down' },
+        { name: 'Dr. James Wilson', specialty: 'ONC', lastTouch: '74 days', trend: 'down' },
+        { name: 'Dr. Priya Sharma', specialty: 'CARD', lastTouch: '61 days', trend: 'flat' },
+      ],
+    },
+    diagnostic: "Make it human — these aren't data points, they're physicians who stopped listening",
   },
 
-  // === BEAT 5: The Bypass Strategy ===
+  // === BEAT 6: The Path Forward (L1 - Return with Insight) ===
   {
-    id: 'bypass-strategy',
-    headline: "The Bypass: Reallocate to High-Performing Channels",
-    deepDive: `TwinEngine has identified an optimization path:
+    id: 'beat-6-path',
+    headline: "The Optimization: Shift Pressure, Recover Attention",
+    deepDive: `You've now seen the full picture: a high-performing webinar channel, a fatiguing email program, and 224 oncologists who've stopped listening.
 
-1. REDIRECT: Shift 30% of email budget to webinar production
-2. BRIDGE: Create MSL-led virtual roundtables for blocked HCPs
-3. MONITOR: Deploy real-time sentiment tracking on new touchpoints
+The insight isn't 'send less email.' It's 'redirect email's job.' Your Access Update content is important — but it's the wrong format for inbox-fatigued specialists. That content belongs in a 30-minute webinar where engagement is earned, not assumed.
 
-Projected impact:
-• +18% overall ecosystem health within 60 days
-• +$2.4M incremental revenue from unblocked HCPs
-• -40% wasted digital spend
-
-The constellation will rebalance. Green will spread.
-The question is: do you want TwinEngine to execute automatically,
-or would you prefer to review each recommendation?`,
-    cameraTarget: [0, 30, 120],
+Shift 30% of your Access messaging budget to webinar format. Use email to promote, not deliver. The 55% audience overlap means you already have the promotional engine — you're just using it to push content instead of pull attention.`,
+    cameraTarget: [0, 100, 220],
     cameraLookAt: [0, 0, 0],
     visualState: 'bypass',
+    level: 'L1',
+    autoAdvanceDelay: 15000,
+    deepDiveContent: {
+      paragraphs: [
+        "You've now seen the full picture: a high-performing webinar channel, a fatiguing email program, and 224 oncologists who've stopped listening.",
+        "The insight isn't 'send less email.' It's 'redirect email's job.' Your Access Update content is important — but it's the wrong format for inbox-fatigued specialists. That content belongs in a 30-minute webinar where engagement is earned, not assumed.",
+        "Shift 30% of your Access messaging budget to webinar format. Use email to promote, not deliver. The 55% audience overlap means you already have the promotional engine — you're just using it to push content instead of pull attention.",
+      ],
+      keyStats: [
+        { label: 'Recommended Shift', value: '30% budget → Webinar' },
+        { label: 'Expected Recovery', value: '120-150 HCPs' },
+        { label: 'Projected Engagement Lift', value: '+12-15%' },
+      ],
+      actionItems: [
+        'Pause Access Update email series',
+        'Develop Access webinar (30-min format)',
+        'Use email for webinar promotion only',
+        'Re-engage disengaged ONC segment via Field',
+      ],
+    },
+    diagnostic: "Synthesize insight into action — this is what the platform is for",
   },
 ];
 
@@ -144,6 +269,7 @@ export const useStoryStore = create<StoryState>()(
         isDeepDiveOpen: false,
         isPlaying: false,
         beats: DEMO_BEATS,
+        panelPosition: 'bottom' as PanelPosition,
 
         nextBeat: () => set((state) => ({
           currentBeatIndex: Math.min(state.currentBeatIndex + 1, state.beats.length - 1),
@@ -169,11 +295,14 @@ export const useStoryStore = create<StoryState>()(
         }), false, 'togglePlayback'),
 
         stopPlayback: () => set({ isPlaying: false }, false, 'stopPlayback'),
+
+        setPanelPosition: (position) => set({ panelPosition: position }, false, 'setPanelPosition'),
       }),
       {
         name: 'constellation-story',
         partialize: (state) => ({
           currentBeatIndex: state.currentBeatIndex,
+          panelPosition: state.panelPosition,
         }),
       }
     ),

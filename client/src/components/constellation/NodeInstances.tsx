@@ -12,14 +12,15 @@ import { useFrame, ThreeEvent } from '@react-three/fiber';
 import { useConstellationStore } from '@/stores/constellationStore';
 import { useStoryStore } from '@/stores/storyStore';
 
+// Saturated colors for light background (GA4/Tableau style)
 const STATUS_COLORS = {
-  healthy: new Color('#22c55e'),  // Green
-  warning: new Color('#f59e0b'),  // Amber
-  critical: new Color('#ef4444'), // Red
+  healthy: new Color('#15803d'),  // green-700 - rich green
+  warning: new Color('#b45309'),  // amber-700 - deep amber
+  critical: new Color('#b91c1c'), // red-700 - strong red
 };
 
-const HIGHLIGHT_COLOR = new Color('#ffffff');
-const DIM_FACTOR = 0.15; // Opacity for non-focus nodes in story mode
+const HIGHLIGHT_COLOR = new Color('#1e1b4b'); // indigo-950 for contrast on light bg
+const DIM_FACTOR = 0.3; // Higher opacity for non-focus nodes (still visible on light bg)
 
 const tempObject = new Object3D();
 const tempColor = new Color();

@@ -1,0 +1,51 @@
+{
+  "hospitals": [
+    "Memorial Hospital", "Regional Medical Center", "University Hospital", "Community Health Center",
+    "St. Mary's Hospital", "Methodist Hospital", "Presbyterian Medical Center", "Baptist Health",
+    "Mount Sinai Medical Center", "Cedars-Sinai Medical Center", "Johns Hopkins Hospital",
+    "Mayo Clinic", "Cleveland Clinic", "Mass General Hospital", "Stanford Medical Center",
+    "UCSF Medical Center", "UCLA Medical Center", "Northwestern Memorial Hospital",
+    "NYU Langone Health", "Duke University Hospital", "Emory University Hospital",
+    "Vanderbilt University Medical Center", "University of Michigan Health", "Penn Medicine",
+    "Brigham and Women's Hospital", "Children's Hospital", "VA Medical Center",
+    "Kaiser Permanente", "HCA Healthcare", "Ascension Health", "CommonSpirit Health",
+    "Trinity Health", "Providence Health", "Advocate Aurora Health", "Atrium Health",
+    "Baylor Scott & White Health", "Intermountain Healthcare", "Geisinger Health",
+    "Northwell Health", "Ochsner Health", "Spectrum Health"
+  ],
+  "clinics": [
+    "Primary Care Associates", "Family Medicine Center", "Internal Medicine Group",
+    "Specialty Care Clinic", "Advanced Medical Group", "Premier Health Partners",
+    "Integrated Health Solutions", "Comprehensive Care Clinic", "Medical Associates",
+    "Health First Clinic", "Wellness Medical Center", "Care Partners Medical Group",
+    "United Physicians", "Alliance Medical Group", "Physician Partners",
+    "HealthBridge Medical", "MedStar Health", "One Medical", "CityMD", "Concentra"
+  ],
+  "academicCenters": [
+    "Harvard Medical School Affiliated", "Stanford School of Medicine",
+    "Johns Hopkins School of Medicine", "UCSF School of Medicine",
+    "University of Pennsylvania Perelman School", "Columbia University Medical Center",
+    "Yale School of Medicine", "Duke University School of Medicine",
+    "University of Chicago Medical Center", "Washington University School of Medicine",
+    "UCLA David Geffen School of Medicine", "Cornell Weill Medical College",
+    "University of Pittsburgh Medical Center", "University of Michigan Medical School",
+    "Baylor College of Medicine", "Northwestern Feinberg School of Medicine",
+    "Emory University School of Medicine", "Vanderbilt University Medical Center",
+    "University of Wisconsin School of Medicine", "Ohio State University Wexner Medical Center"
+  ],
+  "practiceTypes": [
+    "Solo Practice", "Group Practice", "Multi-Specialty Practice", "Academic Practice",
+    "Hospital-Employed", "Health System Affiliated", "Independent Practice Association",
+    "Accountable Care Organization", "Federally Qualified Health Center"
+  ],
+  "prefixes": [
+    "Greater", "Metro", "Central", "Northern", "Southern", "Eastern", "Western",
+    "University", "Regional", "Community", "Valley", "Coastal", "Mountain", "Lake",
+    "River", "Bay Area", "Tri-County", "Mid-Atlantic", "Pacific", "Atlantic"
+  ],
+  "suffixes": [
+    "Medical Center", "Health System", "Healthcare", "Medical Group", "Health Partners",
+    "Medical Associates", "Clinic", "Health Network", "Care Center", "Medical Practice",
+    "Specialty Center", "Treatment Center", "Wellness Center", "Physicians Group"
+  ]
+}

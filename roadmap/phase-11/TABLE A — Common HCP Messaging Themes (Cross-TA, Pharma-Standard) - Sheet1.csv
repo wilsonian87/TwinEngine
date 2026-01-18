@@ -1,0 +1,11 @@
+theme_id,theme_name,description,lifecycle_stage,applies_to_TAs
+MT01,Efficacy,Clinical effectiveness vs SOC or competitors,Launch → Mature,All
+MT02,Safety & Tolerability,"AE profile, long-term safety, contraindications",Launch → LOE,All
+MT03,Mechanism of Action (MoA),"Scientific rationale, pathway targeting",Pre-Launch → Early Launch,"Oncology, Immunology, Rare"
+MT04,Differentiation,"Competitive positioning, unique attributes",Launch → Growth,All
+MT05,Patient Selection,"Which patients, biomarkers, phenotypes",Growth → Mature,"Oncology, Rare, Immunology"
+MT06,Dosing & Administration,"Convenience, regimen, device",Growth → Mature,"Respiratory, Cardio, Metabolic"
+MT07,Access & Reimbursement,"Payer coverage, affordability",Launch → Mature,US-focused
+MT08,Guidelines & Evidence,"Inclusion in NCCN, ADA, ACC, etc.",Growth → Mature,All
+MT09,Real-World Evidence (RWE),"Post-marketing, outcomes data",Mature,All
+MT10,Awareness / Disease State,Unbranded education,Pre-Launch,All

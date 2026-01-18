@@ -17,10 +17,11 @@ const ZOOM_ICONS = {
   hcp: User,
 };
 
+// Light theme zoom colors
 const ZOOM_COLORS = {
-  ecosystem: 'text-blue-400 bg-blue-500/20 border-blue-500/30',
-  campaign: 'text-purple-400 bg-purple-500/20 border-purple-500/30',
-  hcp: 'text-green-400 bg-green-500/20 border-green-500/30',
+  ecosystem: 'text-blue-700 bg-blue-50 border-blue-200',
+  campaign: 'text-purple-700 bg-purple-50 border-purple-200',
+  hcp: 'text-green-700 bg-green-50 border-green-200',
 };
 
 export function ZoomIndicator() {
@@ -39,7 +40,7 @@ export function ZoomIndicator() {
           transition={{ duration: 0.2 }}
           className={cn(
             "flex items-center gap-2 px-3 py-2 rounded-lg",
-            "bg-slate-900/80 backdrop-blur-xl border",
+            "bg-white/90 backdrop-blur-xl border shadow-sm",
             ZOOM_COLORS[zoomLevel]
           )}
         >
@@ -56,8 +57,8 @@ export function ZoomIndicator() {
             className={cn(
               "h-1.5 rounded-full transition-all duration-300",
               level === zoomLevel
-                ? "w-6 bg-white"
-                : "w-1.5 bg-white/30"
+                ? "w-6 bg-slate-700"
+                : "w-1.5 bg-slate-300"
             )}
           />
         ))}

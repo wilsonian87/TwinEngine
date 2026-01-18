@@ -1,0 +1,20 @@
+channel,KPI,definition,why_it_matters
+Email,Open Rate,% opened,Subject line + relevance
+Email,CTR,% clicks,Message resonance
+Email,Reach,Unique HCPs,Scale
+Email,Fatigue Index,Sends per HCP,Burn risk
+Field,Call Reach,HCPs visited,Coverage
+Field,Call Frequency,Avg visits,Pressure
+Field,Access Rate,% successful calls,Reality check
+Congress,Attendance,Verified HCPs,True reach
+Congress,Booth Engagement,Scans / visits,Interest
+Congress,Follow-Up Rate,Post-event touches,Activation
+Webinar,Registration Rate,Reg / Invited,Topic pull
+Webinar,Attendance %,Attended / Reg,Quality
+Webinar,Engagement Score,"Polls, Q&A",Signal strength
+Paid Search,CTR,Clicks / Impressions,Intent
+Paid Search,Cost per Visit,Spend efficiency,ROI
+Programmatic,Viewability,% viewable,Waste detection
+Social,Engagement Rate,Likes/comments,Awareness lift
+Web,Time on Site,Avg seconds,Content depth
+Web,Content Downloads,Assets pulled,High intent

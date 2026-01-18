@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OMNIVOR — Bold Identity Refinement</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #030303;
+      color: #fafafa;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 80px 40px;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      margin-bottom: 100px;
+      padding: 80px 0;
+      background: radial-gradient(ellipse at center, rgba(107, 33, 168, 0.15) 0%, transparent 70%);
+    }
+
+    .hero h1 {
+      font-size: 4rem;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #a855f7 0%, #6b21a8 50%, #d97706 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero .tagline {
+      font-size: 1.5rem;
+      font-weight: 500;
+      color: #a1a1aa;
+      margin-bottom: 16px;
+    }
+
+    .hero .subtitle {
+      font-size: 1rem;
+      color: #71717a;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    /* Section headers */
+    .section-header {
+      margin-bottom: 48px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid rgba(107, 33, 168, 0.3);
+    }
+
+    .section-header h2 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #6b21a8;
+      margin-bottom: 8px;
+    }
+
+    .section-header h3 {
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+
+    .section-header p {
+      color: #a1a1aa;
+      margin-top: 8px;
+      max-width: 600px;
+    }
+
+    /* Logo Directions Grid */
+    .directions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 40px;
+      margin-bottom: 100px;
+    }
+
+    .direction-card {
+      background: linear-gradient(135deg, rgba(107, 33, 168, 0.1) 0%, rgba(10, 10, 11, 0.95) 100%);
+      border: 1px solid rgba(107, 33, 168, 0.2);
+      border-radius: 24px;
+      padding: 48px;
+      transition: border-color 0.3s ease;
+    }
+
+    .direction-card:hover {
+      border-color: rgba(107, 33, 168, 0.5);
+    }
+
+    .direction-card h4 {
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #d97706;
+      margin-bottom: 8px;
+    }
+
+    .direction-card h5 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .direction-card p {
+      font-size: 0.875rem;
+      color: #a1a1aa;
+      margin-bottom: 32px;
+    }
+
+    .logo-container {
+      background: #0a0a0b;
+      border-radius: 16px;
+      padding: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      margin-bottom: 24px;
+    }
+
+    .logo-container svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .direction-card .variants {
+      display: flex;
+      gap: 16px;
+    }
+
+    .variant {
+      flex: 1;
+      background: #0a0a0b;
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .variant.light {
+      background: #fafafa;
+    }
+
+    /* Full Width Feature */
+    .feature-section {
+      margin-bottom: 100px;
+    }
+
+    .pipeline-visual {
+      background: linear-gradient(90deg, rgba(107, 33, 168, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
+      border: 1px solid rgba(107, 33, 168, 0.2);
+      border-radius: 24px;
+      padding: 64px;
+      text-align: center;
+    }
+
+    .pipeline-visual h4 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #6b21a8;
+      margin-bottom: 48px;
+    }
+
+    /* Wordmark Studies */
+    .wordmark-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 100px;
+    }
+
+    .wordmark-card {
+      background: #0a0a0b;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .wordmark-card h4 {
+      font-size: 0.625rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #71717a;
+      margin-bottom: 24px;
+    }
+
+    .wordmark-card .wordmark {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+    }
+
+    .wordmark-card .note {
+      font-size: 0.75rem;
+      color: #52525b;
+    }
+
+    /* Application Mockups */
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 32px;
+      margin-bottom: 100px;
+    }
+
+    .app-mockup {
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid rgba(107, 33, 168, 0.2);
+    }
+
+    .app-mockup .titlebar {
+      background: #0a0a0b;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .app-mockup .titlebar .dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .app-mockup .titlebar .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #27272a;
+    }
+
+    .app-mockup .titlebar .title {
+      font-size: 0.75rem;
+      color: #71717a;
+      margin-left: auto;
+    }
+
+    .app-mockup .content {
+      background: linear-gradient(180deg, #0f0f10 0%, #0a0a0b 100%);
+      padding: 40px;
+      min-height: 280px;
+    }
+
+    .app-mockup .nav {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .app-mockup .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .app-mockup .nav-logo span {
+      font-weight: 700;
+      font-size: 0.875rem;
+      letter-spacing: 0.08em;
+    }
+
+    .app-mockup .nav-items {
+      display: flex;
+      gap: 24px;
+      margin-left: auto;
+    }
+
+    .app-mockup .nav-items span {
+      font-size: 0.75rem;
+      color: #71717a;
+    }
+
+    .app-mockup .nav-items span.active {
+      color: #d97706;
+    }
+
+    .app-mockup .metric-card {
+      background: rgba(107, 33, 168, 0.1);
+      border: 1px solid rgba(107, 33, 168, 0.2);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .app-mockup .metric-card .label {
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #71717a;
+      margin-bottom: 8px;
+    }
+
+    .app-mockup .metric-card .value {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: #d97706;
+    }
+
+    .app-mockup .metric-card .subtext {
+      font-size: 0.875rem;
+      color: #a1a1aa;
+      margin-top: 8px;
+    }
+
+    /* Color Palette Section */
+    .palette-section {
+      margin-bottom: 100px;
+    }
+
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+    }
+
+    .palette-swatch {
+      aspect-ratio: 1;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .palette-swatch .name {
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .palette-swatch .hex {
+      font-size: 0.625rem;
+      font-family: 'IBM Plex Mono', monospace;
+      opacity: 0.7;
+    }
+
+    .palette-swatch.dark-text {
+      color: #0a0a0b;
+    }
+
+    /* Metaphor Section */
+    .metaphor-section {
+      background: linear-gradient(135deg, rgba(107, 33, 168, 0.15) 0%, rgba(217, 119, 6, 0.1) 100%);
+      border: 1px solid rgba(107, 33, 168, 0.2);
+      border-radius: 24px;
+      padding: 64px;
+      margin-bottom: 100px;
+    }
+
+    .metaphor-section h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    .metaphor-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+    }
+
+    .metaphor-item {
+      text-align: center;
+    }
+
+    .metaphor-item .icon {
+      width: 64px;
+      height: 64px;
+      background: rgba(107, 33, 168, 0.2);
+      border-radius: 16px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .metaphor-item h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #d97706;
+    }
+
+    .metaphor-item p {
+      font-size: 0.875rem;
+      color: #a1a1aa;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 60px 0;
+      color: #52525b;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    footer p {
+      font-size: 0.75rem;
+    }
+
+    @media (max-width: 900px) {
+      .directions-grid,
+      .app-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .wordmark-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .palette-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .metaphor-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero h1 {
+        font-size: 2.5rem;
+      }
+
+      .container {
+        padding: 40px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <h1>OMNIVOR</h1>
+      <p class="tagline">Feeds on complexity.</p>
+      <p class="subtitle">Bold visual identity exploration. Professional voice, aggressive visuals.</p>
+    </div>
+  </section>
+
+  <div class="container">
+
+    <!-- Logo Directions -->
+    <section class="section-header">
+      <h2>Logo Exploration</h2>
+      <h3>Four aggressive directions</h3>
+      <p>Each emphasizes consumption → transformation → intelligence. Pick the energy that resonates.</p>
+    </section>
+
+    <div class="directions-grid">
+
+      <!-- Direction A: The Maw -->
+      <div class="direction-card">
+        <h4>Direction A</h4>
+        <h5>The Intake</h5>
+        <p>An angular aperture that draws everything inward. Aggressive geometry, controlled precision. The opening that complexity enters.</p>
+        <div class="logo-container">
+          <svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer angular shape -->
+            <path d="M80 8 L152 80 L80 152 L8 80 Z" stroke="#6b21a8" stroke-width="4" fill="none"/>
+            <!-- Inner angular shape -->
+            <path d="M80 32 L128 80 L80 128 L32 80 Z" stroke="#6b21a8" stroke-width="3" fill="rgba(107, 33, 168, 0.2)"/>
+            <!-- Core -->
+            <path d="M80 56 L104 80 L80 104 L56 80 Z" fill="#6b21a8"/>
+            <!-- Center point - the transformation -->
+            <circle cx="80" cy="80" r="8" fill="#d97706"/>
+            <!-- Intake arrows -->
+            <path d="M20 80 L44 80" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+            <path d="M36 74 L44 80 L36 86" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M140 80 L116 80" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+            <path d="M124 74 L116 80 L124 86" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M80 20 L80 44" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+            <path d="M74 36 L80 44 L86 36" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M80 140 L80 116" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+            <path d="M74 124 L80 116 L86 124" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="variants">
+          <div class="variant">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <path d="M24 4 L44 24 L24 44 L4 24 Z" stroke="#6b21a8" stroke-width="2" fill="none"/>
+              <path d="M24 12 L36 24 L24 36 L12 24 Z" fill="#6b21a8"/>
+              <circle cx="24" cy="24" r="4" fill="#d97706"/>
+            </svg>
+          </div>
+          <div class="variant light">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <path d="M24 4 L44 24 L24 44 L4 24 Z" stroke="#6b21a8" stroke-width="2" fill="none"/>
+              <path d="M24 12 L36 24 L24 36 L12 24 Z" fill="#6b21a8"/>
+              <circle cx="24" cy="24" r="4" fill="#d97706"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Direction B: The Vortex -->
+      <div class="direction-card">
+        <h4>Direction B</h4>
+        <h5>The Vortex</h5>
+        <p>A spiral that pulls data inward and compresses it into refined insight. Dynamic, relentless, inevitable. Nothing escapes the pull.</p>
+        <div class="logo-container">
+          <svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Spiral arms -->
+            <path d="M80 20 Q140 20 140 80 Q140 120 100 130" stroke="#6b21a8" stroke-width="4" fill="none" stroke-linecap="round"/>
+            <path d="M80 40 Q120 40 120 80 Q120 105 95 115" stroke="#6b21a8" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.8"/>
+            <path d="M80 55 Q105 55 105 80 Q105 95 90 100" stroke="#6b21a8" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.6"/>
+            <!-- Mirror spiral -->
+            <path d="M80 140 Q20 140 20 80 Q20 40 60 30" stroke="#6b21a8" stroke-width="4" fill="none" stroke-linecap="round"/>
+            <path d="M80 120 Q40 120 40 80 Q40 55 65 45" stroke="#6b21a8" stroke-width="3.5" fill="none" stroke-linecap="round" opacity="0.8"/>
+            <path d="M80 105 Q55 105 55 80 Q55 65 70 60" stroke="#6b21a8" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.6"/>
+            <!-- Core -->
+            <circle cx="80" cy="80" r="16" fill="#6b21a8"/>
+            <circle cx="80" cy="80" r="6" fill="#d97706"/>
+          </svg>
+        </div>
+        <div class="variants">
+          <div class="variant">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <path d="M24 6 Q42 6 42 24 Q42 36 30 39" stroke="#6b21a8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              <path d="M24 42 Q6 42 6 24 Q6 12 18 9" stroke="#6b21a8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              <circle cx="24" cy="24" r="8" fill="#6b21a8"/>
+              <circle cx="24" cy="24" r="3" fill="#d97706"/>
+            </svg>
+          </div>
+          <div class="variant light">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <path d="M24 6 Q42 6 42 24 Q42 36 30 39" stroke="#6b21a8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              <path d="M24 42 Q6 42 6 24 Q6 12 18 9" stroke="#6b21a8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+              <circle cx="24" cy="24" r="8" fill="#6b21a8"/>
+              <circle cx="24" cy="24" r="3" fill="#d97706"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Direction C: The Metabolism -->
+      <div class="direction-card">
+        <h4>Direction C</h4>
+        <h5>The Metabolism</h5>
+        <p>Raw inputs on the left, refined output on the right. A horizontal pipeline showing transformation in action. Process made visible.</p>
+        <div class="logo-container">
+          <svg width="200" height="120" viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Raw input lines (chaotic) -->
+            <line x1="10" y1="30" x2="50" y2="50" stroke="#6b21a8" stroke-width="2" opacity="0.4"/>
+            <line x1="10" y1="50" x2="50" y2="55" stroke="#6b21a8" stroke-width="2" opacity="0.5"/>
+            <line x1="10" y1="70" x2="50" y2="60" stroke="#6b21a8" stroke-width="2" opacity="0.6"/>
+            <line x1="10" y1="90" x2="50" y2="70" stroke="#6b21a8" stroke-width="2" opacity="0.4"/>
+            <line x1="20" y1="20" x2="50" y2="45" stroke="#6b21a8" stroke-width="2" opacity="0.3"/>
+            <line x1="20" y1="100" x2="50" y2="75" stroke="#6b21a8" stroke-width="2" opacity="0.3"/>
+            <!-- Processing core -->
+            <rect x="50" y="35" width="100" height="50" rx="25" fill="#6b21a8"/>
+            <!-- Internal processing dots -->
+            <circle cx="75" cy="60" r="6" fill="#0a0a0b" opacity="0.5"/>
+            <circle cx="100" cy="60" r="8" fill="#0a0a0b"/>
+            <circle cx="125" cy="60" r="6" fill="#d97706"/>
+            <!-- Flow arrows inside -->
+            <path d="M85 60 L90 60" stroke="#fafafa" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+            <path d="M110 60 L115 60" stroke="#fafafa" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+            <!-- Refined output -->
+            <line x1="150" y1="60" x2="190" y2="60" stroke="#d97706" stroke-width="4" stroke-linecap="round"/>
+            <path d="M180 52 L190 60 L180 68" stroke="#d97706" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="variants">
+          <div class="variant">
+            <svg width="64" height="32" viewBox="0 0 64 32" fill="none">
+              <rect x="16" y="6" width="32" height="20" rx="10" fill="#6b21a8"/>
+              <circle cx="26" cy="16" r="3" fill="#0a0a0b" opacity="0.5"/>
+              <circle cx="38" cy="16" r="4" fill="#d97706"/>
+              <line x1="4" y1="10" x2="16" y2="14" stroke="#6b21a8" stroke-width="1.5" opacity="0.5"/>
+              <line x1="4" y1="22" x2="16" y2="18" stroke="#6b21a8" stroke-width="1.5" opacity="0.5"/>
+              <line x1="48" y1="16" x2="60" y2="16" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="variant light">
+            <svg width="64" height="32" viewBox="0 0 64 32" fill="none">
+              <rect x="16" y="6" width="32" height="20" rx="10" fill="#6b21a8"/>
+              <circle cx="26" cy="16" r="3" fill="#fafafa" opacity="0.3"/>
+              <circle cx="38" cy="16" r="4" fill="#d97706"/>
+              <line x1="4" y1="10" x2="16" y2="14" stroke="#6b21a8" stroke-width="1.5" opacity="0.5"/>
+              <line x1="4" y1="22" x2="16" y2="18" stroke="#6b21a8" stroke-width="1.5" opacity="0.5"/>
+              <line x1="48" y1="16" x2="60" y2="16" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Direction D: The Prism -->
+      <div class="direction-card">
+        <h4>Direction D</h4>
+        <h5>The Prism</h5>
+        <p>Chaotic light enters, refined spectrum exits. A bold triangular form that transforms undifferentiated data into separated, actionable insight.</p>
+        <div class="logo-container">
+          <svg width="180" height="160" viewBox="0 0 180 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Input rays (white, chaotic) -->
+            <line x1="10" y1="70" x2="55" y2="80" stroke="#fafafa" stroke-width="2" opacity="0.3"/>
+            <line x1="10" y1="80" x2="55" y2="80" stroke="#fafafa" stroke-width="3" opacity="0.5"/>
+            <line x1="10" y1="90" x2="55" y2="80" stroke="#fafafa" stroke-width="2" opacity="0.3"/>
+            <!-- Prism -->
+            <path d="M60 20 L130 80 L60 140 Z" fill="#6b21a8" stroke="#a855f7" stroke-width="2"/>
+            <!-- Internal glow -->
+            <path d="M75 50 L110 80 L75 110 Z" fill="#7c3aed" opacity="0.5"/>
+            <!-- Output rays (separated, colored) -->
+            <line x1="130" y1="80" x2="170" y2="50" stroke="#d97706" stroke-width="3" stroke-linecap="round"/>
+            <line x1="130" y1="80" x2="170" y2="65" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+            <line x1="130" y1="80" x2="170" y2="80" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
+            <line x1="130" y1="80" x2="170" y2="95" stroke="#a855f7" stroke-width="3" stroke-linecap="round"/>
+            <line x1="130" y1="80" x2="170" y2="110" stroke="#6b21a8" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="variants">
+          <div class="variant">
+            <svg width="56" height="48" viewBox="0 0 56 48" fill="none">
+              <path d="M12 4 L44 24 L12 44 Z" fill="#6b21a8"/>
+              <line x1="44" y1="24" x2="54" y2="14" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+              <line x1="44" y1="24" x2="54" y2="24" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
+              <line x1="44" y1="24" x2="54" y2="34" stroke="#a855f7" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="variant light">
+            <svg width="56" height="48" viewBox="0 0 56 48" fill="none">
+              <path d="M12 4 L44 24 L12 44 Z" fill="#6b21a8"/>
+              <line x1="44" y1="24" x2="54" y2="14" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+              <line x1="44" y1="24" x2="54" y2="24" stroke="#b45309" stroke-width="2" stroke-linecap="round"/>
+              <line x1="44" y1="24" x2="54" y2="34" stroke="#6b21a8" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Transformation Pipeline Visual -->
+    <section class="feature-section">
+      <div class="pipeline-visual">
+        <h4>The Transformation Story</h4>
+        <svg width="100%" height="120" viewBox="0 0 800 120" preserveAspectRatio="xMidYMid meet" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Raw Data (chaotic lines) -->
+          <g opacity="0.6">
+            <line x1="50" y1="30" x2="120" y2="50" stroke="#6b21a8" stroke-width="2"/>
+            <line x1="40" y1="45" x2="120" y2="55" stroke="#6b21a8" stroke-width="1.5"/>
+            <line x1="60" y1="60" x2="120" y2="60" stroke="#6b21a8" stroke-width="2"/>
+            <line x1="45" y1="75" x2="120" y2="65" stroke="#6b21a8" stroke-width="1.5"/>
+            <line x1="55" y1="90" x2="120" y2="70" stroke="#6b21a8" stroke-width="2"/>
+          </g>
+          <text x="80" y="110" font-family="Inter" font-size="10" fill="#71717a" text-anchor="middle">RAW DATA</text>
+
+          <!-- Arrow 1 -->
+          <path d="M140 60 L200 60" stroke="#6b21a8" stroke-width="2" stroke-dasharray="4 4"/>
+          <path d="M190 54 L200 60 L190 66" stroke="#6b21a8" stroke-width="2" fill="none"/>
+
+          <!-- Ingestion -->
+          <rect x="220" y="35" width="100" height="50" rx="8" fill="rgba(107, 33, 168, 0.3)" stroke="#6b21a8" stroke-width="2"/>
+          <text x="270" y="65" font-family="Inter" font-size="12" font-weight="600" fill="#a855f7" text-anchor="middle">INGEST</text>
+          <text x="270" y="110" font-family="Inter" font-size="10" fill="#71717a" text-anchor="middle">Every signal consumed</text>
+
+          <!-- Arrow 2 -->
+          <path d="M340 60 L400 60" stroke="#6b21a8" stroke-width="2"/>
+          <path d="M390 54 L400 60 L390 66" stroke="#6b21a8" stroke-width="2" fill="none"/>
+
+          <!-- Processing -->
+          <rect x="420" y="35" width="100" height="50" rx="8" fill="rgba(107, 33, 168, 0.5)" stroke="#a855f7" stroke-width="2"/>
+          <text x="470" y="65" font-family="Inter" font-size="12" font-weight="600" fill="#d4a012" text-anchor="middle">METABOLIZE</text>
+          <text x="470" y="110" font-family="Inter" font-size="10" fill="#71717a" text-anchor="middle">Patterns extracted</text>
+
+          <!-- Arrow 3 -->
+          <path d="M540 60 L600 60" stroke="#d97706" stroke-width="2"/>
+          <path d="M590 54 L600 60 L590 66" stroke="#d97706" stroke-width="2" fill="none"/>
+
+          <!-- Output -->
+          <rect x="620" y="35" width="100" height="50" rx="8" fill="#d97706" stroke="#d97706" stroke-width="2"/>
+          <text x="670" y="65" font-family="Inter" font-size="12" font-weight="700" fill="#0a0a0b" text-anchor="middle">INSIGHT</text>
+          <text x="670" y="110" font-family="Inter" font-size="10" fill="#d97706" text-anchor="middle">Refined intelligence</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Wordmark Studies -->
+    <section class="section-header">
+      <h2>Wordmark Studies</h2>
+      <h3>Typography treatments</h3>
+      <p>Bold, compressed, commanding presence. The name should feel heavy and inevitable.</p>
+    </section>
+
+    <div class="wordmark-grid">
+      <div class="wordmark-card">
+        <h4>Heavy Extended</h4>
+        <p class="wordmark" style="font-weight: 900; letter-spacing: 0.15em;">OMNIVOR</p>
+        <p class="note">Maximum presence. Statement piece.</p>
+      </div>
+      <div class="wordmark-card">
+        <h4>Tight Condensed</h4>
+        <p class="wordmark" style="font-weight: 800; letter-spacing: 0.02em; font-stretch: condensed;">OMNIVOR</p>
+        <p class="note">Compressed energy. Dense.</p>
+      </div>
+      <div class="wordmark-card">
+        <h4>Split Emphasis</h4>
+        <p class="wordmark" style="font-weight: 400; letter-spacing: 0.1em;"><span style="font-weight: 800;">OMNI</span>VOR</p>
+        <p class="note">Etymology visible. Omni + Vör.</p>
+      </div>
+      <div class="wordmark-card">
+        <h4>Accent Mark</h4>
+        <p class="wordmark" style="font-weight: 800; letter-spacing: 0.08em;">OMNIV<span style="color: #d97706;">O</span>R</p>
+        <p class="note">Gold core. Transformation point.</p>
+      </div>
+      <div class="wordmark-card">
+        <h4>Lowercase Bold</h4>
+        <p class="wordmark" style="font-weight: 800; letter-spacing: 0.05em; text-transform: lowercase;">omnivor</p>
+        <p class="note">Modern SaaS. Approachable power.</p>
+      </div>
+      <div class="wordmark-card">
+        <h4>Hybrid Case</h4>
+        <p class="wordmark" style="font-weight: 700; letter-spacing: 0.04em;">Omnivor</p>
+        <p class="note">Professional. Balanced.</p>
+      </div>
+    </div>
+
+    <!-- Application Mockups -->
+    <section class="section-header">
+      <h2>In Application</h2>
+      <h3>Product interface presence</h3>
+    </section>
+
+    <div class="app-grid">
+      <div class="app-mockup">
+        <div class="titlebar">
+          <div class="dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+          <span class="title">Nerve Center — Signal Diagnostic</span>
+        </div>
+        <div class="content">
+          <div class="nav">
+            <div class="nav-logo">
+              <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+                <path d="M24 4 L44 24 L24 44 L4 24 Z" stroke="#6b21a8" stroke-width="2" fill="none"/>
+                <path d="M24 12 L36 24 L24 36 L12 24 Z" fill="#6b21a8"/>
+                <circle cx="24" cy="24" r="4" fill="#d97706"/>
+              </svg>
+              <span>OMNIVOR</span>
+            </div>
+            <div class="nav-items">
+              <span>Nerve Center</span>
+              <span class="active">Signal Diagnostic</span>
+              <span>Cohort Lab</span>
+              <span>Scenario Lab</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <p class="label">Signals Processed</p>
+            <p class="value">2,847</p>
+            <p class="subtext">14 patterns crystallized. 3 require attention.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="app-mockup">
+        <div class="titlebar">
+          <div class="dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+          <span class="title">Catalyst Queue</span>
+        </div>
+        <div class="content">
+          <div class="nav">
+            <div class="nav-logo">
+              <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+                <path d="M24 6 Q42 6 42 24 Q42 36 30 39" stroke="#6b21a8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M24 42 Q6 42 6 24 Q6 12 18 9" stroke="#6b21a8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <circle cx="24" cy="24" r="8" fill="#6b21a8"/>
+                <circle cx="24" cy="24" r="3" fill="#d97706"/>
+              </svg>
+              <span>OMNIVOR</span>
+            </div>
+            <div class="nav-items">
+              <span>Nerve Center</span>
+              <span>Signal Diagnostic</span>
+              <span class="active">Catalyst Queue</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <p class="label">Ready for Action</p>
+            <p class="value">127</p>
+            <p class="subtext">Recommended next actions awaiting review.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metaphor Framework -->
+    <section class="metaphor-section">
+      <h3>The Nutrition Metaphor</h3>
+      <div class="metaphor-grid">
+        <div class="metaphor-item">
+          <div class="icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <rect x="4" y="8" width="24" height="16" rx="2" stroke="#6b21a8" stroke-width="2" fill="none"/>
+              <line x1="10" y1="14" x2="22" y2="14" stroke="#6b21a8" stroke-width="1.5"/>
+              <line x1="10" y1="18" x2="18" y2="18" stroke="#6b21a8" stroke-width="1.5"/>
+            </svg>
+          </div>
+          <h4>High-Protein 1st Party Data</h4>
+          <p>Dense, structured engagement records. The muscle-building blocks of insight.</p>
+        </div>
+        <div class="metaphor-item">
+          <div class="icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <path d="M8 24 Q16 8 24 24" stroke="#6b21a8" stroke-width="2" fill="none"/>
+              <circle cx="10" cy="20" r="2" fill="#6b21a8"/>
+              <circle cx="16" cy="12" r="2" fill="#6b21a8"/>
+              <circle cx="22" cy="18" r="2" fill="#6b21a8"/>
+            </svg>
+          </div>
+          <h4>Unstructured Roughage</h4>
+          <p>Messy signals loaded with hidden nutritional value. Essential fiber for complete intelligence.</p>
+        </div>
+        <div class="metaphor-item">
+          <div class="icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <circle cx="16" cy="16" r="10" stroke="#d97706" stroke-width="2" fill="none"/>
+              <circle cx="16" cy="16" r="4" fill="#d97706"/>
+            </svg>
+          </div>
+          <h4>Refined Intelligence</h4>
+          <p>What emerges: pure, actionable insight. Brain fuel for better decisions.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Color Palette -->
+    <section class="palette-section">
+      <div class="section-header">
+        <h2>Color System</h2>
+        <h3>Bold but controlled</h3>
+      </div>
+      <div class="palette-grid">
+        <div class="palette-swatch" style="background: #0a0a0b; border: 1px solid rgba(255,255,255,0.1);">
+          <span class="name">Void Black</span>
+          <span class="hex">#0a0a0b</span>
+        </div>
+        <div class="palette-swatch" style="background: #6b21a8;">
+          <span class="name">Consumption Purple</span>
+          <span class="hex">#6b21a8</span>
+        </div>
+        <div class="palette-swatch" style="background: #a855f7;">
+          <span class="name">Process Violet</span>
+          <span class="hex">#a855f7</span>
+        </div>
+        <div class="palette-swatch dark-text" style="background: #d97706;">
+          <span class="name">Catalyst Gold</span>
+          <span class="hex">#d97706</span>
+        </div>
+        <div class="palette-swatch dark-text" style="background: #fafafa;">
+          <span class="name">Signal White</span>
+          <span class="hex">#fafafa</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    <p>OMNIVOR — Bold Identity Refinement</p>
+    <p style="margin-top: 8px; color: #3f3f46;">January 2025</p>
+  </footer>
+
+</body>
+</html>

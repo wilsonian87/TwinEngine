@@ -1,0 +1,68 @@
+{
+  "email": {
+    "kpis": [
+      { "key": "openRate", "label": "Open Rate", "format": "percent" },
+      { "key": "ctr", "label": "CTR", "format": "percent" },
+      { "key": "reach", "label": "Reach", "format": "number" },
+      { "key": "fatigueIndex", "label": "Fatigue Index", "format": "percent" }
+    ],
+    "benchmarks": {
+      "openRate": { "good": 0.35, "warning": 0.25 },
+      "ctr": { "good": 0.08, "warning": 0.04 },
+      "fatigueIndex": { "good": 0.30, "warning": 0.50 }
+    }
+  },
+  "field": {
+    "kpis": [
+      { "key": "callReach", "label": "Call Reach", "format": "number" },
+      { "key": "callFrequency", "label": "Avg Frequency", "format": "decimal" },
+      { "key": "accessRate", "label": "Access Rate", "format": "percent" }
+    ],
+    "benchmarks": {
+      "callFrequency": { "good": 3.0, "warning": 1.5 },
+      "accessRate": { "good": 0.70, "warning": 0.50 }
+    }
+  },
+  "congress": {
+    "kpis": [
+      { "key": "attendance", "label": "Attendance", "format": "number" },
+      { "key": "boothEngagement", "label": "Booth Scans", "format": "number" },
+      { "key": "followUpRate", "label": "Follow-Up Rate", "format": "percent" }
+    ],
+    "benchmarks": {
+      "followUpRate": { "good": 0.45, "warning": 0.30 }
+    }
+  },
+  "webinar": {
+    "kpis": [
+      { "key": "registrationRate", "label": "Registration Rate", "format": "percent" },
+      { "key": "attendancePercent", "label": "Attendance %", "format": "percent" },
+      { "key": "engagementScore", "label": "Engagement", "format": "number" }
+    ],
+    "benchmarks": {
+      "registrationRate": { "good": 0.60, "warning": 0.40 },
+      "attendancePercent": { "good": 0.70, "warning": 0.50 },
+      "engagementScore": { "good": 75, "warning": 55 }
+    }
+  },
+  "paid_media": {
+    "kpis": [
+      { "key": "ctr", "label": "CTR", "format": "percent" },
+      { "key": "costPerVisit", "label": "Cost/Visit", "format": "currency" },
+      { "key": "viewability", "label": "Viewability", "format": "percent" }
+    ],
+    "benchmarks": {
+      "ctr": { "good": 0.02, "warning": 0.01 },
+      "viewability": { "good": 0.75, "warning": 0.60 }
+    }
+  },
+  "web": {
+    "kpis": [
+      { "key": "timeOnSite", "label": "Time on Site", "format": "number" },
+      { "key": "contentDownloads", "label": "Downloads", "format": "number" }
+    ],
+    "benchmarks": {
+      "timeOnSite": { "good": 120, "warning": 60 }
+    }
+  }
+}

@@ -12,10 +12,11 @@ import { Html } from '@react-three/drei';
 import { useConstellationStore } from '@/stores/constellationStore';
 import type { ConstellationNode } from '@/stores/constellationStore';
 
+// More saturated colors for light background
 const STATUS_COLORS = {
-  healthy: '#22c55e',
-  warning: '#f59e0b',
-  critical: '#ef4444',
+  healthy: '#16a34a',  // green-600
+  warning: '#d97706',  // amber-600
+  critical: '#dc2626', // red-600
 };
 
 interface ChannelNodeProps {
@@ -78,10 +79,10 @@ function ChannelNode({ node }: ChannelNodeProps) {
           <div
             className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap"
             style={{
-              backgroundColor: 'rgba(15, 23, 42, 0.9)',
-              border: `1px solid ${color}`,
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              border: `2px solid ${color}`,
               color: color,
-              boxShadow: `0 0 20px ${color}40`,
+              boxShadow: `0 2px 8px rgba(0,0,0,0.15)`,
             }}
           >
             {node.label}

@@ -1,0 +1,82 @@
+[
+  {
+    "id": "MT01",
+    "name": "Efficacy",
+    "description": "Clinical effectiveness vs SOC or competitors",
+    "color": "#22C55E",
+    "lifecycleStage": "Launch → Mature",
+    "appliesToTAs": ["All"]
+  },
+  {
+    "id": "MT02",
+    "name": "Safety & Tolerability",
+    "description": "AE profile, long-term safety, contraindications",
+    "color": "#EF4444",
+    "lifecycleStage": "Launch → LOE",
+    "appliesToTAs": ["All"]
+  },
+  {
+    "id": "MT03",
+    "name": "Mechanism of Action",
+    "description": "Scientific rationale, pathway targeting",
+    "color": "#3B82F6",
+    "lifecycleStage": "Pre-Launch → Early Launch",
+    "appliesToTAs": ["Oncology", "Immunology", "Rare"]
+  },
+  {
+    "id": "MT04",
+    "name": "Differentiation",
+    "description": "Competitive positioning, unique attributes",
+    "color": "#8B5CF6",
+    "lifecycleStage": "Launch → Growth",
+    "appliesToTAs": ["All"]
+  },
+  {
+    "id": "MT05",
+    "name": "Patient Selection",
+    "description": "Which patients, biomarkers, phenotypes",
+    "color": "#F59E0B",
+    "lifecycleStage": "Growth → Mature",
+    "appliesToTAs": ["Oncology", "Rare", "Immunology"]
+  },
+  {
+    "id": "MT06",
+    "name": "Dosing & Administration",
+    "description": "Convenience, regimen, device",
+    "color": "#06B6D4",
+    "lifecycleStage": "Growth → Mature",
+    "appliesToTAs": ["Respiratory", "Cardiology", "Metabolic"]
+  },
+  {
+    "id": "MT07",
+    "name": "Access & Reimbursement",
+    "description": "Payer coverage, affordability",
+    "color": "#EC4899",
+    "lifecycleStage": "Launch → Mature",
+    "appliesToTAs": ["US-focused"]
+  },
+  {
+    "id": "MT08",
+    "name": "Guidelines & Evidence",
+    "description": "Inclusion in NCCN, ADA, ACC, etc.",
+    "color": "#14B8A6",
+    "lifecycleStage": "Growth → Mature",
+    "appliesToTAs": ["All"]
+  },
+  {
+    "id": "MT09",
+    "name": "Real-World Evidence",
+    "description": "Post-marketing, outcomes data",
+    "color": "#6366F1",
+    "lifecycleStage": "Mature",
+    "appliesToTAs": ["All"]
+  },
+  {
+    "id": "MT10",
+    "name": "Awareness / Disease State",
+    "description": "Unbranded education",
+    "color": "#64748B",
+    "lifecycleStage": "Pre-Launch",
+    "appliesToTAs": ["All"]
+  }
+]

@@ -1,0 +1,25 @@
+campaign_id,campaign_name,brand,TA,channel,primary_theme,secondary_theme,start_date,end_date
+C001,ONC Launch Wave 1,BrandX,Oncology,Email,Efficacy,MoA,2025-01-01,2025-03-31
+C002,ASCO Booth Activation,BrandX,Oncology,Congress,Differentiation,Safety,2025-06-01,2025-06-05
+C003,Pulm Adherence Push,BrandY,Respiratory,Field,Dosing & Admin,Access,2025-02-01,2025-05-01
+C004,Rare Dx Webinar Series,BrandZ,Rare,Webinar,Patient Selection,MoA,2025-03-15,2025-04-15
+C005,Access Update Q1,BrandX,Oncology,Email,Access & Reimbursement,Guidelines,2025-01-15,2025-02-28
+C006,RWE Outcomes Digest,BrandY,Cardiology,Email,Real-World Evidence,Differentiation,2025-02-01,2025-04-30
+C007,Safety Profile Series,BrandX,Oncology,Email,Safety & Tolerability,Patient Selection,2025-03-01,2025-05-15
+C008,KOL Field Deep-Dive,BrandX,Oncology,Field,MoA,Efficacy,2025-01-15,2025-06-30
+C009,Community Onc Outreach,BrandX,Oncology,Field,Access & Reimbursement,Dosing & Admin,2025-02-01,2025-07-31
+C010,NCCN Update Push,BrandX,Oncology,Email,Guidelines & Evidence,Differentiation,2025-04-01,2025-04-30
+C011,ESC Congress Symposium,BrandY,Cardiology,Congress,Efficacy,RWE,2025-08-25,2025-08-29
+C012,ACC Booth Experience,BrandY,Cardiology,Congress,Differentiation,Safety,2025-03-15,2025-03-18
+C013,Cardio CME Webinar,BrandY,Cardiology,Webinar,Guidelines & Evidence,RWE,2025-05-01,2025-05-31
+C014,HF Management Series,BrandY,Cardiology,Webinar,Patient Selection,Efficacy,2025-06-01,2025-07-15
+C015,Disease Awareness - Rare,BrandZ,Rare,Paid Digital,Awareness / Disease State,Patient Selection,2025-01-01,2025-12-31
+C016,Specialist Retargeting,BrandX,Oncology,Paid Digital,Efficacy,Differentiation,2025-02-01,2025-05-31
+C017,HCP Portal Content Hub,BrandY,Cardiology,Web,RWE,Guidelines,2025-01-01,2025-12-31
+C018,Dosing Calculator Launch,BrandY,Respiratory,Web,Dosing & Admin,Safety,2025-03-01,2025-06-30
+C019,Pulm KOL Symposium,BrandY,Respiratory,Congress,Efficacy,MoA,2025-05-15,2025-05-19
+C020,Rare Patient ID Program,BrandZ,Rare,Field,Patient Selection,Awareness,2025-04-01,2025-09-30
+C021,MSL Scientific Exchange,BrandX,Oncology,Field,MoA,Safety,2025-01-01,2025-12-31
+C022,Biomarker Testing Push,BrandX,Oncology,Email,Patient Selection,Efficacy,2025-05-01,2025-07-31
+C023,Payer Access Webinar,BrandY,Respiratory,Webinar,Access & Reimbursement,RWE,2025-04-01,2025-04-30
+C024,ATS Congress Activation,BrandY,Respiratory,Congress,Differentiation,Efficacy,2025-05-16,2025-05-21

@@ -122,7 +122,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({
       animate="enter"
       exit="exit"
       variants={variants}
-      className={cn('w-full', className)}
+      className={cn('w-full h-full', className)}
       onAnimationComplete={(definition) => {
         if (definition === 'enter') {
           onAnimationComplete?.();

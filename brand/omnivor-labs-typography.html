@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OMNIVOR LABS — Typography Studies</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #030303;
+      color: #fafafa;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 80px 40px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 80px;
+    }
+
+    header h1 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #6b21a8;
+      margin-bottom: 16px;
+    }
+
+    header p {
+      font-size: 1rem;
+      color: #71717a;
+    }
+
+    .study {
+      margin-bottom: 100px;
+    }
+
+    .study-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(107, 33, 168, 0.3);
+    }
+
+    .study-header h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .study-header span {
+      font-size: 0.75rem;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .wordmark-display {
+      background: #0a0a0b;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 20px;
+      padding: 80px 60px;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .wordmark-display.light {
+      background: #fafafa;
+    }
+
+    .variants {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .variant {
+      background: #0a0a0b;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    .variant.light {
+      background: #fafafa;
+    }
+
+    .variant.purple {
+      background: linear-gradient(135deg, #6b21a8 0%, #4c1d95 100%);
+    }
+
+    .variant-label {
+      font-size: 0.625rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #52525b;
+      margin-bottom: 20px;
+    }
+
+    .variant.light .variant-label {
+      color: #a1a1aa;
+    }
+
+    .variant.purple .variant-label {
+      color: rgba(255,255,255,0.5);
+    }
+
+    /* Study 1: Heavy Extended */
+    .heavy-extended {
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      font-size: 4rem;
+    }
+
+    .heavy-extended .labs {
+      color: #6b21a8;
+    }
+
+    .heavy-extended.dark-text {
+      color: #0a0a0b;
+    }
+
+    .heavy-extended.dark-text .labs {
+      color: #6b21a8;
+    }
+
+    .heavy-extended-sm {
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      font-size: 1.5rem;
+    }
+
+    .heavy-extended-sm .labs {
+      color: #6b21a8;
+    }
+
+    .heavy-extended-sm.dark-text {
+      color: #0a0a0b;
+    }
+
+    .heavy-extended-sm.dark-text .labs {
+      color: #6b21a8;
+    }
+
+    .heavy-extended-sm.on-purple {
+      color: #fafafa;
+    }
+
+    .heavy-extended-sm.on-purple .labs {
+      color: #d97706;
+    }
+
+    /* Study 2: Tight Condensed */
+    .tight-condensed {
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      font-size: 4.5rem;
+      font-stretch: condensed;
+    }
+
+    .tight-condensed .labs {
+      color: #d97706;
+    }
+
+    .tight-condensed.dark-text {
+      color: #0a0a0b;
+    }
+
+    .tight-condensed.dark-text .labs {
+      color: #6b21a8;
+    }
+
+    .tight-condensed-sm {
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      font-size: 1.75rem;
+      font-stretch: condensed;
+    }
+
+    .tight-condensed-sm .labs {
+      color: #d97706;
+    }
+
+    .tight-condensed-sm.dark-text {
+      color: #0a0a0b;
+    }
+
+    .tight-condensed-sm.dark-text .labs {
+      color: #6b21a8;
+    }
+
+    .tight-condensed-sm.on-purple {
+      color: #fafafa;
+    }
+
+    .tight-condensed-sm.on-purple .labs {
+      color: #d97706;
+    }
+
+    /* Study 3: Split Emphasis */
+    .split-emphasis {
+      font-size: 4rem;
+      letter-spacing: 0.1em;
+    }
+
+    .split-emphasis .omnivor {
+      font-weight: 900;
+    }
+
+    .split-emphasis .labs {
+      font-weight: 300;
+      color: #a1a1aa;
+    }
+
+    .split-emphasis.dark-text .omnivor {
+      color: #0a0a0b;
+    }
+
+    .split-emphasis.dark-text .labs {
+      color: #6b21a8;
+    }
+
+    .split-emphasis-sm {
+      font-size: 1.5rem;
+      letter-spacing: 0.1em;
+    }
+
+    .split-emphasis-sm .omnivor {
+      font-weight: 900;
+    }
+
+    .split-emphasis-sm .labs {
+      font-weight: 300;
+      color: #a1a1aa;
+    }
+
+    .split-emphasis-sm.dark-text .omnivor {
+      color: #0a0a0b;
+    }
+
+    .split-emphasis-sm.dark-text .labs {
+      color: #6b21a8;
+    }
+
+    .split-emphasis-sm.on-purple .omnivor {
+      color: #fafafa;
+    }
+
+    .split-emphasis-sm.on-purple .labs {
+      font-weight: 400;
+      color: rgba(255,255,255,0.6);
+    }
+
+    /* Notes */
+    .notes {
+      margin-top: 24px;
+      padding: 20px 24px;
+      background: rgba(107, 33, 168, 0.1);
+      border-left: 3px solid #6b21a8;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .notes p {
+      font-size: 0.875rem;
+      color: #a1a1aa;
+    }
+
+    .notes strong {
+      color: #d97706;
+    }
+
+    /* Comparison Section */
+    .comparison {
+      margin-top: 100px;
+      padding-top: 60px;
+      border-top: 1px solid rgba(107, 33, 168, 0.3);
+    }
+
+    .comparison h2 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #6b21a8;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .comparison-card {
+      background: #0a0a0b;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 16px;
+      padding: 48px 32px;
+      text-align: center;
+    }
+
+    .comparison-card .label {
+      font-size: 0.625rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #52525b;
+      margin-bottom: 24px;
+    }
+
+    .comparison-card .descriptor {
+      font-size: 0.75rem;
+      color: #71717a;
+      margin-top: 24px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 80px 0 40px;
+      color: #3f3f46;
+      font-size: 0.75rem;
+    }
+
+    @media (max-width: 900px) {
+      .variants,
+      .comparison-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .heavy-extended,
+      .tight-condensed,
+      .split-emphasis {
+        font-size: 2.5rem;
+      }
+
+      .container {
+        padding: 40px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <header>
+      <h1>Typography Studies</h1>
+      <p>OMNIVOR LABS wordmark exploration — three directions</p>
+    </header>
+
+    <!-- Study 1: Heavy Extended -->
+    <section class="study">
+      <div class="study-header">
+        <h2>Heavy Extended</h2>
+        <span>Maximum presence</span>
+      </div>
+      
+      <div class="wordmark-display">
+        <span class="heavy-extended">OMNIVOR <span class="labs">LABS</span></span>
+      </div>
+
+      <div class="variants">
+        <div class="variant">
+          <p class="variant-label">Dark Background</p>
+          <span class="heavy-extended-sm">OMNIVOR <span class="labs">LABS</span></span>
+        </div>
+        <div class="variant light">
+          <p class="variant-label">Light Background</p>
+          <span class="heavy-extended-sm dark-text">OMNIVOR <span class="labs">LABS</span></span>
+        </div>
+        <div class="variant purple">
+          <p class="variant-label">Brand Background</p>
+          <span class="heavy-extended-sm on-purple">OMNIVOR <span class="labs">LABS</span></span>
+        </div>
+      </div>
+
+      <div class="notes">
+        <p><strong>Character:</strong> Commanding, unapologetic, statement piece. The widest stance—demands attention. "LABS" in purple signals the experimental/discovery angle while OMNIVOR dominates.</p>
+      </div>
+    </section>
+
+    <!-- Study 2: Tight Condensed -->
+    <section class="study">
+      <div class="study-header">
+        <h2>Tight Condensed</h2>
+        <span>Compressed energy</span>
+      </div>
+      
+      <div class="wordmark-display">
+        <span class="tight-condensed">OMNIVOR <span class="labs">LABS</span></span>
+      </div>
+
+      <div class="variants">
+        <div class="variant">
+          <p class="variant-label">Dark Background</p>
+          <span class="tight-condensed-sm">OMNIVOR <span class="labs">LABS</span></span>
+        </div>
+        <div class="variant light">
+          <p class="variant-label">Light Background</p>
+          <span class="tight-condensed-sm dark-text">OMNIVOR <span class="labs">LABS</span></span>
+        </div>
+        <div class="variant purple">
+          <p class="variant-label">Brand Background</p>
+          <span class="tight-condensed-sm on-purple">OMNIVOR <span class="labs">LABS</span></span>
+        </div>
+      </div>
+
+      <div class="notes">
+        <p><strong>Character:</strong> Dense, efficient, high-metabolism energy. The compressed form mirrors the product's function—taking more and making it smaller/denser. "LABS" in gold signals the refined output, the catalyst.</p>
+      </div>
+    </section>
+
+    <!-- Study 3: Split Emphasis -->
+    <section class="study">
+      <div class="study-header">
+        <h2>Split Emphasis</h2>
+        <span>Weight contrast</span>
+      </div>
+      
+      <div class="wordmark-display">
+        <span class="split-emphasis"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+      </div>
+
+      <div class="variants">
+        <div class="variant">
+          <p class="variant-label">Dark Background</p>
+          <span class="split-emphasis-sm"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+        </div>
+        <div class="variant light">
+          <p class="variant-label">Light Background</p>
+          <span class="split-emphasis-sm dark-text"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+        </div>
+        <div class="variant purple">
+          <p class="variant-label">Brand Background</p>
+          <span class="split-emphasis-sm on-purple"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+        </div>
+      </div>
+
+      <div class="notes">
+        <p><strong>Character:</strong> Sophisticated hierarchy. OMNIVOR carries the weight; LABS recedes as qualifier. Feels more premium/editorial. The contrast creates visual interest without competing elements. Best for contexts where subtlety matters.</p>
+      </div>
+    </section>
+
+    <!-- Side-by-side comparison -->
+    <section class="comparison">
+      <h2>Direct Comparison</h2>
+      <div class="comparison-grid">
+        <div class="comparison-card">
+          <p class="label">Heavy Extended</p>
+          <span class="heavy-extended-sm">OMNIVOR <span class="labs">LABS</span></span>
+          <p class="descriptor">Bold. Dominant. Statement.</p>
+        </div>
+        <div class="comparison-card">
+          <p class="label">Tight Condensed</p>
+          <span class="tight-condensed-sm">OMNIVOR <span class="labs">LABS</span></span>
+          <p class="descriptor">Dense. Efficient. Compressed.</p>
+        </div>
+        <div class="comparison-card">
+          <p class="label">Split Emphasis</p>
+          <span class="split-emphasis-sm"><span class="omnivor">OMNIVOR</span> <span class="labs">LABS</span></span>
+          <p class="descriptor">Refined. Hierarchical. Premium.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    <p>OMNIVOR LABS — Wordmark Studies — January 2025</p>
+  </footer>
+
+</body>
+</html>

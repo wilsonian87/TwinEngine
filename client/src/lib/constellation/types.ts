@@ -82,3 +82,83 @@ export interface WorkerSettledMessage {
 export type WorkerOutgoingMessage =
   | WorkerPositionsMessage
   | WorkerSettledMessage;
+
+// ============================================================================
+// PHASE 11: Three-Level Hierarchy Types
+// ============================================================================
+
+export type ConstellationLevel = 'L1' | 'L2' | 'L3';
+
+export interface L1Context {
+  level: 'L1';
+}
+
+export interface L2Context {
+  level: 'L2';
+  channelId: string;
+  channelLabel: string;
+}
+
+export interface L3Context {
+  level: 'L3';
+  channelId: string;
+  channelLabel: string;
+  campaignId: string;
+  campaignName: string;
+}
+
+export type NavigationContext = L1Context | L2Context | L3Context;
+
+// Channel data for L1 view
+export interface L1ChannelData {
+  id: string;
+  label: string;
+  hcpReach: number;
+  avgEngagement: number;
+  campaignCount: number;
+  color: string;
+  icon: string;
+}
+
+// Campaign data for L2 view
+export interface L2CampaignData {
+  id: string;
+  name: string;
+  brand: string | null;
+  therapeuticArea: string | null;
+  hcpReach: number;
+  primaryTheme: string | null;
+  primaryThemeColor: string | null;
+  secondaryTheme: string | null;
+  kpis: Record<string, number>;
+}
+
+// HCP data for L3 view
+export interface L3HCPData {
+  id: string;
+  name: string;
+  specialty: string;
+  specialtyAbbr: string;
+  specialtyColor: string;
+  engagementScore: number;
+  sparkline: number[];
+  rxTrend: 'up' | 'down' | 'flat';
+  channelAffinity: string;
+  adoptionStage: 'Aware' | 'Trial' | 'Regular';
+  lastTouchDate: string;
+}
+
+// KPI configuration per channel
+export interface ChannelKPIConfig {
+  key: string;
+  label: string;
+  format: 'percent' | 'number' | 'currency' | 'decimal';
+}
+
+// Channel interconnection (HCP overlap)
+export interface ChannelInterconnection {
+  source: string;
+  target: string;
+  overlapIndex: number;
+  overlapCount: number | null;
+}

@@ -1,9 +1,33 @@
 # ROADMAP: TwinEngine Production Launch
 
-**Goal:** Client demo-ready platform with invite code access, UI polish, and advanced diagnostic features  
-**Target:** Pharma brand team demo / Portfolio piece fallback  
-**Mode:** Milestone-based (Supervised Autonomous)  
-**Handoff from:** Claude.ai ideation session 2025-01-15  
+**Goal:** Client demo-ready platform with invite code access, UI polish, and advanced diagnostic features
+**Target:** Pharma brand team demo / Portfolio piece fallback
+**Mode:** Milestone-based (Supervised Autonomous)
+**Handoff from:** Claude.ai ideation session 2025-01-15
+
+---
+
+## ✅ Completed Phases
+
+| Phase | Name | Status | Documentation |
+|-------|------|--------|---------------|
+| 1-5 | Foundation through Advanced Features | Complete | This document |
+| 6A-E | Agentic Ecosystem | Complete | `PHASE6_AGENTIC_ROADMAP.md` |
+| 7A-F | Simulation Intelligence | Complete | `roadmap/archives/ROADMAP-PHASE7.md` |
+| 8 | UI Polish & OmniVor Rebrand | Complete | `roadmap/archives/ROADMAP-PHASE8-UI-POLISH.md` |
+| 9A-H | Interaction & Experience Design | Complete | `roadmap/archives/ROADMAP-PHASE9-INTERACTION-EXPERIENCE.md` |
+| 10A-H | Constellation Visualization | Complete | `roadmap/archives/ROADMAP-PHASE10-CONSTELLATION.md` |
+| **11A-F** | **HCP-Centric Visualization Hierarchy** | **Complete** | `roadmap/phase-11/ROADMAP-PHASE11-HCP-CENTRIC-HIERARCHY.md` |
+
+### Phase 11 Summary (2026-01-18)
+
+Phase 11 reoriented the Ecosystem Explorer from channel-centric to HCP-centric:
+- **L1 Solar System**: HCP nucleus with orbiting channel planets
+- **L2 Campaign Orbit**: Channel drill-down showing campaign nodes
+- **L3 HCP Constellation**: Individual HCPs with specialty clustering
+- **Story Mode**: 6-beat narrative tour through L1→L2→L3 hierarchy
+
+See `roadmap/phase-11/ROADMAP-PHASE11-HCP-CENTRIC-HIERARCHY.md` for full details.
 
 ---
 

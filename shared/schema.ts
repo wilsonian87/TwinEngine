@@ -4277,3 +4277,168 @@ export const executionReportSchema = z.object({
 
 export type ExecutionReport = z.infer<typeof executionReportSchema>;
 
+// ============================================================================
+// PHASE 11: HCP-CENTRIC CONSTELLATION VISUALIZATION
+// ============================================================================
+
+// Messaging Themes - Cross-TA standard pharma messaging themes
+export const messagingThemeLifecycleStages = [
+  "Pre-Launch",
+  "Early Launch",
+  "Launch",
+  "Growth",
+  "Mature",
+  "LOE",
+] as const;
+
+export type MessagingThemeLifecycleStage = (typeof messagingThemeLifecycleStages)[number];
+
+export const messagingThemes = pgTable("messaging_themes", {
+  id: varchar("id", { length: 10 }).primaryKey(), // MT01, MT02, etc.
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  color: varchar("color", { length: 7 }).notNull(), // Hex color
+  lifecycleStage: varchar("lifecycle_stage", { length: 50 }),
+  appliesToTAs: jsonb("applies_to_tas").$type<string[]>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertMessagingThemeSchema = createInsertSchema(messagingThemes).omit({
+  createdAt: true,
+});
+
+export type InsertMessagingTheme = z.infer<typeof insertMessagingThemeSchema>;
+export type MessagingThemeDB = typeof messagingThemes.$inferSelect;
+
+// Campaign-Theme junction table (many-to-many)
+export const campaignThemes = pgTable("campaign_themes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id),
+  themeId: varchar("theme_id", { length: 10 }).notNull().references(() => messagingThemes.id),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCampaignThemeSchema = createInsertSchema(campaignThemes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCampaignTheme = z.infer<typeof insertCampaignThemeSchema>;
+export type CampaignThemeDB = typeof campaignThemes.$inferSelect;
+
+// Channel Overlap - HCP audience overlap between channels
+export const channelOverlap = pgTable("channel_overlap", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceChannel: varchar("source_channel", { length: 50 }).notNull(),
+  targetChannel: varchar("target_channel", { length: 50 }).notNull(),
+  overlapIndex: real("overlap_index").notNull(), // 0-1, % of shared HCPs
+  overlapCount: integer("overlap_count"), // Absolute count of shared HCPs
+  computedAt: timestamp("computed_at").notNull().defaultNow(),
+});
+
+export const insertChannelOverlapSchema = createInsertSchema(channelOverlap).omit({
+  id: true,
+  computedAt: true,
+});
+
+export type InsertChannelOverlap = z.infer<typeof insertChannelOverlapSchema>;
+export type ChannelOverlapDB = typeof channelOverlap.$inferSelect;
+
+// ============================================================================
+// PHASE 11: API SCHEMAS
+// ============================================================================
+
+// Messaging Theme API type
+export const messagingThemeApiSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  color: z.string(),
+  lifecycleStage: z.string().nullable(),
+  appliesToTAs: z.array(z.string()).nullable(),
+});
+
+export type MessagingThemeApi = z.infer<typeof messagingThemeApiSchema>;
+
+// Channel Overlap API type
+export const channelOverlapApiSchema = z.object({
+  source: z.string(),
+  target: z.string(),
+  overlapIndex: z.number(),
+  overlapCount: z.number().nullable(),
+});
+
+export type ChannelOverlapApi = z.infer<typeof channelOverlapApiSchema>;
+
+// L1 Solar System Data - for Ecosystem view
+export const l1SolarSystemDataSchema = z.object({
+  nucleus: z.object({
+    totalHcps: z.number(),
+    avgEngagement: z.number(),
+  }),
+  channels: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+    hcpReach: z.number(),
+    avgEngagement: z.number(),
+    campaignCount: z.number(),
+    color: z.string(),
+    icon: z.string(),
+  })),
+  interconnections: z.array(channelOverlapApiSchema),
+});
+
+export type L1SolarSystemData = z.infer<typeof l1SolarSystemDataSchema>;
+
+// L2 Campaign Orbit Data - for Channel drill-down
+export const l2CampaignOrbitDataSchema = z.object({
+  channelId: z.string(),
+  channelLabel: z.string(),
+  nucleus: z.object({
+    totalHcps: z.number(),
+    avgEngagement: z.number(),
+  }),
+  campaigns: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    brand: z.string().nullable(),
+    therapeuticArea: z.string().nullable(),
+    hcpReach: z.number(),
+    primaryTheme: z.string().nullable(),
+    primaryThemeColor: z.string().nullable(),
+    secondaryTheme: z.string().nullable(),
+    kpis: z.record(z.number()),
+  })),
+  kpiConfig: z.array(z.object({
+    key: z.string(),
+    label: z.string(),
+    format: z.enum(["percent", "number", "currency", "decimal"]),
+  })),
+});
+
+export type L2CampaignOrbitData = z.infer<typeof l2CampaignOrbitDataSchema>;
+
+// L3 HCP Constellation Data - for Campaign drill-down
+export const l3HcpConstellationDataSchema = z.object({
+  campaignId: z.string(),
+  campaignName: z.string(),
+  channelId: z.string(),
+  totalHcps: z.number(),
+  hcps: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    specialty: z.string(),
+    specialtyAbbr: z.string(),
+    specialtyColor: z.string(),
+    engagementScore: z.number(),
+    sparkline: z.array(z.number()),
+    rxTrend: z.enum(["up", "down", "flat"]),
+    channelAffinity: z.string(),
+    adoptionStage: z.enum(["Aware", "Trial", "Regular"]),
+    lastTouchDate: z.string(),
+  })),
+});
+
+export type L3HcpConstellationData = z.infer<typeof l3HcpConstellationDataSchema>;
+
