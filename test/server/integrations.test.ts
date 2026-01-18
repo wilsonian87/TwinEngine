@@ -2,18 +2,12 @@
  * Integration Service Tests
  *
  * Tests for Phase 6A: Integration Foundation
- * - MCP Client wrapper
  * - Slack integration service
+ * - Jira integration service
  * - Integration storage methods
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-  MCPClient,
-  createMCPClient,
-  supportsMCP,
-  getIntegrationApproach,
-} from "../../server/services/integrations/mcp-client";
 import {
   SlackIntegration,
   createSlackIntegration,
@@ -23,7 +17,7 @@ import {
   createJiraIntegration,
   defaultTicketTemplates,
 } from "../../server/services/integrations/jira";
-import type { IntegrationConfig, IntegrationType } from "@shared/schema";
+import type { IntegrationConfig } from "@shared/schema";
 
 // Mock fetch for Slack API calls
 global.fetch = vi.fn();
@@ -53,160 +47,6 @@ vi.mock("../../server/storage", () => ({
 describe("Integration Services", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe("MCP Client", () => {
-    describe("MCPClient", () => {
-      it("should create an MCP client for Slack", () => {
-        const client = new MCPClient("slack");
-        expect(client).toBeDefined();
-        expect(client.getStatus().connected).toBe(false);
-      });
-
-      it("should create an MCP client with endpoint", () => {
-        const client = new MCPClient("jira", "ws://localhost:8080");
-        expect(client).toBeDefined();
-      });
-
-      it("should connect to MCP server", async () => {
-        const client = new MCPClient("slack", "ws://localhost:8080");
-        const status = await client.connect();
-
-        expect(status.lastCheck).toBeDefined();
-        // With endpoint configured, it should simulate connection
-        expect(status.connected).toBe(true);
-      });
-
-      it("should return not connected without endpoint", async () => {
-        const client = new MCPClient("slack");
-        const status = await client.connect();
-
-        expect(status.connected).toBe(false);
-        expect(status.error).toContain("No MCP endpoint");
-      });
-
-      it("should list tools for connected client", async () => {
-        const client = new MCPClient("slack", "ws://localhost:8080");
-        await client.connect();
-        const tools = await client.listTools();
-
-        expect(Array.isArray(tools)).toBe(true);
-        expect(tools.length).toBeGreaterThan(0);
-        expect(tools[0]).toHaveProperty("name");
-        expect(tools[0]).toHaveProperty("description");
-        expect(tools[0]).toHaveProperty("inputSchema");
-      });
-
-      it("should return empty tools when not connected", async () => {
-        const client = new MCPClient("slack");
-        const tools = await client.listTools();
-
-        expect(tools).toEqual([]);
-      });
-
-      it("should call tools successfully", async () => {
-        const client = new MCPClient("slack", "ws://localhost:8080");
-        await client.connect();
-
-        const result = await client.callTool("send_message", {
-          channel: "#general",
-          text: "Hello",
-        });
-
-        expect(result.success).toBe(true);
-        expect(result.data).toBeDefined();
-      });
-
-      it("should fail tool call when not connected", async () => {
-        const client = new MCPClient("slack", "ws://localhost:8080");
-        // Don't connect
-
-        const result = await client.callTool("send_message", {
-          channel: "#general",
-          text: "Hello",
-        });
-
-        expect(result.success).toBe(false);
-        expect(result.error).toContain("Not connected");
-      });
-
-      it("should disconnect cleanly", async () => {
-        const client = new MCPClient("slack", "ws://localhost:8080");
-        await client.connect();
-        await client.disconnect();
-
-        expect(client.getStatus().connected).toBe(false);
-      });
-
-      it("should perform health check", async () => {
-        const client = new MCPClient("slack", "ws://localhost:8080");
-        const status = await client.healthCheck();
-
-        expect(status.lastCheck).toBeDefined();
-      });
-    });
-
-    describe("createMCPClient", () => {
-      it("should create client from config", () => {
-        const config: IntegrationConfig = {
-          id: "test-id",
-          type: "slack",
-          name: "Test Slack",
-          description: null,
-          credentials: null,
-          mcpEndpoint: "ws://localhost:8080",
-          status: "active",
-          defaultSettings: null,
-          lastHealthCheck: null,
-          lastError: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        const client = createMCPClient(config);
-        expect(client).toBeInstanceOf(MCPClient);
-      });
-    });
-
-    describe("supportsMCP", () => {
-      it("should return true for Jira", () => {
-        expect(supportsMCP("jira")).toBe(true);
-      });
-
-      it("should return true for Confluence", () => {
-        expect(supportsMCP("confluence")).toBe(true);
-      });
-
-      it("should return true for Slack (community support)", () => {
-        expect(supportsMCP("slack")).toBe(true);
-      });
-
-      it("should return false for Box", () => {
-        expect(supportsMCP("box")).toBe(false);
-      });
-
-      it("should return false for Veeva", () => {
-        expect(supportsMCP("veeva")).toBe(false);
-      });
-    });
-
-    describe("getIntegrationApproach", () => {
-      it("should return mcp for Jira", () => {
-        expect(getIntegrationApproach("jira")).toBe("mcp");
-      });
-
-      it("should return mcp for Confluence", () => {
-        expect(getIntegrationApproach("confluence")).toBe("mcp");
-      });
-
-      it("should return direct_api for Slack", () => {
-        expect(getIntegrationApproach("slack")).toBe("direct_api");
-      });
-
-      it("should return direct_api for Box", () => {
-        expect(getIntegrationApproach("box")).toBe("direct_api");
-      });
-    });
   });
 
   describe("Slack Integration", () => {
@@ -947,26 +787,6 @@ describe("Integration Services", () => {
       it("should have custom template", () => {
         expect(defaultTicketTemplates.custom).toBeDefined();
         expect(defaultTicketTemplates.custom.type).toBe("custom");
-      });
-    });
-  });
-
-  describe("Integration Types", () => {
-    it("should have all expected integration types", () => {
-      const expectedTypes: IntegrationType[] = [
-        "slack",
-        "jira",
-        "teams",
-        "box",
-        "confluence",
-        "veeva",
-        "email",
-      ];
-
-      expectedTypes.forEach((type) => {
-        // Just verify these don't throw
-        expect(() => supportsMCP(type)).not.toThrow();
-        expect(() => getIntegrationApproach(type)).not.toThrow();
       });
     });
   });

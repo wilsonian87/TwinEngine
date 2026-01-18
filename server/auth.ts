@@ -13,6 +13,18 @@ import { promisify } from "util";
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import type { User } from "@shared/schema";
+import { requireEnvVar } from "./utils/config";
+
+// Augment express-session types
+import "express-session";
+
+declare module "express-session" {
+  interface SessionData {
+    inviteCodeId?: string;
+    inviteEmail?: string;
+    inviteLabel?: string | null;
+  }
+}
 
 const scryptAsync = promisify(scrypt);
 
@@ -98,7 +110,7 @@ function configurePassport(): void {
  */
 export function setupAuth(app: Express): void {
   // Configure session middleware
-  const sessionSecret = process.env.SESSION_SECRET || "twinengine-dev-secret-change-in-production";
+  const sessionSecret = requireEnvVar("SESSION_SECRET", "twinengine-dev-secret");
 
   app.use(
     session({
@@ -109,6 +121,7 @@ export function setupAuth(app: Express): void {
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: "lax",
       },
     })
   );

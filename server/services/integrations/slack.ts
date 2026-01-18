@@ -18,7 +18,6 @@ import type {
   InsertActionExport,
 } from "@shared/schema";
 import { storage } from "../../storage";
-import { MCPClient, createMCPClient } from "./mcp-client";
 
 // Slack API response types
 interface SlackApiResponse {
@@ -72,12 +71,10 @@ export interface SlackHealthCheckResult {
  */
 export class SlackIntegration {
   private config: IntegrationConfig;
-  private mcpClient: MCPClient;
   private botToken?: string;
 
   constructor(config: IntegrationConfig) {
     this.config = config;
-    this.mcpClient = createMCPClient(config);
 
     // Extract bot token from credentials
     if (config.credentials && typeof config.credentials === "object") {

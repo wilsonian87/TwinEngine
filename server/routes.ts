@@ -3,11 +3,16 @@ import { createServer, type Server } from "http";
 import passport from "passport";
 import { storage } from "./storage";
 import { hashPassword } from "./auth";
+import { requireEnvVar } from "./utils/config";
+import { safeParseLimitOffset, safeParseLimit } from "./utils/validation";
+import { authRateLimiter } from "./middleware/rate-limit";
 import { classifyChannelHealth, classifyCohortChannelHealth, getHealthSummary } from "./services/channel-health";
 import { generateNBA, generateNBAs, prioritizeNBAs, getNBASummary } from "./services/nba-engine";
 import {
   insertSimulationScenarioSchema,
   hcpFilterSchema,
+  cohortRequestSchema,
+  nbaGenerationRequestSchema,
   createStimuliRequestSchema,
   createCounterfactualRequestSchema,
   nlQueryRequestSchema,
@@ -158,17 +163,20 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Seed database on startup
-  try {
-    await storage.seedHcpData(100);
-  } catch (error) {
-    console.error("Error seeding database:", error);
+  // Seed database on startup (development only)
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      await storage.seedHcpData(100);
+      console.log("[STARTUP] Database seeding completed successfully");
+    } catch (error) {
+      console.error("[STARTUP] Error seeding database:", error);
+    }
   }
 
   // ============ Authentication Endpoints ============
 
   // Register a new user
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", authRateLimiter, async (req, res) => {
     try {
       const parseResult = insertUserSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -219,7 +227,7 @@ export async function registerRoutes(
   });
 
   // Login
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/auth/login", authRateLimiter, (req, res, next) => {
     passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
       if (err) {
         console.error("Error during login:", err);
@@ -290,7 +298,7 @@ export async function registerRoutes(
   // ============ Invite Code Endpoints ============
 
   // Validate invite code (public - used on splash page)
-  app.post("/api/invite/validate", async (req, res) => {
+  app.post("/api/invite/validate", authRateLimiter, async (req, res) => {
     try {
       const parseResult = validateInviteCodeSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -314,9 +322,9 @@ export async function registerRoutes(
       }
 
       // Set session to mark user as authenticated via invite code
-      (req.session as any).inviteCodeId = inviteCode.id;
-      (req.session as any).inviteEmail = email;
-      (req.session as any).inviteLabel = inviteCode.label;
+      req.session.inviteCodeId = inviteCode.id;
+      req.session.inviteEmail = email;
+      req.session.inviteLabel = inviteCode.label;
 
       res.json({
         success: true,
@@ -331,28 +339,30 @@ export async function registerRoutes(
 
   // Check if session has valid invite
   app.get("/api/invite/session", (req, res) => {
-    const session = req.session as any;
-    if (session.inviteCodeId) {
+    if (req.session.inviteCodeId) {
       res.json({
         authenticated: true,
-        email: session.inviteEmail,
-        label: session.inviteLabel,
+        email: req.session.inviteEmail,
+        label: req.session.inviteLabel,
       });
     } else {
       res.json({ authenticated: false });
     }
   });
 
-  // Dev mode bypass (only available in development)
+  // Dev mode bypass (only available in development with explicit flag)
   app.post("/api/invite/dev-bypass", (req, res) => {
     if (process.env.NODE_ENV !== "development") {
       return res.status(403).json({ error: "Only available in development mode" });
     }
 
-    const session = req.session as any;
-    session.inviteCodeId = "dev-bypass";
-    session.inviteEmail = "dev@localhost";
-    session.inviteLabel = "Development Mode";
+    if (!process.env.ALLOW_DEV_BYPASS) {
+      return res.status(403).json({ error: "Dev bypass not enabled" });
+    }
+
+    req.session.inviteCodeId = "dev-bypass";
+    req.session.inviteEmail = "dev@localhost";
+    req.session.inviteLabel = "Development Mode";
 
     res.json({
       success: true,
@@ -363,7 +373,7 @@ export async function registerRoutes(
 
   // Admin: Create invite code (protected by env secret)
   app.post("/api/admin/codes", async (req, res) => {
-    const adminSecret = process.env.ADMIN_SECRET || "admin-secret-change-me";
+    const adminSecret = requireEnvVar("ADMIN_SECRET", "dev-admin-secret");
     const authHeader = req.headers["x-admin-secret"];
 
     if (authHeader !== adminSecret) {
@@ -389,7 +399,7 @@ export async function registerRoutes(
 
   // Admin: List invite codes
   app.get("/api/admin/codes", async (req, res) => {
-    const adminSecret = process.env.ADMIN_SECRET || "admin-secret-change-me";
+    const adminSecret = requireEnvVar("ADMIN_SECRET", "dev-admin-secret");
     const authHeader = req.headers["x-admin-secret"];
 
     if (authHeader !== adminSecret) {
@@ -407,7 +417,7 @@ export async function registerRoutes(
 
   // Admin: Delete invite code
   app.delete("/api/admin/codes/:id", async (req, res) => {
-    const adminSecret = process.env.ADMIN_SECRET || "admin-secret-change-me";
+    const adminSecret = requireEnvVar("ADMIN_SECRET", "dev-admin-secret");
     const authHeader = req.headers["x-admin-secret"];
 
     if (authHeader !== adminSecret) {
@@ -560,7 +570,7 @@ export async function registerRoutes(
   // Lookalike/similar HCPs endpoint
   app.get("/api/hcps/:id/similar", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 10;
+      const limit = safeParseLimit(req.query, 10);
       const similarHcps = await storage.findSimilarHcps(req.params.id, limit);
 
       // Log lookalike search
@@ -606,11 +616,15 @@ export async function registerRoutes(
   // Get aggregate channel health for a cohort (via POST with HCP IDs)
   app.post("/api/channel-health/cohort", async (req, res) => {
     try {
-      const { hcpIds } = req.body as { hcpIds?: string[] };
-
-      if (!hcpIds || !Array.isArray(hcpIds) || hcpIds.length === 0) {
-        return res.status(400).json({ error: "hcpIds array required" });
+      const parseResult = cohortRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid request",
+          details: parseResult.error.errors,
+        });
       }
+
+      const { hcpIds } = parseResult.data;
 
       // Fetch all HCPs by IDs
       const allHcps = await storage.getAllHcps();
@@ -668,15 +682,15 @@ export async function registerRoutes(
   // Generate NBAs for multiple HCPs (cohort)
   app.post("/api/nba/generate", async (req, res) => {
     try {
-      const { hcpIds, prioritize, limit } = req.body as {
-        hcpIds?: string[];
-        prioritize?: boolean;
-        limit?: number;
-      };
-
-      if (!hcpIds || !Array.isArray(hcpIds) || hcpIds.length === 0) {
-        return res.status(400).json({ error: "hcpIds array required" });
+      const parseResult = nbaGenerationRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid request",
+          details: parseResult.error.errors,
+        });
       }
+
+      const { hcpIds, prioritize, limit } = parseResult.data;
 
       // Fetch all HCPs by IDs
       const allHcps = await storage.getAllHcps();
@@ -871,8 +885,7 @@ export async function registerRoutes(
   // Get variants for a batch
   app.get("/api/simulations/batch/:id/variants", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
+      const { limit, offset } = safeParseLimitOffset(req.query);
       const variants = await composableSimulation.getBatchVariants(req.params.id, { limit, offset });
       res.json(variants);
     } catch (error) {
@@ -982,7 +995,7 @@ export async function registerRoutes(
   // Audit log endpoints (protected)
   app.get("/api/audit-logs", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = safeParseLimit(req.query, 100);
       const logs = await storage.getAuditLogs(limit);
       res.json(logs);
     } catch (error) {
@@ -1034,7 +1047,7 @@ export async function registerRoutes(
   app.get("/api/stimuli", async (req, res) => {
     try {
       const hcpId = req.query.hcpId as string | undefined;
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limit = safeParseLimit(req.query);
       const events = await storage.getStimuliEvents(hcpId, limit);
       res.json(events);
     } catch (error) {
@@ -1085,7 +1098,7 @@ export async function registerRoutes(
 
   app.get("/api/counterfactuals", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limit = safeParseLimit(req.query);
       const scenarios = await storage.getCounterfactualScenarios(limit);
       res.json(scenarios);
     } catch (error) {
@@ -1128,7 +1141,7 @@ export async function registerRoutes(
 
   app.get("/api/nl-query/history", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limit = safeParseLimit(req.query);
       const history = await storage.getNLQueryHistory(limit);
       res.json(history);
     } catch (error) {
@@ -1181,7 +1194,7 @@ export async function registerRoutes(
 
   app.get("/api/model-evaluation", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limit = safeParseLimit(req.query);
       const evaluations = await storage.getModelEvaluations(limit);
       res.json(evaluations);
     } catch (error) {
@@ -1706,7 +1719,7 @@ export async function registerRoutes(
 
     try {
       const sourceType = req.query.sourceType as string | undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+      const limit = safeParseLimit(req.query);
 
       const exports = await storage.listActionExports(sourceType, limit);
       res.json(exports);
@@ -1825,7 +1838,7 @@ export async function registerRoutes(
       }
 
       const input = req.body.input || agent.getDefaultInput();
-      const userId = (req.user as any)?.id || "system";
+      const userId = req.user?.id || "system";
 
       // Run the agent
       const result = await agent.run(input, userId, "on_demand");
@@ -1902,7 +1915,7 @@ export async function registerRoutes(
 
     try {
       const agentType = req.params.type;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+      const limit = safeParseLimit(req.query, 20);
 
       const stored = await storage.getAgentDefinitionByType(agentType);
       const runs = await storage.listAgentRuns(stored?.id, limit);
@@ -1943,8 +1956,8 @@ export async function registerRoutes(
     try {
       const validStatuses = ["pending", "approved", "rejected", "modified", "auto_approved", "executing", "executed", "failed"] as const;
       const statusParam = req.query.status as string | undefined;
-      const status = statusParam && validStatuses.includes(statusParam as any) ? statusParam as typeof validStatuses[number] : undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+      const status = statusParam && validStatuses.includes(statusParam as typeof validStatuses[number]) ? statusParam as typeof validStatuses[number] : undefined;
+      const limit = safeParseLimit(req.query);
 
       const actions = await storage.listAgentActions(status, limit);
       res.json(actions);
@@ -1994,7 +2007,7 @@ export async function registerRoutes(
     }
 
     try {
-      const userId = (req.user as any)?.id || "unknown";
+      const userId = req.user?.id || "unknown";
       const modifiedAction = req.body.modifiedAction;
 
       const action = await storage.approveAgentAction(req.params.id, userId, modifiedAction);
@@ -2015,7 +2028,7 @@ export async function registerRoutes(
     }
 
     try {
-      const userId = (req.user as any)?.id || "unknown";
+      const userId = req.user?.id || "unknown";
       const reason = req.body.reason;
 
       const action = await storage.rejectAgentAction(req.params.id, userId, reason);
@@ -2036,7 +2049,7 @@ export async function registerRoutes(
     }
 
     try {
-      const userId = (req.user as any)?.id || "unknown";
+      const userId = req.user?.id || "unknown";
       const actionIds = req.body.actionIds as string[];
 
       if (!actionIds || !Array.isArray(actionIds) || actionIds.length === 0) {
@@ -2058,7 +2071,7 @@ export async function registerRoutes(
     }
 
     try {
-      const userId = (req.user as any)?.id || "unknown";
+      const userId = req.user?.id || "unknown";
       const { actionIds, reason } = req.body;
 
       if (!actionIds || !Array.isArray(actionIds) || actionIds.length === 0) {
@@ -2186,7 +2199,7 @@ export async function registerRoutes(
     }
 
     try {
-      const userId = (req.user as any)?.id || "unknown";
+      const userId = req.user?.id || "unknown";
       const input = req.body || {};
 
       // Load data for the orchestrator if it needs to run agents
@@ -2253,7 +2266,7 @@ export async function registerRoutes(
 
     try {
       const status = req.query.status as string | undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+      const limit = safeParseLimit(req.query);
 
       const alerts = await storage.listAlerts(status, limit);
       res.json(alerts);
@@ -2303,7 +2316,7 @@ export async function registerRoutes(
     }
 
     try {
-      const userId = (req.user as any)?.id || "unknown";
+      const userId = req.user?.id || "unknown";
       const alert = await storage.acknowledgeAlert(req.params.id, userId);
       if (!alert) {
         return res.status(404).json({ error: "Alert not found" });
@@ -2322,7 +2335,7 @@ export async function registerRoutes(
     }
 
     try {
-      const userId = (req.user as any)?.id || "unknown";
+      const userId = req.user?.id || "unknown";
       const alert = await storage.dismissAlert(req.params.id, userId);
       if (!alert) {
         return res.status(404).json({ error: "Alert not found" });
@@ -2697,7 +2710,7 @@ export async function registerRoutes(
         });
       }
 
-      const userId = (req.user as any)?.username || "unknown";
+      const userId = req.user?.username || "unknown";
       const window = await constraintManager.createComplianceWindow({
         ...data,
         startDate: new Date(data.startDate),
@@ -2802,7 +2815,7 @@ export async function registerRoutes(
         });
       }
 
-      const userId = (req.user as any)?.username || "unknown";
+      const userId = req.user?.username || "unknown";
       const allocation = await constraintManager.createBudgetAllocation({
         ...data,
         periodStart: new Date(data.periodStart),
@@ -3386,7 +3399,7 @@ export async function registerRoutes(
 
     try {
       const predictionType = req.query.predictionType as string | undefined;
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = safeParseLimit(req.query, 100);
 
       const hcps = await storage.getHcpsNeedingRefresh(predictionType, limit);
       res.json(hcps);
@@ -3697,13 +3710,18 @@ export async function registerRoutes(
     }
 
     try {
-      const { status, brand, businessUnit, limit, offset } = req.query;
+      const { status, brand, businessUnit } = req.query;
+      const pagination = safeParseLimitOffset(req.query);
+      const validStatuses = ["draft", "active", "paused", "completed", "cancelled"] as const;
+      const statusValue = status && typeof status === "string" && validStatuses.includes(status as typeof validStatuses[number])
+        ? (status as typeof validStatuses[number])
+        : undefined;
       const campaigns = await campaignCoordinator.listCampaigns({
-        status: status as any,
+        status: statusValue,
         brand: brand as string,
         businessUnit: businessUnit as string,
-        limit: limit ? parseInt(limit as string) : undefined,
-        offset: offset ? parseInt(offset as string) : undefined,
+        limit: pagination.limit,
+        offset: pagination.offset,
       });
       res.json(campaigns);
     } catch (error) {
@@ -3746,7 +3764,7 @@ export async function registerRoutes(
         ...parsed.data,
         startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : undefined,
         endDate: parsed.data.endDate ? new Date(parsed.data.endDate) : undefined,
-        createdBy: (req.user as any)?.username,
+        createdBy: req.user?.username,
       });
       res.status(201).json(campaign);
     } catch (error) {
@@ -4094,7 +4112,7 @@ export async function registerRoutes(
       const conflict = await campaignCoordinator.resolveConflict(
         parsed.data.conflictId,
         parsed.data.resolution,
-        (req.user as any)?.username || "unknown",
+        req.user?.username || "unknown",
         parsed.data.resolutionNotes
       );
       if (!conflict) {
@@ -4156,10 +4174,10 @@ export async function registerRoutes(
     }
 
     try {
-      const { status, limit } = req.query;
+      const { status } = req.query;
       const problems = await portfolioOptimizer.listProblems({
         status: status as string | undefined,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
+        limit: safeParseLimit(req.query),
       });
       res.json(problems);
     } catch (error) {
@@ -4266,11 +4284,12 @@ export async function registerRoutes(
     }
 
     try {
-      const { channel, limit, offset } = req.query;
+      const { channel } = req.query;
+      const pagination = safeParseLimitOffset(req.query);
       const allocations = await portfolioOptimizer.getAllocations(req.params.id, {
         channel: channel as Channel | undefined,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
-        offset: offset ? parseInt(offset as string, 10) : undefined,
+        limit: pagination.limit,
+        offset: pagination.offset,
       });
       res.json(allocations);
     } catch (error) {
@@ -4346,11 +4365,15 @@ export async function registerRoutes(
     }
 
     try {
-      const { status, resultId, limit } = req.query;
+      const { status, resultId } = req.query;
+      const validStatuses = ["draft", "scheduled", "executing", "paused", "completed", "cancelled"] as const;
+      const statusValue = status && typeof status === "string" && validStatuses.includes(status as typeof validStatuses[number])
+        ? (status as typeof validStatuses[number])
+        : undefined;
       const plans = await executionPlanner.listPlans({
-        status: status as any,
+        status: statusValue,
         resultId: resultId as string | undefined,
-        limit: limit ? parseInt(limit as string, 10) : undefined,
+        limit: safeParseLimit(req.query),
       });
       res.json(plans);
     } catch (error) {

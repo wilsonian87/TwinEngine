@@ -257,6 +257,22 @@ export const hcpFilterSchema = z.object({
 
 export type HCPFilter = z.infer<typeof hcpFilterSchema>;
 
+// Cohort request body (for endpoints that accept a list of HCP IDs)
+export const cohortRequestSchema = z.object({
+  hcpIds: z.array(z.string()).min(1, "At least one HCP ID required"),
+});
+
+export type CohortRequest = z.infer<typeof cohortRequestSchema>;
+
+// NBA generation request body
+export const nbaGenerationRequestSchema = z.object({
+  hcpIds: z.array(z.string()).min(1, "At least one HCP ID required"),
+  prioritize: z.boolean().optional().default(true),
+  limit: z.number().int().min(1).max(1000).optional(),
+});
+
+export type NBAGenerationRequest = z.infer<typeof nbaGenerationRequestSchema>;
+
 // Simulation Scenario (API type)
 export const simulationScenarioSchema = z.object({
   id: z.string(),

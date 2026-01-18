@@ -10,17 +10,6 @@
  * - Teams (messaging) [Future]
  */
 
-// MCP Client (generic wrapper)
-export {
-  MCPClient,
-  createMCPClient,
-  supportsMCP,
-  getIntegrationApproach,
-  type MCPTool,
-  type MCPToolResult,
-  type MCPConnectionStatus,
-} from "./mcp-client";
-
 // Slack Integration
 export {
   SlackIntegration,
