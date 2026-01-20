@@ -82,6 +82,33 @@ export {
   type OptimizationAgentOutput,
 } from "./optimization-agent";
 
+// Agent Executor (Phase 12D.3)
+export {
+  AgentExecutor,
+  agentExecutor,
+  actionCapabilities,
+  actionCategories,
+  type ActionCategory,
+  type ActionCapability,
+  type ExecutionContext,
+  type ExecutionResult,
+  type GuardrailCheckResult,
+} from "./agent-executor";
+
+// Prompt Manager (Phase 12D.4)
+export {
+  PromptManager,
+  promptManager,
+  promptRegistry,
+  promptFilePaths,
+  type PromptType,
+  type RoleType,
+  type PromptMetadata,
+  type Prompt,
+  type PromptValidationResult,
+  type PromptLoadOptions,
+} from "./prompt-manager";
+
 // Initialize and register agents
 import { AgentRegistry } from "./base-agent";
 import { channelHealthMonitor } from "./channel-health-monitor";
