@@ -11,13 +11,27 @@
 
 import { Suspense, lazy } from 'react';
 import { motion } from 'framer-motion';
-import { Compass, Play, Maximize2, Info, LayoutGrid, Network } from 'lucide-react';
+import { Compass, Play, Maximize2, Info, LayoutGrid, Network, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConstellationStore } from '@/stores/constellationStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { usePhase11Keyboard } from '@/hooks/usePhase11Keyboard';
 import { usePhase11Story } from '@/hooks/usePhase11Story';
+
+// Phase 12A: Competitive Orbit components
+const CompetitiveLegend = lazy(() =>
+  import('@/components/constellation/CompetitiveLegend')
+    .then(m => ({ default: m.CompetitiveLegend }))
+);
+const CompetitiveToggleButton = lazy(() =>
+  import('@/components/constellation/CompetitiveLegend')
+    .then(m => ({ default: m.CompetitiveToggleButton }))
+);
+const CompetitiveSummaryPanel = lazy(() =>
+  import('@/components/constellation/CompetitiveOrbitRings')
+    .then(m => ({ default: m.CompetitiveSummaryPanel }))
+);
 
 // Lazy load heavy 3D components to avoid blocking initial bundle
 const ConstellationCanvas = lazy(() =>
@@ -58,7 +72,19 @@ const LevelIndicator = lazy(() =>
 );
 
 export default function EcosystemExplorerPage() {
-  const { storyModeActive, toggleStoryMode, viewMode, setViewMode, navigationContext } = useConstellationStore();
+  const {
+    storyModeActive,
+    toggleStoryMode,
+    viewMode,
+    setViewMode,
+    navigationContext,
+    // Phase 12A: Competitive orbit state
+    competitiveOrbitVisible,
+    toggleCompetitiveOrbit,
+    selectedCompetitorId,
+    setSelectedCompetitor,
+    competitiveOrbitData,
+  } = useConstellationStore();
 
   // Enable keyboard shortcuts for zoom and navigation
   useKeyboardShortcuts();
@@ -125,6 +151,33 @@ export default function EcosystemExplorerPage() {
                 }
               </TooltipContent>
             </Tooltip>
+
+            {/* Phase 12A: Competitive Orbit Toggle - Only in Phase 11 L1 view */}
+            {isPhase11 && navigationContext.level === 'L1' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={competitiveOrbitVisible ? "default" : "outline"}
+                    size="sm"
+                    onClick={toggleCompetitiveOrbit}
+                    disabled={!competitiveOrbitData}
+                    className={competitiveOrbitVisible
+                      ? "bg-rose-600 hover:bg-rose-700 text-white"
+                      : "border-slate-300 text-slate-700 hover:bg-slate-50 bg-white"
+                    }
+                  >
+                    <Target className="w-4 h-4 mr-2" />
+                    {competitiveOrbitVisible ? 'Hide Competition' : 'Show Competition'}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {competitiveOrbitVisible
+                    ? 'Hide competitive pressure rings'
+                    : 'Show competitive pressure as orbital rings'
+                  }
+                </TooltipContent>
+              </Tooltip>
+            )}
 
             {/* Story Mode Toggle - Available in both views */}
             <Tooltip>
@@ -215,6 +268,26 @@ export default function EcosystemExplorerPage() {
           )}
           {/* Story Narration HUD */}
           {storyModeActive && <StoryNarrationHUD />}
+
+          {/* Phase 12A: Competitive Orbit Overlays - Only in L1 view */}
+          {navigationContext.level === 'L1' && !storyModeActive && (
+            <>
+              {/* Legend and competitor list */}
+              <CompetitiveLegend
+                data={competitiveOrbitData}
+                visible={competitiveOrbitVisible}
+                onToggleVisibility={toggleCompetitiveOrbit}
+                selectedCompetitor={selectedCompetitorId}
+                onCompetitorSelect={setSelectedCompetitor}
+              />
+
+              {/* Summary panel - bottom left when visible */}
+              <CompetitiveSummaryPanel
+                data={competitiveOrbitData}
+                visible={competitiveOrbitVisible}
+              />
+            </>
+          )}
         </Suspense>
       )}
     </div>

@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import type { HCPProfile, Channel, StimulusType } from '@shared/schema';
-
-// Import the prediction functions by extracting them
-// Since storage.ts has these as internal functions, we'll test them through the storage interface
-// For now, let's create unit tests for the prediction logic
+import type { HCPProfile, Channel, StimulusType, InsertSimulationScenario } from '@shared/schema';
+import {
+  predictStimuliImpact,
+  calculateSimilarityScore,
+  runSimulationEngine,
+  runCounterfactualAnalysis,
+} from '../../server/services/prediction-engine';
 
 // Mock HCP for testing
 const createMockHcp = (overrides: Partial<HCPProfile> = {}): HCPProfile => ({
@@ -44,85 +46,7 @@ const createMockHcp = (overrides: Partial<HCPProfile> = {}): HCPProfile => ({
   ...overrides,
 });
 
-// Reimplementation of prediction logic for testing
-// (In production, these would be exported from storage.ts)
-function predictStimuliImpact(
-  hcp: HCPProfile,
-  stimulusType: StimulusType,
-  channel: Channel,
-  contentType?: string,
-  callToAction?: string
-): { engagementDelta: number; conversionDelta: number; confidenceLower: number; confidenceUpper: number } {
-  const stimulusWeights: Record<StimulusType, { engagement: number; conversion: number }> = {
-    rep_visit: { engagement: 8, conversion: 5 },
-    email_send: { engagement: 3, conversion: 1 },
-    email_open: { engagement: 5, conversion: 2 },
-    email_click: { engagement: 8, conversion: 4 },
-    webinar_invite: { engagement: 4, conversion: 2 },
-    webinar_attend: { engagement: 12, conversion: 6 },
-    conference_meeting: { engagement: 15, conversion: 8 },
-    phone_call: { engagement: 6, conversion: 3 },
-    digital_ad_impression: { engagement: 1, conversion: 0.5 },
-    digital_ad_click: { engagement: 4, conversion: 2 },
-    sample_delivery: { engagement: 10, conversion: 7 },
-    content_download: { engagement: 7, conversion: 4 },
-  };
-
-  const channelAffinityModifier = hcp.channelPreference === channel ? 1.3 : 0.9;
-  const tierModifier = hcp.tier === 'Tier 1' ? 1.2 : hcp.tier === 'Tier 2' ? 1.0 : 0.85;
-  const engagementModifier = 0.7 + (hcp.overallEngagementScore / 100) * 0.6;
-
-  const contentModifiers: Record<string, number> = {
-    educational: 1.1,
-    clinical_data: 1.15,
-    promotional: 0.95,
-    savings: 1.2,
-    mixed: 1.0,
-  };
-  const contentModifier = contentType ? (contentModifiers[contentType] || 1.0) : 1.0;
-
-  let ctaModifier = 1.0;
-  if (callToAction) {
-    const cta = callToAction.toLowerCase();
-    if (cta.includes('save') || cta.includes('savings')) ctaModifier = 1.15;
-    else if (cta.includes('patient') || cta.includes('outcomes')) ctaModifier = 1.12;
-    else if (cta.includes('learn') || cta.includes('discover')) ctaModifier = 1.05;
-    else if (cta.includes('free') || cta.includes('trial')) ctaModifier = 1.08;
-  }
-
-  const baseWeight = stimulusWeights[stimulusType] || { engagement: 5, conversion: 2 };
-
-  const engagementDelta = baseWeight.engagement * channelAffinityModifier * tierModifier * engagementModifier * contentModifier * ctaModifier;
-  const conversionDelta = baseWeight.conversion * channelAffinityModifier * tierModifier * engagementModifier * contentModifier * ctaModifier;
-
-  const baseVariance = 0.25;
-  const confidenceRange = Math.max(engagementDelta * baseVariance, 2);
-
-  return {
-    engagementDelta: parseFloat(engagementDelta.toFixed(2)),
-    conversionDelta: parseFloat(conversionDelta.toFixed(2)),
-    confidenceLower: parseFloat(Math.max(0, engagementDelta - confidenceRange).toFixed(2)),
-    confidenceUpper: parseFloat((engagementDelta + confidenceRange).toFixed(2)),
-  };
-}
-
-function calculateSimilarityScore(hcp1: HCPProfile, hcp2: HCPProfile): number {
-  let score = 0;
-  if (hcp1.specialty === hcp2.specialty) score += 30;
-  if (hcp1.tier === hcp2.tier) score += 20;
-  if (hcp1.segment === hcp2.segment) score += 20;
-
-  const engagementDiff = Math.abs(hcp1.overallEngagementScore - hcp2.overallEngagementScore);
-  if (engagementDiff <= 15) score += 15 - engagementDiff;
-
-  const rxRatio = Math.min(hcp1.monthlyRxVolume, hcp2.monthlyRxVolume) /
-                  Math.max(hcp1.monthlyRxVolume, hcp2.monthlyRxVolume);
-  score += rxRatio * 10;
-
-  if (hcp1.channelPreference === hcp2.channelPreference) score += 5;
-
-  return score;
-}
+// Using imported functions from prediction-engine.ts
 
 describe('Prediction Engine', () => {
   describe('predictStimuliImpact', () => {
@@ -306,6 +230,332 @@ describe('Prediction Engine', () => {
       // Should be low but positive
       expect(score).toBeGreaterThan(0);
       expect(score).toBeLessThan(50);
+    });
+  });
+
+  describe('runSimulationEngine', () => {
+    it('should return simulation results with required properties', () => {
+      const scenario: InsertSimulationScenario = {
+        name: 'Test Campaign',
+        channelMix: {
+          email: 30,
+          rep_visit: 40,
+          webinar: 15,
+          conference: 5,
+          digital_ad: 5,
+          phone: 5,
+        },
+        frequency: 4,
+        duration: 3,
+        contentType: 'educational',
+      };
+
+      const result = runSimulationEngine(scenario, 100);
+
+      expect(result).toHaveProperty('predictedEngagementRate');
+      expect(result).toHaveProperty('predictedResponseRate');
+      expect(result).toHaveProperty('predictedRxLift');
+      expect(result).toHaveProperty('predictedReach');
+      expect(result).toHaveProperty('efficiencyScore');
+      expect(result).toHaveProperty('channelPerformance');
+      expect(result).toHaveProperty('vsBaseline');
+    });
+
+    it('should return realistic rate values', () => {
+      const scenario: InsertSimulationScenario = {
+        name: 'Test Campaign',
+        channelMix: {
+          email: 20,
+          rep_visit: 30,
+          webinar: 20,
+          conference: 10,
+          digital_ad: 10,
+          phone: 10,
+        },
+        frequency: 4,
+        duration: 3,
+        contentType: 'clinical_data',
+      };
+
+      const result = runSimulationEngine(scenario, 100);
+
+      expect(result.predictedEngagementRate).toBeGreaterThan(0);
+      expect(result.predictedEngagementRate).toBeLessThanOrEqual(95);
+      expect(result.predictedResponseRate).toBeGreaterThan(0);
+      expect(result.predictedResponseRate).toBeLessThanOrEqual(70);
+      expect(result.predictedRxLift).toBeGreaterThan(0);
+      expect(result.predictedRxLift).toBeLessThanOrEqual(25);
+      expect(result.efficiencyScore).toBeGreaterThan(0);
+      expect(result.efficiencyScore).toBeLessThanOrEqual(100);
+    });
+
+    it('should calculate predicted reach based on HCP count', () => {
+      const scenario: InsertSimulationScenario = {
+        name: 'Test Campaign',
+        channelMix: { email: 50, rep_visit: 50, webinar: 0, conference: 0, digital_ad: 0, phone: 0 },
+        frequency: 2,
+        duration: 2,
+        contentType: 'mixed',
+      };
+
+      const result = runSimulationEngine(scenario, 500);
+
+      expect(result.predictedReach).toBeGreaterThan(0);
+      expect(result.predictedReach).toBeLessThanOrEqual(500);
+    });
+
+    it('should generate channel performance for each channel in mix', () => {
+      const scenario: InsertSimulationScenario = {
+        name: 'Test Campaign',
+        channelMix: {
+          email: 30,
+          rep_visit: 40,
+          webinar: 15,
+          conference: 5,
+          digital_ad: 5,
+          phone: 5,
+        },
+        frequency: 4,
+        duration: 3,
+        contentType: 'educational',
+      };
+
+      const result = runSimulationEngine(scenario, 100);
+
+      expect(result.channelPerformance).toHaveLength(6);
+      result.channelPerformance.forEach(cp => {
+        expect(cp).toHaveProperty('channel');
+        expect(cp).toHaveProperty('allocation');
+        expect(cp).toHaveProperty('predictedResponse');
+        expect(cp).toHaveProperty('contribution');
+      });
+    });
+
+    it('should calculate baseline comparison', () => {
+      const scenario: InsertSimulationScenario = {
+        name: 'Test Campaign',
+        channelMix: { email: 50, rep_visit: 50, webinar: 0, conference: 0, digital_ad: 0, phone: 0 },
+        frequency: 4,
+        duration: 3,
+        contentType: 'clinical_data',
+      };
+
+      const result = runSimulationEngine(scenario, 100);
+
+      expect(result.vsBaseline).toHaveProperty('engagementDelta');
+      expect(result.vsBaseline).toHaveProperty('responseDelta');
+      expect(result.vsBaseline).toHaveProperty('rxLiftDelta');
+      expect(typeof result.vsBaseline.engagementDelta).toBe('number');
+    });
+
+    it('should handle different content types', () => {
+      const baseScenario = {
+        name: 'Test Campaign',
+        channelMix: { email: 50, rep_visit: 50, webinar: 0, conference: 0, digital_ad: 0, phone: 0 },
+        frequency: 4,
+        duration: 3,
+      };
+
+      const clinicalResult = runSimulationEngine({ ...baseScenario, contentType: 'clinical_data' as const }, 100);
+      const promotionalResult = runSimulationEngine({ ...baseScenario, contentType: 'promotional' as const }, 100);
+
+      // Both should return valid results
+      expect(clinicalResult.predictedEngagementRate).toBeGreaterThan(0);
+      expect(promotionalResult.predictedEngagementRate).toBeGreaterThan(0);
+    });
+
+    it('should handle varying frequency values', () => {
+      const baseScenario = {
+        name: 'Test Campaign',
+        channelMix: { email: 50, rep_visit: 50, webinar: 0, conference: 0, digital_ad: 0, phone: 0 },
+        duration: 3,
+        contentType: 'mixed' as const,
+      };
+
+      const lowFreq = runSimulationEngine({ ...baseScenario, frequency: 1 }, 100);
+      const highFreq = runSimulationEngine({ ...baseScenario, frequency: 8 }, 100);
+
+      // Both should return valid results
+      expect(lowFreq.predictedEngagementRate).toBeGreaterThan(0);
+      expect(highFreq.predictedEngagementRate).toBeGreaterThan(0);
+    });
+  });
+
+  describe('runCounterfactualAnalysis', () => {
+    it('should return counterfactual analysis results', () => {
+      const hcps = [createMockHcp(), createMockHcp({ id: 'hcp-2', npi: '2222222222' })];
+      const changedVariables = [
+        {
+          variableName: 'CTA',
+          variableType: 'call_to_action' as const,
+          originalValue: 'Learn More',
+          counterfactualValue: 'Save on patient costs',
+        },
+      ];
+
+      const result = runCounterfactualAnalysis(hcps, changedVariables, 'aggregate');
+
+      expect(result).toHaveProperty('baselineOutcome');
+      expect(result).toHaveProperty('counterfactualOutcome');
+      expect(result).toHaveProperty('upliftDelta');
+      expect(result).toHaveProperty('confidenceInterval');
+    });
+
+    it('should calculate baseline from HCP data', () => {
+      const hcps = [
+        createMockHcp({ overallEngagementScore: 70, conversionLikelihood: 60 }),
+        createMockHcp({ id: 'hcp-2', npi: '2222222222', overallEngagementScore: 80, conversionLikelihood: 70 }),
+      ];
+      const changedVariables = [
+        {
+          variableName: 'Frequency',
+          variableType: 'frequency' as const,
+          originalValue: 4,
+          counterfactualValue: 6,
+        },
+      ];
+
+      const result = runCounterfactualAnalysis(hcps, changedVariables, 'aggregate');
+
+      expect(result.baselineOutcome.engagementRate).toBeCloseTo(75, 0); // Average of 70 and 80
+      expect(result.baselineOutcome.conversionRate).toBeCloseTo(65, 0); // Average of 60 and 70
+    });
+
+    it('should apply CTA variable changes', () => {
+      const hcps = [createMockHcp()];
+      const changedVariables = [
+        {
+          variableName: 'CTA',
+          variableType: 'call_to_action' as const,
+          originalValue: 'Click here',
+          counterfactualValue: 'Save on patient outcomes',
+        },
+      ];
+
+      const result = runCounterfactualAnalysis(hcps, changedVariables, 'aggregate');
+
+      // Patient-related CTA should improve response and conversion
+      expect(result.upliftDelta.responseDelta).toBeGreaterThan(0);
+    });
+
+    it('should apply channel mix variable changes', () => {
+      const hcps = [createMockHcp()];
+      const changedVariables = [
+        {
+          variableName: 'Channel Mix',
+          variableType: 'channel_mix' as const,
+          originalValue: { rep_visit: 20, email: 80 },
+          counterfactualValue: { rep_visit: 50, email: 50 },
+        },
+      ];
+
+      const result = runCounterfactualAnalysis(hcps, changedVariables, 'aggregate');
+
+      expect(result).toHaveProperty('upliftDelta');
+      expect(result.upliftDelta).toHaveProperty('engagementDelta');
+    });
+
+    it('should apply content type variable changes', () => {
+      const hcps = [createMockHcp()];
+      const changedVariables = [
+        {
+          variableName: 'Content',
+          variableType: 'content_type' as const,
+          originalValue: 'promotional',
+          counterfactualValue: 'clinical_data',
+        },
+      ];
+
+      const result = runCounterfactualAnalysis(hcps, changedVariables, 'aggregate');
+
+      // Clinical data should improve response
+      expect(result.upliftDelta.responseDelta).toBeGreaterThan(0);
+    });
+
+    it('should calculate confidence interval', () => {
+      const hcps = [createMockHcp()];
+      const changedVariables = [
+        {
+          variableName: 'Frequency',
+          variableType: 'frequency' as const,
+          originalValue: 2,
+          counterfactualValue: 6,
+        },
+      ];
+
+      const result = runCounterfactualAnalysis(hcps, changedVariables, 'aggregate');
+
+      expect(result.confidenceInterval).toHaveProperty('lower');
+      expect(result.confidenceInterval).toHaveProperty('upper');
+      expect(result.confidenceInterval.lower).toBeLessThan(result.confidenceInterval.upper);
+    });
+
+    it('should handle individual analysis type', () => {
+      const hcps = [
+        createMockHcp({ id: 'hcp-1' }),
+        createMockHcp({ id: 'hcp-2', npi: '2222222222' }),
+      ];
+      const changedVariables = [
+        {
+          variableName: 'Timing',
+          variableType: 'timing' as const,
+          originalValue: 'morning',
+          counterfactualValue: 'afternoon',
+        },
+      ];
+
+      const result = runCounterfactualAnalysis(hcps, changedVariables, 'individual');
+
+      expect(result.hcpLevelResults).toBeDefined();
+      if (result.hcpLevelResults) {
+        expect(result.hcpLevelResults.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('should handle multiple variable changes', () => {
+      const hcps = [createMockHcp()];
+      const changedVariables = [
+        {
+          variableName: 'Frequency',
+          variableType: 'frequency' as const,
+          originalValue: 2,
+          counterfactualValue: 4,
+        },
+        {
+          variableName: 'Content',
+          variableType: 'content_type' as const,
+          originalValue: 'promotional',
+          counterfactualValue: 'clinical_data',
+        },
+        {
+          variableName: 'CTA',
+          variableType: 'call_to_action' as const,
+          originalValue: 'Learn more',
+          counterfactualValue: 'Improve patient outcomes',
+        },
+      ];
+
+      const result = runCounterfactualAnalysis(hcps, changedVariables, 'aggregate');
+
+      expect(result.upliftDelta.percentageImprovement).toBeDefined();
+      expect(typeof result.upliftDelta.percentageImprovement).toBe('number');
+    });
+
+    it('should handle budget variable changes', () => {
+      const hcps = [createMockHcp()];
+      const changedVariables = [
+        {
+          variableName: 'Budget',
+          variableType: 'budget' as const,
+          originalValue: 100000,
+          counterfactualValue: 150000,
+        },
+      ];
+
+      const result = runCounterfactualAnalysis(hcps, changedVariables, 'aggregate');
+
+      // Increased budget should improve engagement
+      expect(result.upliftDelta.engagementDelta).toBeGreaterThan(0);
     });
   });
 });

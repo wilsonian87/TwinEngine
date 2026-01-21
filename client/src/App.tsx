@@ -30,6 +30,8 @@ import AgentsPage from "@/pages/agents";
 import ConstraintsPage from "@/pages/constraints";
 import AllocationLabPage from "@/pages/allocation-lab";
 import EcosystemExplorer from "@/pages/ecosystem-explorer";
+import MessageSaturationPage from "@/pages/message-saturation";
+import NBODashboard from "@/pages/NBODashboard";
 
 function Router() {
   const [location] = useLocation();
@@ -52,6 +54,8 @@ function Router() {
           <Route path="/agents" component={AgentsPage} />
           <Route path="/constraints" component={ConstraintsPage} />
           <Route path="/allocation-lab" component={AllocationLabPage} />
+          <Route path="/message-saturation" component={MessageSaturationPage} />
+          <Route path="/next-best-orbit" component={NBODashboard} />
           <Route component={NotFound} />
         </Switch>
       </PageTransition>

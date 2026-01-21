@@ -2,9 +2,116 @@
 
 All notable changes to TwinEngine are documented in this file.
 
-## [1.11.0] - 2026-01-18 (In Development)
+## [1.12.0] - 2026-01-20
 
-### Phase 11: HCP-Centric Visualization Hierarchy - Stable
+### Phase 12: Multi-Roadmap Consolidation - Complete
+
+This major release exposes competitive pressure, message saturation, next-best-orbit decisioning, and agent intelligence as first-class platform capabilities. This is the "stacked value curve" that differentiates TwinEngine from competitors.
+
+**Status:** Core features complete and demo-ready.
+
+### Added
+
+#### Phase 12.0 - Technical Hardening
+- Test coverage foundation: 795 tests total, 166 new tests added
+- PostgreSQL session store for production authentication
+- Storage layer refactor: modular architecture with dedicated modules
+
+#### Phase 12A - Competitive Orbit View
+- `competitor_dim` and `hcp_competitive_signal_fact` tables
+- CPI (Competitive Pressure Index) calculation with 4-component formula:
+  - Share component, velocity component, engagement asymmetry, trend
+- `CompetitiveOrbitRings.tsx` - 3D ring visualization in constellation
+- `CompetitiveLegend.tsx` - Legend and export controls
+- `competitive-insight-engine.ts` - Alert generation with 6 alert types
+- `competitive_alert_config` table for configurable thresholds
+- Governance audit trail with claim review workflow
+- PNG export for competitive orbit view
+- CSV export for competitive signals and alerts
+
+#### Phase 12B - Message Saturation Heatmap
+- `message_theme_dim` and `message_exposure_fact` tables
+- MSI (Message Saturation Index) calculation with stage modifiers:
+  - Awareness: 0.7, Consideration: 0.85, Trial: 0.9, Loyalty: 1.1
+- `MessageSaturationHeatmap.tsx` - HCP × Theme matrix visualization
+- `ThemeSaturationAlert.tsx` - Inline saturation warnings
+- `saturation-aware-nba.ts` - MSI-aware recommendations with 5 warning types
+- Theme simulation with decay curve projections
+- Pre-campaign saturation reports
+- MSI benchmarks by therapeutic area
+- CSV/JSON export for saturation data
+
+#### Phase 12C - Next Best Orbit (NBO)
+- `next_best_orbit_recommendation_fact` table
+- `next-best-orbit-engine.ts` - Decision logic with 6 weighted inputs:
+  - Engagement trajectory (20%), Adoption stage (15%)
+  - Channel affinity (20%), MSI (20%), CPI (15%), Touch history (10%)
+- 8+ rule-based decision paths (defend, reactivate, expand, etc.)
+- `NBODashboard.tsx` - Full recommendation dashboard
+- `NBORecommendationCard.tsx` - Recommendation cards with rationale
+- `nbo-learning.ts` - Learning loop with feedback tracking
+- Model performance metrics and drift detection
+- Batch recommendation generation and prioritization
+
+#### Phase 12D - Agent Prompt Pack (Partial)
+- `agent/prompts/base/` - System prompt and schema context
+- `agent/prompts/roles/` - 5 persona prompts (brand-lead, field-ops, analytics, medical, platform-admin)
+- `agent/prompts/tasks/` - 5 task prompts (cohort-analysis, competitive-assessment, campaign-planning, anomaly-investigation, reasoning-patterns)
+- `agent/prompts/guardrails/` - Compliance rules and output constraints
+
+### Technical Details
+
+#### New Database Tables
+- `competitor_dim` - Competitor definitions
+- `hcp_competitive_signal_fact` - Competitive signals with CPI
+- `competitive_alert_config` - Alert threshold configuration
+- `message_theme_dim` - Messaging theme taxonomy
+- `message_exposure_fact` - HCP message exposure with MSI
+- `msi_benchmark_config` - MSI benchmarks by TA
+- `next_best_orbit_recommendation_fact` - NBO recommendations
+- `nbo_feedback` - Learning loop feedback
+
+#### Test Coverage
+- 795 total tests (189 new for Phase 12)
+- Competitive Storage: 48 tests
+- Competitive Insight Engine: 40 tests
+- Message Saturation: 23 tests
+- Saturation-Aware NBA: 35 tests
+- NBO Engine: 24 tests
+- NBO Learning: 10 tests
+- NBO Routes: 9 tests
+
+#### New Files (~40 files, ~8,000 lines)
+```
+server/storage/
+├── competitive-storage.ts
+├── message-saturation-storage.ts
+└── index.ts
+
+server/services/
+├── competitive-insight-engine.ts
+├── saturation-aware-nba.ts
+├── next-best-orbit-engine.ts
+├── nbo-learning.ts
+└── campaign-planning.ts
+
+client/src/
+├── pages/message-saturation.tsx
+├── pages/NBODashboard.tsx
+├── components/constellation/CompetitiveOrbitRings.tsx
+├── components/constellation/CompetitiveLegend.tsx
+├── components/message-saturation/
+├── components/nbo/
+└── lib/constellation/export.ts
+
+agent/prompts/ (14 markdown files)
+```
+
+---
+
+## [1.11.0] - 2026-01-18
+
+### Phase 11: HCP-Centric Visualization Hierarchy - Complete
 
 This major release reorients the Ecosystem Explorer from channel-centric to HCP-centric, introducing a three-level "Solar System" model where HCPs are the nucleus and channels/campaigns orbit as layers of influence.
 

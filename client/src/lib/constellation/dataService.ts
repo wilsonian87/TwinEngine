@@ -335,3 +335,51 @@ export function formatKPIValue(value: number, format: string): string {
       return value.toLocaleString();
   }
 }
+
+// ============================================================================
+// PHASE 12A: COMPETITIVE ORBIT DATA
+// ============================================================================
+
+import type { CompetitiveOrbitData } from '@shared/schema';
+
+/**
+ * Fetch competitive orbit visualization data from API
+ */
+export async function getCompetitiveOrbitData(): Promise<CompetitiveOrbitData | null> {
+  try {
+    const response = await fetch('/api/competitive/orbit-data', {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      console.warn('[DataService] Failed to fetch competitive orbit data:', response.status);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('[DataService] Error fetching competitive orbit data:', error);
+    return null;
+  }
+}
+
+/**
+ * Seed competitive data (for development/demo)
+ */
+export async function seedCompetitiveData(): Promise<{ success: boolean; competitors?: number; signals?: number }> {
+  try {
+    const response = await fetch('/api/competitive/seed', {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      return { success: false };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('[DataService] Error seeding competitive data:', error);
+    return { success: false };
+  }
+}

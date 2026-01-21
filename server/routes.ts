@@ -2,12 +2,26 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import passport from "passport";
 import { storage } from "./storage";
+import { competitiveStorage } from "./storage/competitive-storage";
+import { messageSaturationStorage } from "./storage/message-saturation-storage";
 import { hashPassword } from "./auth";
 import { requireEnvVar } from "./utils/config";
 import { safeParseLimitOffset, safeParseLimit } from "./utils/validation";
 import { authRateLimiter } from "./middleware/rate-limit";
 import { classifyChannelHealth, classifyCohortChannelHealth, getHealthSummary } from "./services/channel-health";
-import { generateNBA, generateNBAs, prioritizeNBAs, getNBASummary } from "./services/nba-engine";
+import { generateNBA, generateNBAs, prioritizeNBAs, getNBASummary, generateCompetitiveAwareNBA, generateCompetitiveAwareNBAs, prioritizeCompetitiveAwareNBAs, getCompetitiveAwareNBASummary } from "./services/nba-engine";
+import {
+  generateSaturationAwareNBA,
+  generateSaturationAwareNBAs,
+  prioritizeSaturationAwareNBAs,
+  getSaturationAwareNBASummary,
+  generateHcpSaturationWarnings,
+  simulateThemePause,
+  calculateOptimalPauseDuration,
+  getRecommendedThemes,
+  isThemeBlocked,
+} from "./services/saturation-aware-nba";
+import { campaignPlanningService } from "./services/campaign-planning";
 import {
   insertSimulationScenarioSchema,
   hcpFilterSchema,
@@ -58,6 +72,14 @@ import {
   whatIfRequestSchema,
   createExecutionPlanRequestSchema,
   rebalancePlanRequestSchema,
+  // Phase 12A: Competitive schemas
+  createCompetitorRequestSchema,
+  recordCompetitiveSignalRequestSchema,
+  competitiveFilterSchema,
+  createCompetitiveAlertConfigSchema,
+  // Phase 12C.4: NBO Learning schemas
+  recordNBOFeedbackRequestSchema,
+  measureNBOOutcomeRequestSchema,
 } from "@shared/schema";
 import {
   SlackIntegration,
@@ -80,6 +102,8 @@ import {
   approvalWorkflow,
   agentScheduler,
   initializeScheduler,
+  agentExecutor,
+  actionCapabilities,
   type AgentType,
 } from "./services/agents";
 import { constraintManager } from "./services/constraint-manager";
@@ -90,7 +114,23 @@ import { campaignCoordinator } from "./services/campaign-coordinator";
 import { composableSimulation } from "./services/composable-simulation";
 import { portfolioOptimizer } from "./services/portfolio-optimizer";
 import { executionPlanner } from "./services/execution-planner";
-import type { Channel, RebalanceTrigger } from "@shared/schema";
+import { competitiveInsightEngine, competitiveSignalsToCSV, competitiveAlertsToCSV } from "./services/competitive-insight-engine";
+import {
+  generateNBORecommendation,
+  generateBatchNBORecommendations,
+  prioritizeNBORecommendations,
+  type NBOEngineInput,
+} from "./services/next-best-orbit-engine";
+import { nboLearningService } from "./services/nbo-learning";
+import type { Channel, RebalanceTrigger, HcpCompetitiveSummary, MessageSaturationFilter, NBORecommendation } from "@shared/schema";
+import {
+  createMessageThemeRequestSchema,
+  recordMessageExposureRequestSchema,
+  messageSaturationFilterSchema,
+  createMsiBenchmarkRequestSchema,
+  generatePreCampaignReportRequestSchema,
+  saturationExportRequestSchema,
+} from "@shared/schema";
 
 // Helper functions for webhook event mapping
 function mapWebhookEventToOutcomeType(sourceSystem: string, eventType: string): OutcomeType | null {
@@ -676,6 +716,102 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error generating NBA:", error);
       res.status(500).json({ error: "Failed to generate NBA" });
+    }
+  });
+
+  // Phase 12A: Get competitive-aware NBA recommendation for a single HCP
+  app.get("/api/hcps/:id/nba/competitive", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const hcp = await storage.getHcpById(req.params.id);
+      if (!hcp) {
+        return res.status(404).json({ error: "HCP not found" });
+      }
+
+      // Get channel health
+      const channelHealth = classifyChannelHealth(hcp);
+
+      // Get competitive summary
+      const competitiveSummary = await competitiveStorage.getHcpCompetitiveSummary(hcp.id);
+
+      // Generate competitive-aware NBA
+      const nba = generateCompetitiveAwareNBA(hcp, competitiveSummary ?? null, channelHealth);
+
+      // Log NBA generation
+      await storage.logAction({
+        action: "competitive_nba_generated",
+        entityType: "hcp_profile",
+        entityId: hcp.id,
+        details: {
+          recommendedChannel: nba.recommendedChannel,
+          actionType: nba.actionType,
+          urgency: nba.urgency,
+          hasCompetitiveContext: !!nba.competitiveContext,
+          cpi: nba.competitiveContext?.cpi,
+          riskLevel: nba.competitiveContext?.riskLevel,
+        },
+      });
+
+      res.json(nba);
+    } catch (error) {
+      console.error("Error generating competitive-aware NBA:", error);
+      res.status(500).json({ error: "Failed to generate competitive-aware NBA" });
+    }
+  });
+
+  // Phase 12A: Generate competitive-aware NBAs for multiple HCPs (cohort)
+  app.post("/api/nba/generate/competitive", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parseResult = nbaGenerationRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: "Invalid request",
+          details: parseResult.error.errors,
+        });
+      }
+
+      const { hcpIds, prioritize, limit } = parseResult.data;
+
+      // Fetch all HCPs by IDs
+      const allHcps = await storage.getAllHcps();
+      const cohort = allHcps.filter((h) => hcpIds.includes(h.id));
+
+      if (cohort.length === 0) {
+        return res.json({ nbas: [], summary: null });
+      }
+
+      // Fetch competitive summaries for all HCPs
+      const competitiveSummaries = new Map<string, HcpCompetitiveSummary | null>();
+      await Promise.all(
+        cohort.map(async (hcp) => {
+          const summary = await competitiveStorage.getHcpCompetitiveSummary(hcp.id);
+          competitiveSummaries.set(hcp.id, summary ?? null);
+        })
+      );
+
+      // Generate competitive-aware NBAs
+      let nbas = generateCompetitiveAwareNBAs(cohort, competitiveSummaries);
+
+      // Prioritize if requested
+      if (prioritize) {
+        nbas = prioritizeCompetitiveAwareNBAs(nbas, limit, true);
+      } else if (limit) {
+        nbas = nbas.slice(0, limit);
+      }
+
+      const summary = getCompetitiveAwareNBASummary(nbas);
+
+      res.json({ nbas, summary });
+    } catch (error) {
+      console.error("Error generating competitive-aware NBAs:", error);
+      res.status(500).json({ error: "Failed to generate competitive-aware NBAs" });
     }
   });
 
@@ -2253,6 +2389,549 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error getting orchestrator status:", error);
       res.status(500).json({ error: "Failed to get orchestrator status" });
+    }
+  });
+
+  // ============ Agent Executor Endpoints (Phase 12D.3) ============
+
+  // Get all action capabilities
+  app.get("/api/agent-executor/capabilities", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const category = req.query.category as string | undefined;
+
+      if (category) {
+        const capabilities = agentExecutor.getCapabilitiesByCategory(category as any);
+        return res.json(capabilities);
+      }
+
+      res.json(actionCapabilities);
+    } catch (error) {
+      console.error("Error getting action capabilities:", error);
+      res.status(500).json({ error: "Failed to get action capabilities" });
+    }
+  });
+
+  // Get a specific action capability
+  app.get("/api/agent-executor/capabilities/:type", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const capability = agentExecutor.getCapability(req.params.type);
+      if (!capability) {
+        return res.status(404).json({ error: "Action capability not found" });
+      }
+      res.json(capability);
+    } catch (error) {
+      console.error("Error getting action capability:", error);
+      res.status(500).json({ error: "Failed to get action capability" });
+    }
+  });
+
+  // Check if action can be auto-approved
+  app.post("/api/agent-executor/check-auto-approve", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { actionType, affectedEntityCount } = req.body;
+
+      if (!actionType) {
+        return res.status(400).json({ error: "actionType is required" });
+      }
+
+      const canAutoApprove = agentExecutor.canAutoApprove(actionType, affectedEntityCount || 0);
+      const capability = agentExecutor.getCapability(actionType);
+
+      res.json({
+        actionType,
+        canAutoApprove,
+        capability: capability ? {
+          riskLevel: capability.riskLevel,
+          requiresApproval: capability.requiresApproval,
+          maxAffectedEntities: capability.maxAffectedEntities,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Error checking auto-approve:", error);
+      res.status(500).json({ error: "Failed to check auto-approve" });
+    }
+  });
+
+  // Check rate limit for an action type
+  app.get("/api/agent-executor/rate-limit/:type", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const rateCheck = agentExecutor.checkRateLimit(req.params.type);
+      const capability = agentExecutor.getCapability(req.params.type);
+
+      res.json({
+        actionType: req.params.type,
+        ...rateCheck,
+        rateLimitPerHour: capability?.rateLimitPerHour,
+      });
+    } catch (error) {
+      console.error("Error checking rate limit:", error);
+      res.status(500).json({ error: "Failed to check rate limit" });
+    }
+  });
+
+  // Check guardrails for an action
+  app.post("/api/agent-executor/check-guardrails", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { actionId } = req.body;
+
+      if (!actionId) {
+        return res.status(400).json({ error: "actionId is required" });
+      }
+
+      const action = await storage.getAgentAction(actionId);
+      if (!action) {
+        return res.status(404).json({ error: "Agent action not found" });
+      }
+
+      const guardrailCheck = await agentExecutor.checkGuardrails(action);
+      res.json({
+        actionId,
+        ...guardrailCheck,
+      });
+    } catch (error) {
+      console.error("Error checking guardrails:", error);
+      res.status(500).json({ error: "Failed to check guardrails" });
+    }
+  });
+
+  // Execute an approved action
+  app.post("/api/agent-executor/execute/:actionId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const action = await storage.getAgentAction(req.params.actionId);
+      if (!action) {
+        return res.status(404).json({ error: "Agent action not found" });
+      }
+
+      // Only allow execution of approved or auto_approved actions
+      if (action.status !== "approved" && action.status !== "auto_approved") {
+        return res.status(400).json({
+          error: `Cannot execute action with status '${action.status}'. Action must be approved first.`
+        });
+      }
+
+      const userId = req.user?.username || "unknown";
+      const result = await agentExecutor.execute(action, userId);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error executing action:", error);
+      res.status(500).json({ error: "Failed to execute action" });
+    }
+  });
+
+  // Batch execute approved actions
+  app.post("/api/agent-executor/execute-batch", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { actionIds } = req.body;
+
+      if (!actionIds || !Array.isArray(actionIds) || actionIds.length === 0) {
+        return res.status(400).json({ error: "actionIds array is required" });
+      }
+
+      const userId = req.user?.username || "unknown";
+      const results = [];
+
+      for (const actionId of actionIds) {
+        const action = await storage.getAgentAction(actionId);
+        if (!action) {
+          results.push({ actionId, success: false, error: "Action not found" });
+          continue;
+        }
+
+        if (action.status !== "approved" && action.status !== "auto_approved") {
+          results.push({
+            actionId,
+            success: false,
+            error: `Cannot execute action with status '${action.status}'`
+          });
+          continue;
+        }
+
+        const result = await agentExecutor.execute(action, userId);
+        results.push(result);
+      }
+
+      res.json({
+        total: actionIds.length,
+        successful: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length,
+        results,
+      });
+    } catch (error) {
+      console.error("Error batch executing actions:", error);
+      res.status(500).json({ error: "Failed to batch execute actions" });
+    }
+  });
+
+  // ============ Prompt Analytics Endpoints (Phase 12D.4) ============
+
+  // Track prompt usage
+  app.post("/api/prompt-analytics/usage", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { context, metrics } = req.body;
+
+      if (!context?.promptId || !context?.promptVersion || !context?.promptType) {
+        return res.status(400).json({ error: "Missing required context fields" });
+      }
+
+      if (metrics?.responseTimeMs === undefined || metrics?.wasSuccessful === undefined) {
+        return res.status(400).json({ error: "Missing required metrics fields" });
+      }
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const usageId = await promptAnalytics.trackUsage(context, metrics);
+
+      res.json({ usageId });
+    } catch (error) {
+      console.error("Error tracking prompt usage:", error);
+      res.status(500).json({ error: "Failed to track prompt usage" });
+    }
+  });
+
+  // Get usage statistics for a prompt
+  app.get("/api/prompt-analytics/usage/stats/:promptId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { promptId } = req.params;
+      const { version, startDate, endDate } = req.query;
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const stats = await promptAnalytics.getUsageStats(promptId, {
+        version: version as string | undefined,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+      });
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching usage stats:", error);
+      res.status(500).json({ error: "Failed to fetch usage stats" });
+    }
+  });
+
+  // Update satisfaction score for a usage event
+  app.patch("/api/prompt-analytics/usage/:usageId/satisfaction", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { usageId } = req.params;
+      const { score } = req.body;
+
+      if (typeof score !== "number" || score < 1 || score > 5) {
+        return res.status(400).json({ error: "Score must be a number between 1 and 5" });
+      }
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      await promptAnalytics.updateSatisfaction(usageId, score);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating satisfaction:", error);
+      res.status(500).json({ error: "Failed to update satisfaction" });
+    }
+  });
+
+  // Record a correction
+  app.post("/api/prompt-analytics/corrections", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const submission = req.body;
+
+      if (!submission.promptId || !submission.promptVersion || !submission.correctionType || !submission.severity) {
+        return res.status(400).json({ error: "Missing required correction fields" });
+      }
+
+      // Set correctedBy from authenticated user if not provided
+      if (!submission.correctedBy) {
+        submission.correctedBy = req.user?.id || "unknown";
+      }
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const correctionId = await promptAnalytics.recordCorrection(submission);
+
+      res.json({ correctionId });
+    } catch (error) {
+      console.error("Error recording correction:", error);
+      res.status(500).json({ error: "Failed to record correction" });
+    }
+  });
+
+  // Get corrections for a prompt
+  app.get("/api/prompt-analytics/corrections/:promptId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { promptId } = req.params;
+      const { status, limit } = req.query;
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const corrections = await promptAnalytics.getCorrections(promptId, {
+        status: status as string | undefined,
+        limit: limit ? parseInt(limit as string, 10) : undefined,
+      });
+
+      res.json(corrections);
+    } catch (error) {
+      console.error("Error fetching corrections:", error);
+      res.status(500).json({ error: "Failed to fetch corrections" });
+    }
+  });
+
+  // Get correction summary for improvement pipeline
+  app.get("/api/prompt-analytics/corrections/:promptId/summary", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { promptId } = req.params;
+      const { version } = req.query;
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const summary = await promptAnalytics.getCorrectionSummary(promptId, version as string | undefined);
+
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching correction summary:", error);
+      res.status(500).json({ error: "Failed to fetch correction summary" });
+    }
+  });
+
+  // Review a correction
+  app.post("/api/prompt-analytics/corrections/:correctionId/review", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { correctionId } = req.params;
+      const { status, notes } = req.body;
+
+      if (!["reviewed", "incorporated", "dismissed"].includes(status)) {
+        return res.status(400).json({ error: "Invalid status. Must be: reviewed, incorporated, or dismissed" });
+      }
+
+      const reviewedBy = req.user?.id || "unknown";
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      await promptAnalytics.reviewCorrection(correctionId, reviewedBy, status, notes);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error reviewing correction:", error);
+      res.status(500).json({ error: "Failed to review correction" });
+    }
+  });
+
+  // Create an A/B test
+  app.post("/api/prompt-analytics/ab-tests", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const config = req.body;
+
+      if (!config.name || !config.basePromptId || !config.variantPromptId || !config.primaryMetric) {
+        return res.status(400).json({ error: "Missing required A/B test configuration fields" });
+      }
+
+      // Set createdBy from authenticated user
+      config.createdBy = req.user?.id || "unknown";
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const testId = await promptAnalytics.createAbTest(config);
+
+      res.json({ testId });
+    } catch (error) {
+      console.error("Error creating A/B test:", error);
+      res.status(500).json({ error: "Failed to create A/B test" });
+    }
+  });
+
+  // List A/B tests
+  app.get("/api/prompt-analytics/ab-tests", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { status, limit } = req.query;
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const tests = await promptAnalytics.listAbTests({
+        status: status as any,
+        limit: limit ? parseInt(limit as string, 10) : undefined,
+      });
+
+      res.json(tests);
+    } catch (error) {
+      console.error("Error listing A/B tests:", error);
+      res.status(500).json({ error: "Failed to list A/B tests" });
+    }
+  });
+
+  // Get A/B test by ID
+  app.get("/api/prompt-analytics/ab-tests/:testId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { testId } = req.params;
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const test = await promptAnalytics.getAbTest(testId);
+
+      if (!test) {
+        return res.status(404).json({ error: "A/B test not found" });
+      }
+
+      res.json(test);
+    } catch (error) {
+      console.error("Error fetching A/B test:", error);
+      res.status(500).json({ error: "Failed to fetch A/B test" });
+    }
+  });
+
+  // Get A/B test results
+  app.get("/api/prompt-analytics/ab-tests/:testId/results", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { testId } = req.params;
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const results = await promptAnalytics.getAbTestResults(testId);
+
+      if (!results) {
+        return res.status(404).json({ error: "A/B test not found" });
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error fetching A/B test results:", error);
+      res.status(500).json({ error: "Failed to fetch A/B test results" });
+    }
+  });
+
+  // Start an A/B test
+  app.post("/api/prompt-analytics/ab-tests/:testId/start", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { testId } = req.params;
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      await promptAnalytics.startAbTest(testId);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error starting A/B test:", error);
+      res.status(500).json({ error: "Failed to start A/B test" });
+    }
+  });
+
+  // End an A/B test
+  app.post("/api/prompt-analytics/ab-tests/:testId/end", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { testId } = req.params;
+      const { winner, rationale } = req.body;
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      await promptAnalytics.endAbTest(testId, winner, rationale);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error ending A/B test:", error);
+      res.status(500).json({ error: "Failed to end A/B test" });
+    }
+  });
+
+  // Assign user to A/B test group
+  app.get("/api/prompt-analytics/ab-tests/:testId/assign", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { testId } = req.params;
+      const userId = req.user?.id || "unknown";
+
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const group = promptAnalytics.assignAbTestGroup(testId, userId);
+
+      res.json({ group });
+    } catch (error) {
+      console.error("Error assigning A/B test group:", error);
+      res.status(500).json({ error: "Failed to assign A/B test group" });
+    }
+  });
+
+  // Get prompt health dashboard
+  app.get("/api/prompt-analytics/health", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { promptAnalytics } = await import("./services/agents/prompt-analytics");
+      const dashboard = await promptAnalytics.getHealthDashboard();
+
+      res.json(dashboard);
+    } catch (error) {
+      console.error("Error fetching health dashboard:", error);
+      res.status(500).json({ error: "Failed to fetch health dashboard" });
     }
   });
 
@@ -4615,6 +5294,1740 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error rebalancing plan:", error);
       res.status(500).json({ error: "Failed to rebalance plan" });
+    }
+  });
+
+  // ============================================================================
+  // PHASE 12A: COMPETITIVE ORBIT ENDPOINTS
+  // ============================================================================
+
+  // Get all competitors
+  app.get("/api/competitors", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const activeOnly = req.query.activeOnly !== "false";
+      const competitors = await competitiveStorage.getAllCompetitors(activeOnly);
+      res.json(competitors);
+    } catch (error) {
+      console.error("Error fetching competitors:", error);
+      res.status(500).json({ error: "Failed to fetch competitors" });
+    }
+  });
+
+  // Get competitor by ID
+  app.get("/api/competitors/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const competitor = await competitiveStorage.getCompetitorById(req.params.id);
+      if (!competitor) {
+        return res.status(404).json({ error: "Competitor not found" });
+      }
+      res.json(competitor);
+    } catch (error) {
+      console.error("Error fetching competitor:", error);
+      res.status(500).json({ error: "Failed to fetch competitor" });
+    }
+  });
+
+  // Create competitor
+  app.post("/api/competitors", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = createCompetitorRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+      const competitor = await competitiveStorage.createCompetitor(parsed.data);
+      res.status(201).json(competitor);
+    } catch (error) {
+      console.error("Error creating competitor:", error);
+      res.status(500).json({ error: "Failed to create competitor" });
+    }
+  });
+
+  // Get competitive orbit visualization data
+  app.get("/api/competitive/orbit-data", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const orbitData = await competitiveStorage.getCompetitiveOrbitData();
+      res.json(orbitData);
+    } catch (error) {
+      console.error("Error fetching competitive orbit data:", error);
+      res.status(500).json({ error: "Failed to fetch competitive orbit data" });
+    }
+  });
+
+  // Get competitive signals for an HCP
+  app.get("/api/hcps/:id/competitive-signals", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const signals = await competitiveStorage.getCompetitiveSignalsForHcp(req.params.id);
+      res.json(signals);
+    } catch (error) {
+      console.error("Error fetching competitive signals:", error);
+      res.status(500).json({ error: "Failed to fetch competitive signals" });
+    }
+  });
+
+  // Get HCP competitive summary (aggregated)
+  app.get("/api/hcps/:id/competitive-summary", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const summary = await competitiveStorage.getHcpCompetitiveSummary(req.params.id);
+      if (!summary) {
+        return res.status(404).json({ error: "HCP not found" });
+      }
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching competitive summary:", error);
+      res.status(500).json({ error: "Failed to fetch competitive summary" });
+    }
+  });
+
+  // Record competitive signal
+  app.post("/api/competitive/signals", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = recordCompetitiveSignalRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const signal = await competitiveStorage.recordCompetitiveSignal({
+        ...parsed.data,
+        measurementDate: parsed.data.measurementDate ? new Date(parsed.data.measurementDate) : new Date(),
+      });
+      res.status(201).json(signal);
+    } catch (error) {
+      console.error("Error recording competitive signal:", error);
+      res.status(500).json({ error: "Failed to record competitive signal" });
+    }
+  });
+
+  // Filter competitive signals
+  app.post("/api/competitive/signals/filter", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = competitiveFilterSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const signals = await competitiveStorage.getCompetitiveSignalsByFilter(parsed.data);
+      res.json(signals);
+    } catch (error) {
+      console.error("Error filtering competitive signals:", error);
+      res.status(500).json({ error: "Failed to filter competitive signals" });
+    }
+  });
+
+  // Seed competitive data (for development/demo)
+  app.post("/api/competitive/seed", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const result = await competitiveStorage.seedCompetitorData();
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Error seeding competitive data:", error);
+      res.status(500).json({ error: "Failed to seed competitive data" });
+    }
+  });
+
+  // ============================================================================
+  // Phase 12A: Competitive Insight Engine Endpoints
+  // ============================================================================
+
+  // Generate competitive alerts for an HCP
+  app.get("/api/hcps/:id/competitive-alerts", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const hcpId = req.params.id;
+      const engagementTrend = req.query.engagementTrend as "improving" | "stable" | "declining" | undefined;
+
+      const summary = await competitiveStorage.getHcpCompetitiveSummary(hcpId);
+      if (!summary || summary.signals.length === 0) {
+        return res.json({ alerts: [], message: "No competitive data for this HCP" });
+      }
+
+      const alerts = competitiveInsightEngine.generateAlertsForHcp(summary, engagementTrend);
+      res.json({ alerts, hcpId, totalAlerts: alerts.length });
+    } catch (error) {
+      console.error("Error generating competitive alerts:", error);
+      res.status(500).json({ error: "Failed to generate competitive alerts" });
+    }
+  });
+
+  // Get competitive flag for an HCP
+  app.get("/api/hcps/:id/competitive-flag", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const hcpId = req.params.id;
+      const engagementTrend = req.query.engagementTrend as "improving" | "stable" | "declining" | undefined;
+
+      const summary = await competitiveStorage.getHcpCompetitiveSummary(hcpId);
+      if (!summary || summary.signals.length === 0) {
+        return res.json({ flag: null, message: "No competitive data for this HCP" });
+      }
+
+      const flag = competitiveInsightEngine.getCompetitiveFlag(summary, engagementTrend);
+      res.json({ flag, hcpId, overallCpi: summary.overallCpi, riskLevel: summary.riskLevel });
+    } catch (error) {
+      console.error("Error getting competitive flag:", error);
+      res.status(500).json({ error: "Failed to get competitive flag" });
+    }
+  });
+
+  // Get NBA competitive adjustment for an HCP
+  app.get("/api/hcps/:id/competitive-nba-adjustment", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const hcpId = req.params.id;
+
+      const summary = await competitiveStorage.getHcpCompetitiveSummary(hcpId);
+      if (!summary || summary.signals.length === 0) {
+        return res.json({
+          adjustment: { urgencyBoost: 0, confidenceAdjustment: 0 },
+          message: "No competitive data for this HCP",
+        });
+      }
+
+      const adjustment = competitiveInsightEngine.getNBACompetitiveAdjustment(summary);
+      res.json({ adjustment, hcpId, overallCpi: summary.overallCpi });
+    } catch (error) {
+      console.error("Error getting NBA competitive adjustment:", error);
+      res.status(500).json({ error: "Failed to get NBA competitive adjustment" });
+    }
+  });
+
+  // Get portfolio-level competitive insights
+  app.get("/api/competitive/portfolio-insights", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const insights = await competitiveInsightEngine.generatePortfolioInsights();
+      res.json(insights);
+    } catch (error) {
+      console.error("Error generating portfolio insights:", error);
+      res.status(500).json({ error: "Failed to generate portfolio insights" });
+    }
+  });
+
+  // Export competitive signals as CSV
+  app.get("/api/competitive/export/signals", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const signals = await competitiveStorage.getCompetitiveSignalsByFilter({});
+      const csv = competitiveSignalsToCSV(signals);
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=competitive-signals.csv");
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting competitive signals:", error);
+      res.status(500).json({ error: "Failed to export competitive signals" });
+    }
+  });
+
+  // Export competitive alerts as CSV for a specific HCP
+  app.get("/api/competitive/export/alerts/:hcpId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const hcpId = req.params.hcpId;
+      const summary = await competitiveStorage.getHcpCompetitiveSummary(hcpId);
+
+      if (!summary || summary.signals.length === 0) {
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader("Content-Disposition", `attachment; filename=competitive-alerts-${hcpId}.csv`);
+        return res.send("No competitive data for this HCP");
+      }
+
+      const alerts = competitiveInsightEngine.generateAlertsForHcp(summary);
+      const csv = competitiveAlertsToCSV(alerts);
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=competitive-alerts-${hcpId}.csv`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting competitive alerts:", error);
+      res.status(500).json({ error: "Failed to export competitive alerts" });
+    }
+  });
+
+  // Export all portfolio alerts as CSV
+  app.get("/api/competitive/export/portfolio-alerts", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      // Get all HCPs with competitive data
+      const orbitData = await competitiveStorage.getCompetitiveOrbitData();
+      if (!orbitData) {
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader("Content-Disposition", "attachment; filename=portfolio-alerts.csv");
+        return res.send("No competitive data available");
+      }
+
+      // Generate alerts for all HCPs with signals
+      const allSignals = await competitiveStorage.getCompetitiveSignalsByFilter({});
+
+      // Group signals by HCP
+      const hcpSignalMap = new Map<string, typeof allSignals>();
+      for (const signal of allSignals) {
+        const existing = hcpSignalMap.get(signal.hcpId) || [];
+        existing.push(signal);
+        hcpSignalMap.set(signal.hcpId, existing);
+      }
+
+      // Generate alerts for each HCP
+      const allAlerts: Awaited<ReturnType<typeof competitiveInsightEngine.generateAlertsForHcp>> = [];
+      for (const [hcpId] of Array.from(hcpSignalMap.entries())) {
+        const summary = await competitiveStorage.getHcpCompetitiveSummary(hcpId);
+        if (summary) {
+          const alerts = competitiveInsightEngine.generateAlertsForHcp(summary);
+          allAlerts.push(...alerts);
+        }
+      }
+
+      const csv = competitiveAlertsToCSV(allAlerts);
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=portfolio-alerts.csv");
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting portfolio alerts:", error);
+      res.status(500).json({ error: "Failed to export portfolio alerts" });
+    }
+  });
+
+  // ============================================================================
+  // Phase 12A.4: TA-Specific Filtering & Governance
+  // ============================================================================
+
+  // Get therapeutic area summary (competitor counts by TA)
+  app.get("/api/competitive/therapeutic-areas", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const summary = await competitiveStorage.getTherapeuticAreaSummary();
+      res.json({ therapeuticAreas: summary, total: summary.length });
+    } catch (error) {
+      console.error("Error getting therapeutic area summary:", error);
+      res.status(500).json({ error: "Failed to get therapeutic area summary" });
+    }
+  });
+
+  // Get competitors by therapeutic area
+  app.get("/api/competitive/by-ta/:therapeuticArea/competitors", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { therapeuticArea } = req.params;
+      const activeOnly = req.query.activeOnly !== "false";
+      const competitors = await competitiveStorage.getCompetitorsByTherapeuticArea(therapeuticArea, activeOnly);
+      res.json({ competitors, therapeuticArea, total: competitors.length });
+    } catch (error) {
+      console.error("Error getting competitors by TA:", error);
+      res.status(500).json({ error: "Failed to get competitors by therapeutic area" });
+    }
+  });
+
+  // Get competitive signals by therapeutic area
+  app.get("/api/competitive/by-ta/:therapeuticArea/signals", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { therapeuticArea } = req.params;
+      const minCpi = req.query.minCpi ? parseFloat(req.query.minCpi as string) : undefined;
+      const maxCpi = req.query.maxCpi ? parseFloat(req.query.maxCpi as string) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 500;
+
+      const signals = await competitiveStorage.getCompetitiveSignalsByTherapeuticArea(therapeuticArea, {
+        minCpi,
+        maxCpi,
+        limit,
+      });
+
+      res.json({ signals, therapeuticArea, total: signals.length });
+    } catch (error) {
+      console.error("Error getting signals by TA:", error);
+      res.status(500).json({ error: "Failed to get competitive signals by therapeutic area" });
+    }
+  });
+
+  // Get competitive orbit data by therapeutic area
+  app.get("/api/competitive/by-ta/:therapeuticArea/orbit-data", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { therapeuticArea } = req.params;
+      const orbitData = await competitiveStorage.getCompetitiveOrbitDataByTA(therapeuticArea);
+      res.json({ ...orbitData, therapeuticArea });
+    } catch (error) {
+      console.error("Error getting orbit data by TA:", error);
+      res.status(500).json({ error: "Failed to get competitive orbit data by therapeutic area" });
+    }
+  });
+
+  // Get alert thresholds configuration
+  app.get("/api/competitive/config/thresholds", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    // Return the default thresholds from the insight engine
+    // In a production system, these would be stored in the database
+    res.json({
+      thresholds: {
+        criticalCpi: 75,
+        warningCpi: 50,
+        cpiTrendThreshold: 10,
+        engagementAsymmetryThreshold: 20,
+        shareErosionThreshold: 5,
+      },
+      description: {
+        criticalCpi: "CPI above this value triggers critical alerts",
+        warningCpi: "CPI above this value triggers warning alerts",
+        cpiTrendThreshold: "QoQ change percentage that triggers trending alerts",
+        engagementAsymmetryThreshold: "Engagement score difference that triggers alerts",
+        shareErosionThreshold: "Share loss percentage that triggers erosion alerts",
+      },
+    });
+  });
+
+  // Export competitive signals by therapeutic area as CSV
+  app.get("/api/competitive/export/by-ta/:therapeuticArea/signals", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { therapeuticArea } = req.params;
+      const signals = await competitiveStorage.getCompetitiveSignalsByTherapeuticArea(therapeuticArea);
+      const csv = competitiveSignalsToCSV(signals);
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename=competitive-signals-${therapeuticArea.toLowerCase().replace(/\s+/g, "-")}.csv`);
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting signals by TA:", error);
+      res.status(500).json({ error: "Failed to export competitive signals by therapeutic area" });
+    }
+  });
+
+  // ============================================================================
+  // Phase 12A.3: Competitive Alert Configuration Endpoints
+  // ============================================================================
+
+  // Get all alert configurations
+  app.get("/api/competitive/alert-configs", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const activeOnly = req.query.activeOnly === "true";
+      const configs = await competitiveStorage.getAllAlertConfigs(activeOnly);
+      res.json({ configs, total: configs.length });
+    } catch (error) {
+      console.error("Error getting alert configs:", error);
+      res.status(500).json({ error: "Failed to get alert configurations" });
+    }
+  });
+
+  // Get alert configuration by ID
+  app.get("/api/competitive/alert-configs/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const config = await competitiveStorage.getAlertConfigById(req.params.id);
+      if (!config) {
+        return res.status(404).json({ error: "Alert configuration not found" });
+      }
+      res.json(config);
+    } catch (error) {
+      console.error("Error getting alert config:", error);
+      res.status(500).json({ error: "Failed to get alert configuration" });
+    }
+  });
+
+  // Create a new alert configuration
+  app.post("/api/competitive/alert-configs", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = createCompetitiveAlertConfigSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const config = await competitiveStorage.createAlertConfig(parsed.data);
+      res.status(201).json(config);
+    } catch (error) {
+      console.error("Error creating alert config:", error);
+      res.status(500).json({ error: "Failed to create alert configuration" });
+    }
+  });
+
+  // Update an alert configuration
+  app.patch("/api/competitive/alert-configs/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = createCompetitiveAlertConfigSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const config = await competitiveStorage.updateAlertConfig(req.params.id, parsed.data);
+      if (!config) {
+        return res.status(404).json({ error: "Alert configuration not found" });
+      }
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating alert config:", error);
+      res.status(500).json({ error: "Failed to update alert configuration" });
+    }
+  });
+
+  // Delete an alert configuration
+  app.delete("/api/competitive/alert-configs/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const deleted = await competitiveStorage.deleteAlertConfig(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Alert configuration not found" });
+      }
+      res.json({ success: true, message: "Alert configuration deleted" });
+    } catch (error) {
+      console.error("Error deleting alert config:", error);
+      res.status(500).json({ error: "Failed to delete alert configuration" });
+    }
+  });
+
+  // Resolve alert thresholds for a given context
+  app.get("/api/competitive/resolve-thresholds", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const therapeuticArea = req.query.therapeuticArea as string | undefined;
+      const competitorId = req.query.competitorId as string | undefined;
+      const thresholds = await competitiveStorage.resolveAlertThresholds(therapeuticArea, competitorId);
+      res.json(thresholds);
+    } catch (error) {
+      console.error("Error resolving thresholds:", error);
+      res.status(500).json({ error: "Failed to resolve alert thresholds" });
+    }
+  });
+
+  // Generate alerts with configurable thresholds
+  app.get("/api/hcps/:id/competitive-alerts/configurable", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const summary = await competitiveStorage.getHcpCompetitiveSummary(req.params.id);
+      if (!summary) {
+        return res.status(404).json({ error: "HCP competitive summary not found" });
+      }
+
+      const engagementTrend = req.query.engagementTrend as "improving" | "stable" | "declining" | undefined;
+      const therapeuticArea = req.query.therapeuticArea as string | undefined;
+      const competitorId = req.query.competitorId as string | undefined;
+
+      const result = await competitiveInsightEngine.generateAlertsWithConfigurableThresholds(
+        summary,
+        engagementTrend,
+        therapeuticArea,
+        competitorId
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating configurable alerts:", error);
+      res.status(500).json({ error: "Failed to generate alerts with configurable thresholds" });
+    }
+  });
+
+  // Get alert configs by therapeutic area
+  app.get("/api/competitive/alert-configs/by-ta/:therapeuticArea", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const configs = await competitiveStorage.getAlertConfigsByTherapeuticArea(req.params.therapeuticArea);
+      res.json({ configs, total: configs.length });
+    } catch (error) {
+      console.error("Error getting alert configs by TA:", error);
+      res.status(500).json({ error: "Failed to get alert configurations by therapeutic area" });
+    }
+  });
+
+  // ============================================================================
+  // Phase 12A.4: Competitive Governance Endpoints
+  // ============================================================================
+
+  // Get competitive audit trail
+  app.get("/api/competitive/governance/audit-trail", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const options: {
+        entityType?: string;
+        entityId?: string;
+        action?: string;
+        startDate?: Date;
+        endDate?: Date;
+        limit?: number;
+      } = {};
+
+      if (req.query.entityType) options.entityType = req.query.entityType as string;
+      if (req.query.entityId) options.entityId = req.query.entityId as string;
+      if (req.query.action) options.action = req.query.action as string;
+      if (req.query.startDate) options.startDate = new Date(req.query.startDate as string);
+      if (req.query.endDate) options.endDate = new Date(req.query.endDate as string);
+      if (req.query.limit) options.limit = parseInt(req.query.limit as string, 10);
+
+      const auditTrail = await competitiveStorage.getCompetitiveAuditTrail(options);
+      res.json({ auditTrail, total: auditTrail.length });
+    } catch (error) {
+      console.error("Error getting competitive audit trail:", error);
+      res.status(500).json({ error: "Failed to get competitive audit trail" });
+    }
+  });
+
+  // Get governance summary
+  app.get("/api/competitive/governance/summary", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const summary = await competitiveStorage.getGovernanceSummary();
+      res.json(summary);
+    } catch (error) {
+      console.error("Error getting governance summary:", error);
+      res.status(500).json({ error: "Failed to get governance summary" });
+    }
+  });
+
+  // Log a competitive claim review
+  app.post("/api/competitive/governance/review", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { claimType, entityId, reviewAction, reviewNotes } = req.body;
+
+      if (!claimType || !entityId || !reviewAction) {
+        return res.status(400).json({
+          error: "Missing required fields: claimType, entityId, reviewAction",
+        });
+      }
+
+      const validClaimTypes = ["cpi_threshold", "alert_generated", "signal_recorded"];
+      const validReviewActions = ["approved", "rejected", "modified"];
+
+      if (!validClaimTypes.includes(claimType)) {
+        return res.status(400).json({
+          error: `Invalid claimType. Must be one of: ${validClaimTypes.join(", ")}`,
+        });
+      }
+
+      if (!validReviewActions.includes(reviewAction)) {
+        return res.status(400).json({
+          error: `Invalid reviewAction. Must be one of: ${validReviewActions.join(", ")}`,
+        });
+      }
+
+      const userId = (req.user as any)?.id;
+      await competitiveStorage.logClaimReview(
+        claimType,
+        entityId,
+        reviewAction,
+        reviewNotes,
+        userId
+      );
+
+      res.json({ success: true, message: "Review logged successfully" });
+    } catch (error) {
+      console.error("Error logging claim review:", error);
+      res.status(500).json({ error: "Failed to log claim review" });
+    }
+  });
+
+  // Get therapeutic area summary (for governance UI)
+  app.get("/api/competitive/therapeutic-areas/summary", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const summary = await competitiveStorage.getTherapeuticAreaSummary();
+      res.json({ therapeuticAreas: summary });
+    } catch (error) {
+      console.error("Error getting therapeutic area summary:", error);
+      res.status(500).json({ error: "Failed to get therapeutic area summary" });
+    }
+  });
+
+  // ============================================================================
+  // Phase 12B: Message Saturation Index (MSI) Endpoints
+  // ============================================================================
+
+  // Get all message themes
+  app.get("/api/message-themes", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const activeOnly = req.query.activeOnly !== "false";
+      const themes = await messageSaturationStorage.getAllMessageThemes(activeOnly);
+      res.json({ themes, total: themes.length });
+    } catch (error) {
+      console.error("Error getting message themes:", error);
+      res.status(500).json({ error: "Failed to get message themes" });
+    }
+  });
+
+  // Get message theme by ID
+  app.get("/api/message-themes/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const theme = await messageSaturationStorage.getMessageThemeById(req.params.id);
+      if (!theme) {
+        return res.status(404).json({ error: "Message theme not found" });
+      }
+      res.json(theme);
+    } catch (error) {
+      console.error("Error getting message theme:", error);
+      res.status(500).json({ error: "Failed to get message theme" });
+    }
+  });
+
+  // Create a new message theme
+  app.post("/api/message-themes", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = createMessageThemeRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const theme = await messageSaturationStorage.createMessageTheme(parsed.data);
+      res.status(201).json(theme);
+    } catch (error) {
+      console.error("Error creating message theme:", error);
+      res.status(500).json({ error: "Failed to create message theme" });
+    }
+  });
+
+  // Get message themes by category
+  app.get("/api/message-themes/category/:category", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const themes = await messageSaturationStorage.getMessageThemesByCategory(req.params.category);
+      res.json({ themes, total: themes.length });
+    } catch (error) {
+      console.error("Error getting message themes by category:", error);
+      res.status(500).json({ error: "Failed to get message themes" });
+    }
+  });
+
+  // Record message exposure for an HCP
+  app.post("/api/message-exposures", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = recordMessageExposureRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const exposure = await messageSaturationStorage.recordMessageExposure(parsed.data);
+      res.status(201).json(exposure);
+    } catch (error) {
+      console.error("Error recording message exposure:", error);
+      res.status(500).json({ error: "Failed to record message exposure" });
+    }
+  });
+
+  // Get message exposures for an HCP
+  app.get("/api/hcps/:id/message-exposures", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const exposures = await messageSaturationStorage.getHcpMessageExposures(req.params.id);
+      res.json({ exposures, total: exposures.length });
+    } catch (error) {
+      console.error("Error getting HCP message exposures:", error);
+      res.status(500).json({ error: "Failed to get message exposures" });
+    }
+  });
+
+  // Get message saturation summary for an HCP
+  app.get("/api/hcps/:id/message-saturation-summary", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const summary = await messageSaturationStorage.getHcpMessageSaturationSummary(req.params.id);
+      if (!summary) {
+        return res.json({ summary: null, message: "No message exposure data for this HCP" });
+      }
+      res.json({ summary });
+    } catch (error) {
+      console.error("Error getting HCP message saturation summary:", error);
+      res.status(500).json({ error: "Failed to get message saturation summary" });
+    }
+  });
+
+  // Filter message exposures
+  app.post("/api/message-exposures/filter", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = messageSaturationFilterSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid filter", details: parsed.error.errors });
+      }
+
+      const exposures = await messageSaturationStorage.getMessageExposuresByFilter(parsed.data);
+      res.json({ exposures, total: exposures.length });
+    } catch (error) {
+      console.error("Error filtering message exposures:", error);
+      res.status(500).json({ error: "Failed to filter message exposures" });
+    }
+  });
+
+  // Get message saturation heatmap data (for visualization)
+  app.get("/api/message-saturation/heatmap-data", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const heatmapData = await messageSaturationStorage.getMessageSaturationHeatmapData();
+      res.json(heatmapData);
+    } catch (error) {
+      console.error("Error getting message saturation heatmap data:", error);
+      res.status(500).json({ error: "Failed to get heatmap data" });
+    }
+  });
+
+  // Seed message saturation data (for development/demo)
+  app.post("/api/message-saturation/seed", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const result = await messageSaturationStorage.seedMessageSaturationData();
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Error seeding message saturation data:", error);
+      res.status(500).json({ error: "Failed to seed message saturation data" });
+    }
+  });
+
+  // ============================================================================
+  // PHASE 12B.3: SATURATION-AWARE NBA ENDPOINTS
+  // ============================================================================
+
+  // Generate saturation-aware NBA for a single HCP
+  app.get("/api/hcps/:id/saturation-aware-nba", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const hcpId = req.params.id;
+      const hcp = await storage.getHcpById(hcpId);
+      if (!hcp) {
+        return res.status(404).json({ error: "HCP not found" });
+      }
+
+      const saturationSummary = await messageSaturationStorage.getHcpMessageSaturationSummary(hcpId);
+      const allThemes = await messageSaturationStorage.getAllMessageThemes(true);
+
+      const nba = generateSaturationAwareNBA(hcp, saturationSummary || null, allThemes);
+      res.json(nba);
+    } catch (error) {
+      console.error("Error generating saturation-aware NBA:", error);
+      res.status(500).json({ error: "Failed to generate saturation-aware NBA" });
+    }
+  });
+
+  // Generate saturation-aware NBAs for multiple HCPs
+  app.post("/api/nbas/saturation-aware", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { hcpIds, limit, prioritizeLowSaturation = true } = req.body;
+
+      // Get HCPs
+      let hcps;
+      if (hcpIds && hcpIds.length > 0) {
+        hcps = await Promise.all(hcpIds.map((id: string) => storage.getHcpById(id)));
+        hcps = hcps.filter(Boolean);
+      } else {
+        const allHcps = await storage.getAllHcps();
+        hcps = allHcps.slice(0, 100); // Limit to 100 for performance
+      }
+
+      // Get saturation summaries for all HCPs
+      const saturationSummaries = new Map<string, any>();
+      for (const hcp of hcps) {
+        const summary = await messageSaturationStorage.getHcpMessageSaturationSummary(hcp.id);
+        saturationSummaries.set(hcp.id, summary || null);
+      }
+
+      // Get all themes
+      const allThemes = await messageSaturationStorage.getAllMessageThemes(true);
+
+      // Generate NBAs
+      const nbas = generateSaturationAwareNBAs(hcps, saturationSummaries, allThemes);
+      const prioritized = prioritizeSaturationAwareNBAs(nbas, limit, prioritizeLowSaturation);
+      const summary = getSaturationAwareNBASummary(prioritized);
+
+      res.json({
+        nbas: prioritized,
+        summary,
+      });
+    } catch (error) {
+      console.error("Error generating saturation-aware NBAs:", error);
+      res.status(500).json({ error: "Failed to generate saturation-aware NBAs" });
+    }
+  });
+
+  // Get saturation warnings for an HCP
+  app.get("/api/hcps/:id/saturation-warnings", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const hcpId = req.params.id;
+      const exposures = await messageSaturationStorage.getHcpMessageExposures(hcpId);
+      const warnings = generateHcpSaturationWarnings(exposures);
+
+      res.json({
+        hcpId,
+        warnings,
+        summary: {
+          total: warnings.length,
+          critical: warnings.filter((w) => w.severity === "critical").length,
+          warning: warnings.filter((w) => w.severity === "warning").length,
+          info: warnings.filter((w) => w.severity === "info").length,
+        },
+      });
+    } catch (error) {
+      console.error("Error getting saturation warnings:", error);
+      res.status(500).json({ error: "Failed to get saturation warnings" });
+    }
+  });
+
+  // Simulate theme pause for an HCP
+  app.post("/api/hcps/:id/simulate-theme-pause", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const hcpId = req.params.id;
+      const { themeId, pauseDays = 30 } = req.body;
+
+      if (!themeId) {
+        return res.status(400).json({ error: "themeId is required" });
+      }
+
+      // Get the exposure for this HCP-theme combination
+      const exposures = await messageSaturationStorage.getHcpMessageExposures(hcpId);
+      const exposure = exposures.find((e) => e.messageThemeId === themeId);
+
+      if (!exposure) {
+        return res.status(404).json({ error: "No exposure found for this HCP-theme combination" });
+      }
+
+      const simulation = simulateThemePause(exposure, pauseDays);
+      const optimalDays = calculateOptimalPauseDuration(exposure.msi ?? 0);
+
+      res.json({
+        simulation,
+        optimalPauseDays: optimalDays,
+      });
+    } catch (error) {
+      console.error("Error simulating theme pause:", error);
+      res.status(500).json({ error: "Failed to simulate theme pause" });
+    }
+  });
+
+  // Get recommended themes for an HCP
+  app.get("/api/hcps/:id/recommended-themes", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const hcpId = req.params.id;
+      const saturationSummary = await messageSaturationStorage.getHcpMessageSaturationSummary(hcpId);
+
+      if (!saturationSummary) {
+        // No saturation data - all themes are recommended
+        const allThemes = await messageSaturationStorage.getAllMessageThemes(true);
+        return res.json({
+          recommended: allThemes.map((t) => ({
+            theme: t,
+            msi: 0,
+            reason: "No previous exposure - fresh opportunity",
+          })),
+          avoid: [],
+        });
+      }
+
+      const allThemes = await messageSaturationStorage.getAllMessageThemes(true);
+      const recommendations = getRecommendedThemes(saturationSummary, allThemes);
+
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error getting recommended themes:", error);
+      res.status(500).json({ error: "Failed to get recommended themes" });
+    }
+  });
+
+  // Check if a theme is blocked for an HCP
+  app.get("/api/hcps/:hcpId/themes/:themeId/blocked", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { hcpId, themeId } = req.params;
+      const saturationSummary = await messageSaturationStorage.getHcpMessageSaturationSummary(hcpId);
+      const result = isThemeBlocked(themeId, saturationSummary || null);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking theme block status:", error);
+      res.status(500).json({ error: "Failed to check theme block status" });
+    }
+  });
+
+  // ============================================================================
+  // PHASE 12B.4: CAMPAIGN PLANNING ENDPOINTS
+  // ============================================================================
+
+  // Get all MSI benchmarks
+  app.get("/api/msi-benchmarks", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const activeOnly = req.query.activeOnly !== "false";
+      const benchmarks = await campaignPlanningService.getAllBenchmarks(activeOnly);
+      res.json(benchmarks);
+    } catch (error) {
+      console.error("Error getting MSI benchmarks:", error);
+      res.status(500).json({ error: "Failed to get MSI benchmarks" });
+    }
+  });
+
+  // Get default MSI benchmark
+  app.get("/api/msi-benchmarks/default", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const benchmark = await campaignPlanningService.getDefaultBenchmark();
+      res.json(benchmark);
+    } catch (error) {
+      console.error("Error getting default benchmark:", error);
+      res.status(500).json({ error: "Failed to get default benchmark" });
+    }
+  });
+
+  // Get MSI benchmark by ID
+  app.get("/api/msi-benchmarks/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const benchmark = await campaignPlanningService.getBenchmarkById(req.params.id);
+      if (!benchmark) {
+        return res.status(404).json({ error: "Benchmark not found" });
+      }
+      res.json(benchmark);
+    } catch (error) {
+      console.error("Error getting benchmark:", error);
+      res.status(500).json({ error: "Failed to get benchmark" });
+    }
+  });
+
+  // Create new MSI benchmark
+  app.post("/api/msi-benchmarks", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = createMsiBenchmarkRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const benchmark = await campaignPlanningService.createBenchmark(parsed.data);
+      res.status(201).json(benchmark);
+    } catch (error) {
+      console.error("Error creating benchmark:", error);
+      res.status(500).json({ error: "Failed to create benchmark" });
+    }
+  });
+
+  // Update MSI benchmark
+  app.put("/api/msi-benchmarks/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = createMsiBenchmarkRequestSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const benchmark = await campaignPlanningService.updateBenchmark(req.params.id, parsed.data);
+      if (!benchmark) {
+        return res.status(404).json({ error: "Benchmark not found" });
+      }
+      res.json(benchmark);
+    } catch (error) {
+      console.error("Error updating benchmark:", error);
+      res.status(500).json({ error: "Failed to update benchmark" });
+    }
+  });
+
+  // Get benchmarks by therapeutic area
+  app.get("/api/msi-benchmarks/therapeutic-area/:ta", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const benchmarks = await campaignPlanningService.getBenchmarksByTherapeuticArea(req.params.ta);
+      res.json(benchmarks);
+    } catch (error) {
+      console.error("Error getting benchmarks by TA:", error);
+      res.status(500).json({ error: "Failed to get benchmarks" });
+    }
+  });
+
+  // Generate pre-campaign saturation report
+  app.post("/api/campaign-planning/pre-campaign-report", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = generatePreCampaignReportRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const report = await campaignPlanningService.generatePreCampaignReport(parsed.data);
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating pre-campaign report:", error);
+      res.status(500).json({ error: "Failed to generate pre-campaign report" });
+    }
+  });
+
+  // Generate campaign launch checklist
+  app.post("/api/campaign-planning/launch-checklist", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { campaignName, hcpIds, themeIds } = req.body;
+      if (!campaignName || !hcpIds || !Array.isArray(hcpIds)) {
+        return res.status(400).json({ error: "campaignName and hcpIds are required" });
+      }
+
+      const checklist = await campaignPlanningService.generateLaunchChecklist(
+        campaignName,
+        hcpIds,
+        themeIds
+      );
+      res.json(checklist);
+    } catch (error) {
+      console.error("Error generating launch checklist:", error);
+      res.status(500).json({ error: "Failed to generate launch checklist" });
+    }
+  });
+
+  // Export saturation data as CSV
+  app.post("/api/campaign-planning/export/csv", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = saturationExportRequestSchema.safeParse({ ...req.body, format: "csv" });
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const csv = await campaignPlanningService.generateCsvExport(parsed.data);
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=saturation-export.csv");
+      res.send(csv);
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      res.status(500).json({ error: "Failed to export CSV" });
+    }
+  });
+
+  // Export saturation data as JSON
+  app.post("/api/campaign-planning/export/json", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = saturationExportRequestSchema.safeParse({ ...req.body, format: "json" });
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const data = await campaignPlanningService.generateJsonExport(parsed.data);
+      res.json(data);
+    } catch (error) {
+      console.error("Error exporting JSON:", error);
+      res.status(500).json({ error: "Failed to export JSON" });
+    }
+  });
+
+  // Seed MSI benchmarks (for development/demo)
+  app.post("/api/msi-benchmarks/seed", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const result = await campaignPlanningService.seedBenchmarks();
+      res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Error seeding benchmarks:", error);
+      res.status(500).json({ error: "Failed to seed benchmarks" });
+    }
+  });
+
+  // ============================================================================
+  // PHASE 12C: NEXT BEST ORBIT RECOMMENDATION ENDPOINTS
+  // ============================================================================
+
+  // Generate NBO recommendation for a single HCP
+  app.get("/api/hcps/:id/nbo", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const hcp = await storage.getHcpById(req.params.id);
+      if (!hcp) {
+        return res.status(404).json({ error: "HCP not found" });
+      }
+
+      // Get saturation and competitive summaries
+      const saturationSummary = await messageSaturationStorage.getHcpMessageSaturationSummary(hcp.id) ?? null;
+      const competitiveSummary = await competitiveStorage.getHcpCompetitiveSummary(hcp.id) ?? null;
+
+      const input: NBOEngineInput = {
+        hcp,
+        saturationSummary,
+        competitiveSummary,
+      };
+
+      const recommendation = generateNBORecommendation(input);
+      res.json(recommendation);
+    } catch (error) {
+      console.error("Error generating NBO recommendation:", error);
+      res.status(500).json({ error: "Failed to generate NBO recommendation" });
+    }
+  });
+
+  // Generate NBO recommendations for multiple HCPs (batch)
+  app.post("/api/nbo/batch", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = nbaGenerationRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const { hcpIds, prioritize = true, limit } = parsed.data;
+
+      // Fetch all HCPs
+      const hcps = await Promise.all(
+        hcpIds.map(async (id: string) => storage.getHcpById(id))
+      );
+
+      // Filter out not found
+      const validHcps = hcps.filter((h): h is NonNullable<typeof h> => h !== undefined);
+
+      if (validHcps.length === 0) {
+        return res.json({ recommendations: [], summary: { total: 0, generated: 0 } });
+      }
+
+      // Build inputs with saturation and competitive data
+      const inputs: NBOEngineInput[] = await Promise.all(
+        validHcps.map(async (hcp) => {
+          const saturationSummary = await messageSaturationStorage.getHcpMessageSaturationSummary(hcp.id) ?? null;
+          const competitiveSummary = await competitiveStorage.getHcpCompetitiveSummary(hcp.id) ?? null;
+          return { hcp, saturationSummary, competitiveSummary };
+        })
+      );
+
+      // Generate recommendations
+      let recommendations = generateBatchNBORecommendations(inputs);
+
+      // Prioritize if requested
+      if (prioritize) {
+        recommendations = prioritizeNBORecommendations(recommendations, limit);
+      } else if (limit) {
+        recommendations = recommendations.slice(0, limit);
+      }
+
+      // Generate summary
+      const actionDistribution: Record<string, number> = {};
+      const confidenceDistribution = { high: 0, medium: 0, low: 0 };
+      const urgencyDistribution = { high: 0, medium: 0, low: 0 };
+
+      for (const rec of recommendations) {
+        actionDistribution[rec.actionType] = (actionDistribution[rec.actionType] || 0) + 1;
+        confidenceDistribution[rec.confidenceLevel]++;
+        urgencyDistribution[rec.urgency]++;
+      }
+
+      res.json({
+        recommendations,
+        summary: {
+          total: hcpIds.length,
+          generated: recommendations.length,
+          actionDistribution,
+          confidenceDistribution,
+          urgencyDistribution,
+          avgConfidence: recommendations.length > 0
+            ? recommendations.reduce((sum, r) => sum + r.confidence, 0) / recommendations.length
+            : 0,
+        },
+      });
+    } catch (error) {
+      console.error("Error generating batch NBO recommendations:", error);
+      res.status(500).json({ error: "Failed to generate NBO recommendations" });
+    }
+  });
+
+  // Generate NBO recommendations for filtered HCPs
+  app.post("/api/nbo/cohort", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { filter, prioritize = true, limit = 100 } = req.body;
+
+      // Validate filter if provided
+      if (filter) {
+        const parsed = hcpFilterSchema.safeParse(filter);
+        if (!parsed.success) {
+          return res.status(400).json({ error: "Invalid filter", details: parsed.error.errors });
+        }
+      }
+
+      // Get matching HCPs
+      const hcps = filter ? await storage.filterHcps(filter) : await storage.getAllHcps();
+
+      if (hcps.length === 0) {
+        return res.json({ recommendations: [], summary: { total: 0, generated: 0 } });
+      }
+
+      // Build inputs
+      const inputs: NBOEngineInput[] = await Promise.all(
+        hcps.map(async (hcp) => {
+          const saturationSummary = await messageSaturationStorage.getHcpMessageSaturationSummary(hcp.id) ?? null;
+          const competitiveSummary = await competitiveStorage.getHcpCompetitiveSummary(hcp.id) ?? null;
+          return { hcp, saturationSummary, competitiveSummary };
+        })
+      );
+
+      // Generate recommendations
+      let recommendations = generateBatchNBORecommendations(inputs);
+
+      // Prioritize
+      if (prioritize) {
+        recommendations = prioritizeNBORecommendations(recommendations, limit);
+      } else {
+        recommendations = recommendations.slice(0, limit);
+      }
+
+      // Summary
+      const actionDistribution: Record<string, number> = {};
+      const channelDistribution: Record<string, number> = {};
+
+      for (const rec of recommendations) {
+        actionDistribution[rec.actionType] = (actionDistribution[rec.actionType] || 0) + 1;
+        channelDistribution[rec.recommendedChannel] = (channelDistribution[rec.recommendedChannel] || 0) + 1;
+      }
+
+      res.json({
+        recommendations,
+        summary: {
+          totalHcps: hcps.length,
+          generated: recommendations.length,
+          actionDistribution,
+          channelDistribution,
+        },
+      });
+    } catch (error) {
+      console.error("Error generating cohort NBO recommendations:", error);
+      res.status(500).json({ error: "Failed to generate NBO recommendations" });
+    }
+  });
+
+  // Get NBO summary for a cohort (quick stats without full recommendations)
+  app.post("/api/nbo/summary", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const { hcpIds } = req.body;
+      if (!Array.isArray(hcpIds) || hcpIds.length === 0) {
+        return res.status(400).json({ error: "hcpIds array required" });
+      }
+
+      // Sample up to 100 HCPs for summary
+      const sampleIds = hcpIds.slice(0, 100);
+      const hcps = await Promise.all(sampleIds.map((id: string) => storage.getHcpById(id)));
+      const validHcps = hcps.filter((h): h is NonNullable<typeof h> => h !== undefined);
+
+      // Generate recommendations for sample
+      const inputs: NBOEngineInput[] = await Promise.all(
+        validHcps.map(async (hcp) => {
+          const saturationSummary = await messageSaturationStorage.getHcpMessageSaturationSummary(hcp.id) ?? null;
+          const competitiveSummary = await competitiveStorage.getHcpCompetitiveSummary(hcp.id) ?? null;
+          return { hcp, saturationSummary, competitiveSummary };
+        })
+      );
+
+      const recommendations = generateBatchNBORecommendations(inputs);
+
+      // Calculate distributions
+      const actionDistribution: Record<string, number> = {};
+      const urgencyDistribution = { high: 0, medium: 0, low: 0 };
+      let totalConfidence = 0;
+
+      for (const rec of recommendations) {
+        actionDistribution[rec.actionType] = (actionDistribution[rec.actionType] || 0) + 1;
+        urgencyDistribution[rec.urgency]++;
+        totalConfidence += rec.confidence;
+      }
+
+      // Extrapolate to full cohort
+      const scaleFactor = hcpIds.length / sampleIds.length;
+
+      res.json({
+        totalHcps: hcpIds.length,
+        sampled: sampleIds.length,
+        actionDistribution: Object.fromEntries(
+          Object.entries(actionDistribution).map(([k, v]) => [k, Math.round(v * scaleFactor)])
+        ),
+        urgencyDistribution: {
+          high: Math.round(urgencyDistribution.high * scaleFactor),
+          medium: Math.round(urgencyDistribution.medium * scaleFactor),
+          low: Math.round(urgencyDistribution.low * scaleFactor),
+        },
+        avgConfidence: recommendations.length > 0 ? totalConfidence / recommendations.length : 0,
+        topActions: Object.entries(actionDistribution)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 3)
+          .map(([action, count]) => ({ action, estimatedCount: Math.round(count * scaleFactor) })),
+      });
+    } catch (error) {
+      console.error("Error generating NBO summary:", error);
+      res.status(500).json({ error: "Failed to generate NBO summary" });
+    }
+  });
+
+  // Get prioritized NBO recommendations (top N by urgency/confidence)
+  app.get("/api/nbo/priority-queue", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const limit = safeParseLimit(req.query as Record<string, unknown>, 20);
+
+      // Get all HCPs and generate recommendations
+      const hcps = await storage.getAllHcps();
+
+      const inputs: NBOEngineInput[] = await Promise.all(
+        hcps.map(async (hcp) => {
+          const saturationSummary = await messageSaturationStorage.getHcpMessageSaturationSummary(hcp.id) ?? null;
+          const competitiveSummary = await competitiveStorage.getHcpCompetitiveSummary(hcp.id) ?? null;
+          return { hcp, saturationSummary, competitiveSummary };
+        })
+      );
+
+      const allRecommendations = generateBatchNBORecommendations(inputs);
+      const prioritized = prioritizeNBORecommendations(allRecommendations, limit);
+
+      res.json({
+        recommendations: prioritized,
+        totalAnalyzed: hcps.length,
+        returned: prioritized.length,
+      });
+    } catch (error) {
+      console.error("Error getting NBO priority queue:", error);
+      res.status(500).json({ error: "Failed to get NBO priority queue" });
+    }
+  });
+
+  // ============================================================================
+  // NBO Learning Loop Endpoints (Phase 12C.4)
+  // ============================================================================
+
+  // Record feedback on an NBO recommendation
+  app.post("/api/nbo/feedback", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = recordNBOFeedbackRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      // Add the current user as feedbackBy if not provided
+      const feedbackData = {
+        ...parsed.data,
+        feedbackBy: parsed.data.feedbackBy ?? req.user?.username ?? "unknown",
+      };
+
+      const feedback = await nboLearningService.recordFeedback(feedbackData);
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error recording NBO feedback:", error);
+      const message = error instanceof Error ? error.message : "Failed to record feedback";
+      res.status(error instanceof Error && error.message.includes("not found") ? 404 : 500).json({ error: message });
+    }
+  });
+
+  // Record outcome measurement for a feedback entry
+  app.post("/api/nbo/feedback/:id/outcome", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const parsed = measureNBOOutcomeRequestSchema.safeParse({
+        ...req.body,
+        feedbackId: req.params.id,
+      });
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+
+      const feedback = await nboLearningService.measureOutcome(parsed.data);
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error measuring NBO outcome:", error);
+      const message = error instanceof Error ? error.message : "Failed to measure outcome";
+      res.status(error instanceof Error && error.message.includes("not found") ? 404 : 500).json({ error: message });
+    }
+  });
+
+  // Get feedback for a specific recommendation
+  app.get("/api/nbo/feedback/:recommendationId", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const feedback = await nboLearningService.getFeedback(req.params.recommendationId);
+      if (!feedback) {
+        return res.status(404).json({ error: "Feedback not found" });
+      }
+      res.json(feedback);
+    } catch (error) {
+      console.error("Error getting NBO feedback:", error);
+      res.status(500).json({ error: "Failed to get feedback" });
+    }
+  });
+
+  // Get all feedback for an HCP
+  app.get("/api/hcps/:id/nbo/feedback", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const limit = safeParseLimit(req.query as Record<string, unknown>, 50);
+      const feedback = await nboLearningService.getHcpFeedback(req.params.id, limit);
+      res.json({ feedback, count: feedback.length });
+    } catch (error) {
+      console.error("Error getting HCP NBO feedback:", error);
+      res.status(500).json({ error: "Failed to get HCP feedback" });
+    }
+  });
+
+  // Get learning metrics for a time period
+  app.get("/api/nbo/metrics", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      // Default to last 30 days
+      const endDate = req.query.endDate ? new Date(req.query.endDate as string) : new Date();
+      const startDate = req.query.startDate
+        ? new Date(req.query.startDate as string)
+        : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const metrics = await nboLearningService.calculateMetrics(startDate, endDate);
+      res.json(metrics);
+    } catch (error) {
+      console.error("Error calculating NBO metrics:", error);
+      res.status(500).json({ error: "Failed to calculate metrics" });
+    }
+  });
+
+  // Get model performance summary
+  app.get("/api/nbo/model-performance", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const performance = await nboLearningService.getModelPerformance();
+      res.json(performance);
+    } catch (error) {
+      console.error("Error getting NBO model performance:", error);
+      res.status(500).json({ error: "Failed to get model performance" });
+    }
+  });
+
+  // Trigger batch outcome measurement (admin endpoint)
+  app.post("/api/nbo/measure-pending-outcomes", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const result = await nboLearningService.measurePendingOutcomes();
+      res.json({
+        message: "Pending outcomes measured",
+        measured: result.measured,
+        errors: result.errors,
+      });
+    } catch (error) {
+      console.error("Error measuring pending outcomes:", error);
+      res.status(500).json({ error: "Failed to measure pending outcomes" });
     }
   });
 

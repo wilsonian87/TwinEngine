@@ -3,15 +3,21 @@
  *
  * Handles Passport.js configuration, session management,
  * and authentication middleware for the TwinEngine API.
+ *
+ * Session Storage:
+ * - Development: In-memory (default express-session)
+ * - Production: PostgreSQL via connect-pg-simple
  */
 
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
+import { pool } from "./db";
 import type { User } from "@shared/schema";
 import { requireEnvVar } from "./utils/config";
 
@@ -111,20 +117,35 @@ function configurePassport(): void {
 export function setupAuth(app: Express): void {
   // Configure session middleware
   const sessionSecret = requireEnvVar("SESSION_SECRET", "twinengine-dev-secret");
+  const isProduction = process.env.NODE_ENV === "production";
 
-  app.use(
-    session({
-      secret: sessionSecret,
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: process.env.NODE_ENV === "production",
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: "lax",
-      },
-    })
-  );
+  // Use PostgreSQL session store in production, in-memory for development
+  const sessionConfig: session.SessionOptions = {
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: isProduction,
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: "lax",
+    },
+  };
+
+  // Add PostgreSQL session store in production
+  if (isProduction) {
+    const PgSession = connectPgSimple(session);
+    sessionConfig.store = new PgSession({
+      pool: pool,
+      tableName: "user_sessions",
+      createTableIfMissing: true,
+    });
+    console.log("[Auth] Using PostgreSQL session store");
+  } else {
+    console.log("[Auth] Using in-memory session store (development)");
+  }
+
+  app.use(session(sessionConfig));
 
   // Initialize Passport
   configurePassport();

@@ -3,6 +3,8 @@
  *
  * Phase 11: The "Solar System" view with HCP nucleus at center
  * and channel planets orbiting around it.
+ *
+ * Phase 12A: Added competitive orbit rings as outer gravity visualization.
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,7 +12,9 @@ import { useThree } from '@react-three/fiber';
 import { HCPNucleus } from './HCPNucleus';
 import { ChannelPlanet } from './ChannelPlanet';
 import { ChannelEdgesL1 } from './ChannelEdgesL1';
-import { getL1Data } from '@/lib/constellation/dataService';
+import { CompetitiveOrbitRings } from './CompetitiveOrbitRings';
+import { getL1Data, getCompetitiveOrbitData } from '@/lib/constellation/dataService';
+import { useConstellationStore } from '@/stores/constellationStore';
 import type { L1SolarSystemData } from '@shared/schema';
 
 interface L1SolarSystemProps {
@@ -63,6 +67,15 @@ export function L1SolarSystem({
   const [loading, setLoading] = useState(true);
   const [hoveredChannel, setHoveredChannel] = useState<string | null>(null);
 
+  // Phase 12A: Competitive orbit state from store
+  const {
+    competitiveOrbitVisible,
+    selectedCompetitorId,
+    competitiveOrbitData,
+    setSelectedCompetitor,
+    setCompetitiveOrbitData,
+  } = useConstellationStore();
+
   // Load L1 data
   useEffect(() => {
     async function loadData() {
@@ -77,6 +90,19 @@ export function L1SolarSystem({
     }
     loadData();
   }, []);
+
+  // Load competitive orbit data
+  useEffect(() => {
+    async function loadCompetitiveData() {
+      try {
+        const orbitData = await getCompetitiveOrbitData();
+        setCompetitiveOrbitData(orbitData);
+      } catch (error) {
+        console.error('[L1SolarSystem] Failed to load competitive data:', error);
+      }
+    }
+    loadCompetitiveData();
+  }, [setCompetitiveOrbitData]);
 
   // Compute channel positions
   const channelPositions = useMemo(() => {
@@ -122,6 +148,14 @@ export function L1SolarSystem({
           isDimmed={focusedChannel !== null && focusedChannel !== channel.id}
         />
       ))}
+
+      {/* Phase 12A: Competitive Orbit Rings (outer layer) */}
+      <CompetitiveOrbitRings
+        data={competitiveOrbitData}
+        visible={competitiveOrbitVisible}
+        selectedCompetitor={selectedCompetitorId}
+        onCompetitorSelect={setSelectedCompetitor}
+      />
 
       {/* Ambient lighting for the scene */}
       <ambientLight intensity={0.6} />

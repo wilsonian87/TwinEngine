@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { NavigationContext, ConstellationLevel } from '@/lib/constellation/types';
+import type { CompetitiveOrbitData } from '@shared/schema';
 
 export type NodeStatus = 'healthy' | 'warning' | 'critical';
 export type ZoomLevel = 'ecosystem' | 'campaign' | 'hcp';
@@ -75,6 +76,11 @@ interface ConstellationState {
   navigationContext: NavigationContext;
   viewMode: 'legacy' | 'phase11';  // Toggle between Phase 10 and Phase 11 views
 
+  // Phase 12A: Competitive Orbit state
+  competitiveOrbitVisible: boolean;
+  selectedCompetitorId: string | null;
+  competitiveOrbitData: CompetitiveOrbitData | null;
+
   // Actions
   setNodes: (nodes: ConstellationNode[]) => void;
   setEdges: (edges: ConstellationEdge[]) => void;
@@ -98,6 +104,11 @@ interface ConstellationState {
   navigateToL2: (channelId: string, channelLabel: string) => void;
   navigateToL3: (channelId: string, channelLabel: string, campaignId: string, campaignName: string) => void;
   setViewMode: (mode: 'legacy' | 'phase11') => void;
+
+  // Phase 12A: Competitive Orbit actions
+  toggleCompetitiveOrbit: () => void;
+  setSelectedCompetitor: (id: string | null) => void;
+  setCompetitiveOrbitData: (data: CompetitiveOrbitData | null) => void;
 }
 
 // Selectors for common queries
@@ -139,6 +150,10 @@ const initialState = {
   // Phase 11
   navigationContext: DEFAULT_NAVIGATION_CONTEXT as NavigationContext,
   viewMode: 'phase11' as 'legacy' | 'phase11',  // Default to Phase 11 view
+  // Phase 12A
+  competitiveOrbitVisible: false,
+  selectedCompetitorId: null as string | null,
+  competitiveOrbitData: null as CompetitiveOrbitData | null,
 };
 
 export const useConstellationStore = create<ConstellationState>()(
@@ -240,6 +255,21 @@ export const useConstellationStore = create<ConstellationState>()(
       setViewMode: (mode: 'legacy' | 'phase11') => set({
         viewMode: mode,
       }, false, 'setViewMode'),
+
+      // Phase 12A: Competitive Orbit actions
+      toggleCompetitiveOrbit: () => set(
+        (s) => ({ competitiveOrbitVisible: !s.competitiveOrbitVisible }),
+        false,
+        'toggleCompetitiveOrbit'
+      ),
+
+      setSelectedCompetitor: (id: string | null) => set({
+        selectedCompetitorId: id,
+      }, false, 'setSelectedCompetitor'),
+
+      setCompetitiveOrbitData: (data: CompetitiveOrbitData | null) => set({
+        competitiveOrbitData: data,
+      }, false, 'setCompetitiveOrbitData'),
     }),
     { name: 'ConstellationStore' }
   )

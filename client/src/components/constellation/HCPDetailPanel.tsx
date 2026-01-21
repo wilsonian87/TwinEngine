@@ -3,17 +3,37 @@
  *
  * Shows detailed information about hovered HCP node.
  * Features smooth enter/exit animations and glassmorphic styling.
+ *
+ * Phase 12A: Added Competitive Exposure section.
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { useConstellationStore } from '@/stores/constellationStore';
 import { cn } from '@/lib/utils';
-import { User, Activity, Radio, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { User, Activity, Radio, TrendingUp, TrendingDown, Minus, Target, Shield, AlertTriangle } from 'lucide-react';
+import type { HcpCompetitiveSummary } from '@shared/schema';
 
 export function HCPDetailPanel() {
   const hoveredNodeId = useConstellationStore((s) => s.hoveredNodeId);
   const nodes = useConstellationStore((s) => s.nodes);
   const hoveredNode = nodes.find(n => n.id === hoveredNodeId);
+
+  // Phase 12A: Fetch competitive summary for hovered HCP
+  const { data: competitiveSummary } = useQuery<HcpCompetitiveSummary | null>({
+    queryKey: ['competitive-summary', hoveredNodeId],
+    queryFn: async () => {
+      if (!hoveredNodeId) return null;
+      const res = await fetch(`/api/hcps/${hoveredNodeId}/competitive-summary`, {
+        credentials: 'include',
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.summary ?? null;
+    },
+    enabled: !!hoveredNodeId && hoveredNode?.type === 'hcp',
+    staleTime: 30000, // Cache for 30 seconds
+  });
 
   // Light theme status config
   const statusConfig = {
@@ -159,6 +179,11 @@ export function HCPDetailPanel() {
                 </div>
               </div>
             )}
+
+            {/* Phase 12A: Competitive Exposure Section */}
+            {competitiveSummary && competitiveSummary.signals.length > 0 && (
+              <CompetitiveExposureSection summary={competitiveSummary} />
+            )}
           </div>
 
           {/* Footer */}
@@ -170,5 +195,133 @@ export function HCPDetailPanel() {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ============================================================================
+// Phase 12A: Competitive Exposure Section Component
+// ============================================================================
+
+interface CompetitiveExposureSectionProps {
+  summary: HcpCompetitiveSummary;
+}
+
+const riskLevelConfig = {
+  low: {
+    color: 'text-sky-700',
+    bg: 'bg-sky-50',
+    border: 'border-sky-200',
+    label: 'Low Risk',
+    icon: Shield,
+  },
+  medium: {
+    color: 'text-amber-700',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    label: 'Medium Risk',
+    icon: AlertTriangle,
+  },
+  high: {
+    color: 'text-orange-700',
+    bg: 'bg-orange-50',
+    border: 'border-orange-200',
+    label: 'High Risk',
+    icon: AlertTriangle,
+  },
+  critical: {
+    color: 'text-red-700',
+    bg: 'bg-red-50',
+    border: 'border-red-200',
+    label: 'Critical',
+    icon: Target,
+  },
+};
+
+function CompetitiveExposureSection({ summary }: CompetitiveExposureSectionProps) {
+  const config = riskLevelConfig[summary.riskLevel];
+  const RiskIcon = config.icon;
+
+  return (
+    <div className="pt-2 border-t border-slate-100">
+      <div className="flex items-center gap-2 mb-3">
+        <Target className="w-4 h-4 text-rose-600" />
+        <span className="text-xs text-slate-500 uppercase tracking-wider">
+          Competitive Exposure
+        </span>
+      </div>
+
+      {/* CPI Score */}
+      <div className="mb-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs text-slate-500">CPI Score</span>
+          <span className={cn("text-sm font-semibold tabular-nums", config.color)}>
+            {summary.overallCpi.toFixed(0)}
+          </span>
+        </div>
+        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(100, summary.overallCpi)}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className={cn(
+              "h-full rounded-full",
+              summary.riskLevel === 'low' ? 'bg-gradient-to-r from-sky-500 to-sky-400' :
+              summary.riskLevel === 'medium' ? 'bg-gradient-to-r from-amber-500 to-amber-400' :
+              summary.riskLevel === 'high' ? 'bg-gradient-to-r from-orange-500 to-orange-400' :
+              'bg-gradient-to-r from-red-500 to-red-400'
+            )}
+          />
+        </div>
+      </div>
+
+      {/* Risk Level Badge */}
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs text-slate-500">Risk Level</span>
+        <motion.div
+          initial={{ scale: 0.8 }}
+          animate={{ scale: 1 }}
+          className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+            config.bg,
+            config.color
+          )}
+        >
+          <RiskIcon className="w-3 h-3" />
+          <span>{config.label}</span>
+        </motion.div>
+      </div>
+
+      {/* Top Competitor */}
+      {summary.topCompetitor && (
+        <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: summary.topCompetitor.color ?? '#6B7280' }}
+              />
+              <span className="text-xs text-slate-600 font-medium">
+                {summary.topCompetitor.name}
+              </span>
+            </div>
+            <span className={cn(
+              "text-xs font-semibold tabular-nums",
+              summary.topCompetitor.cpi >= 75 ? 'text-red-600' :
+              summary.topCompetitor.cpi >= 50 ? 'text-orange-600' :
+              summary.topCompetitor.cpi >= 25 ? 'text-amber-600' :
+              'text-slate-500'
+            )}>
+              CPI: {summary.topCompetitor.cpi.toFixed(0)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Competitor Count */}
+      <div className="flex items-center justify-between mt-2 text-xs">
+        <span className="text-slate-400">Active competitors</span>
+        <span className="text-slate-600 font-medium">{summary.competitorCount}</span>
+      </div>
+    </div>
   );
 }

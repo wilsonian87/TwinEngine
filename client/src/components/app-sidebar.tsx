@@ -27,6 +27,8 @@ import {
   Hexagon,
   Info,
   Compass,
+  Flame,
+  Target,
 } from "lucide-react";
 import {
   Sidebar,
@@ -92,6 +94,18 @@ const navigationItems = [
     url: "/ecosystem",
     icon: Compass,
     description: "3D constellation visualization",
+  },
+  {
+    title: "Message Saturation",
+    url: "/message-saturation",
+    icon: Flame,
+    description: "Track message theme fatigue",
+  },
+  {
+    title: "Next Best Orbit",
+    url: "/next-best-orbit",
+    icon: Target,
+    description: "AI-powered engagement recommendations",
   },
 ];
 

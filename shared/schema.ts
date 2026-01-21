@@ -4458,3 +4458,1620 @@ export const l3HcpConstellationDataSchema = z.object({
 
 export type L3HcpConstellationData = z.infer<typeof l3HcpConstellationDataSchema>;
 
+// ============================================================================
+// PHASE 12A: COMPETITIVE ORBIT VIEW
+// ============================================================================
+
+// Competitor Types
+export const competitorTypes = ["brand", "therapeutic_class_peer"] as const;
+export type CompetitorType = (typeof competitorTypes)[number];
+
+// Therapeutic Areas for competitors
+export const therapeuticAreas = [
+  "Oncology",
+  "Cardiology",
+  "Neurology",
+  "Immunology",
+  "Endocrinology",
+  "Respiratory",
+  "Gastroenterology",
+  "Dermatology",
+  "Psychiatry",
+  "Infectious Disease",
+] as const;
+export type TherapeuticArea = (typeof therapeuticAreas)[number];
+
+// Competitor Dimension Table - defines competitor entities
+export const competitorDim = pgTable("competitor_dim", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 200 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // 'brand' or 'therapeutic_class_peer'
+  therapeuticArea: varchar("therapeutic_area", { length: 100 }),
+  marketShare: real("market_share"), // Overall market share percentage
+  color: varchar("color", { length: 7 }), // hex color for visualization
+  logoUrl: varchar("logo_url", { length: 500 }),
+  parentCompany: varchar("parent_company", { length: 200 }),
+  launchYear: integer("launch_year"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCompetitorDimSchema = createInsertSchema(competitorDim).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCompetitorDim = z.infer<typeof insertCompetitorDimSchema>;
+export type CompetitorDimDB = typeof competitorDim.$inferSelect;
+
+// HCP Competitive Signal Fact Table - tracks competitive pressure per HCP
+export const hcpCompetitiveSignalFact = pgTable("hcp_competitive_signal_fact", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+  competitorId: varchar("competitor_id").notNull().references(() => competitorDim.id),
+
+  // Share metrics
+  shareOfBrand: real("share_of_brand"), // HCP's prescriptions for competitor as % of total
+  shareChangeQoQ: real("share_change_qoq"), // Quarter-over-quarter change
+  shareChangeMoM: real("share_change_mom"), // Month-over-month change
+
+  // Velocity metrics
+  competitiveRxVelocity: real("competitive_rx_velocity"), // Rate of competitor Rx growth
+  ourRxVelocity: real("our_rx_velocity"), // Our brand's Rx velocity for comparison
+
+  // Engagement asymmetry
+  competitorEngagementScore: integer("competitor_engagement_score"), // 0-100
+  engagementAsymmetry: real("engagement_asymmetry"), // Diff between competitor and our engagement
+
+  // Competitive Pressure Index (computed)
+  cpi: real("cpi"), // Normalized 0-100 score
+  cpiDirection: varchar("cpi_direction", { length: 20 }), // 'increasing', 'stable', 'decreasing'
+  cpiComponents: jsonb("cpi_components").$type<CPIComponents>(),
+
+  // Measurement metadata
+  measurementDate: timestamp("measurement_date").notNull(),
+  dataSource: varchar("data_source", { length: 100 }), // e.g., 'IQVIA', 'Symphony', 'inferred'
+  confidenceLevel: real("confidence_level"), // 0-1 confidence in the data
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertHcpCompetitiveSignalFactSchema = createInsertSchema(hcpCompetitiveSignalFact).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertHcpCompetitiveSignalFact = z.infer<typeof insertHcpCompetitiveSignalFactSchema>;
+export type HcpCompetitiveSignalFactDB = typeof hcpCompetitiveSignalFact.$inferSelect;
+
+// CPI Components - breakdown of Competitive Pressure Index calculation
+export const cpiComponentsSchema = z.object({
+  shareComponent: z.number(), // Contribution from share of brand (0-25)
+  velocityComponent: z.number(), // Contribution from Rx velocity (0-25)
+  engagementComponent: z.number(), // Contribution from engagement asymmetry (0-25)
+  trendComponent: z.number(), // Contribution from share change trends (0-25)
+  rawScore: z.number(), // Pre-normalized score
+  normalizedScore: z.number(), // Final 0-100 score
+});
+
+export type CPIComponents = z.infer<typeof cpiComponentsSchema>;
+
+// CPI Direction type
+export const cpiDirections = ["increasing", "stable", "decreasing"] as const;
+export type CPIDirection = (typeof cpiDirections)[number];
+
+// ============ Competitive API Types ============
+
+// Competitor (API type)
+export const competitorSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum(competitorTypes),
+  therapeuticArea: z.string().nullable(),
+  marketShare: z.number().nullable(),
+  color: z.string().nullable(),
+  logoUrl: z.string().nullable(),
+  parentCompany: z.string().nullable(),
+  launchYear: z.number().nullable(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type Competitor = z.infer<typeof competitorSchema>;
+
+// HCP Competitive Signal (API type)
+export const hcpCompetitiveSignalSchema = z.object({
+  id: z.string(),
+  hcpId: z.string(),
+  competitorId: z.string(),
+  competitorName: z.string().optional(), // Joined from competitor_dim
+  competitorColor: z.string().optional(), // Joined from competitor_dim
+  shareOfBrand: z.number().nullable(),
+  shareChangeQoQ: z.number().nullable(),
+  shareChangeMoM: z.number().nullable(),
+  competitiveRxVelocity: z.number().nullable(),
+  ourRxVelocity: z.number().nullable(),
+  competitorEngagementScore: z.number().nullable(),
+  engagementAsymmetry: z.number().nullable(),
+  cpi: z.number().nullable(),
+  cpiDirection: z.enum(cpiDirections).nullable(),
+  cpiComponents: cpiComponentsSchema.nullable(),
+  measurementDate: z.string(),
+  dataSource: z.string().nullable(),
+  confidenceLevel: z.number().nullable(),
+  createdAt: z.string(),
+});
+
+export type HcpCompetitiveSignal = z.infer<typeof hcpCompetitiveSignalSchema>;
+
+// Aggregated Competitive Pressure for an HCP (combines all competitors)
+export const hcpCompetitiveSummarySchema = z.object({
+  hcpId: z.string(),
+  hcpName: z.string().optional(),
+  overallCpi: z.number(), // Weighted average of all competitor CPIs
+  topCompetitor: z.object({
+    id: z.string(),
+    name: z.string(),
+    cpi: z.number(),
+    color: z.string().nullable(),
+  }).nullable(),
+  competitorCount: z.number(),
+  signals: z.array(hcpCompetitiveSignalSchema),
+  riskLevel: z.enum(["low", "medium", "high", "critical"]),
+  recommendedAction: z.string().nullable(),
+});
+
+export type HcpCompetitiveSummary = z.infer<typeof hcpCompetitiveSummarySchema>;
+
+// Competitive Orbit View Data - for visualization
+export const competitiveOrbitDataSchema = z.object({
+  competitors: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    type: z.enum(competitorTypes),
+    color: z.string(),
+    marketShare: z.number(),
+    avgCpi: z.number(), // Average CPI across affected HCPs
+    affectedHcpCount: z.number(),
+    ringDistance: z.number(), // Computed: closer = more pressure (inverse of avgCpi)
+    ringThickness: z.number(), // Computed: based on market share
+  })),
+  hcpDriftVectors: z.array(z.object({
+    hcpId: z.string(),
+    competitorId: z.string(),
+    driftStrength: z.number(), // 0-1, how strong the pull is
+    driftDirection: z.enum(["toward", "away"]),
+  })),
+  summary: z.object({
+    totalHcpsUnderPressure: z.number(),
+    avgOverallCpi: z.number(),
+    highestPressureCompetitor: z.string().nullable(),
+    lowestPressureCompetitor: z.string().nullable(),
+  }),
+});
+
+export type CompetitiveOrbitData = z.infer<typeof competitiveOrbitDataSchema>;
+
+// Request schemas for competitive endpoints
+export const createCompetitorRequestSchema = z.object({
+  name: z.string().min(1).max(200),
+  type: z.enum(competitorTypes),
+  therapeuticArea: z.string().optional(),
+  marketShare: z.number().min(0).max(100).optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  logoUrl: z.string().url().optional(),
+  parentCompany: z.string().optional(),
+  launchYear: z.number().min(1900).max(2100).optional(),
+});
+
+export type CreateCompetitorRequest = z.infer<typeof createCompetitorRequestSchema>;
+
+export const recordCompetitiveSignalRequestSchema = z.object({
+  hcpId: z.string(),
+  competitorId: z.string(),
+  shareOfBrand: z.number().min(0).max(100).optional(),
+  shareChangeQoQ: z.number().optional(),
+  shareChangeMoM: z.number().optional(),
+  competitiveRxVelocity: z.number().optional(),
+  ourRxVelocity: z.number().optional(),
+  competitorEngagementScore: z.number().min(0).max(100).optional(),
+  measurementDate: z.string().optional(),
+  dataSource: z.string().optional(),
+  confidenceLevel: z.number().min(0).max(1).optional(),
+});
+
+export type RecordCompetitiveSignalRequest = z.infer<typeof recordCompetitiveSignalRequestSchema>;
+
+// Filter schema for competitive queries
+export const competitiveFilterSchema = z.object({
+  competitorIds: z.array(z.string()).optional(),
+  hcpIds: z.array(z.string()).optional(),
+  therapeuticArea: z.string().optional(),
+  minCpi: z.number().optional(),
+  maxCpi: z.number().optional(),
+  cpiDirection: z.enum(cpiDirections).optional(),
+  riskLevel: z.enum(["low", "medium", "high", "critical"]).optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+});
+
+export type CompetitiveFilter = z.infer<typeof competitiveFilterSchema>;
+
+// ============================================================================
+// PHASE 12B: MESSAGE SATURATION INDEX (MSI)
+// ============================================================================
+
+// Message Theme Dimension - taxonomy of messaging themes
+export const messageThemeDim = pgTable("message_theme_dim", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 200 }).notNull(),
+  category: varchar("category", { length: 100 }), // 'efficacy', 'safety', 'RWE', 'peer_validation', 'cost_value'
+  therapeuticArea: varchar("therapeutic_area", { length: 100 }),
+  brandName: varchar("brand_name", { length: 100 }), // Optional brand association
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertMessageThemeDimSchema = createInsertSchema(messageThemeDim).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type MessageThemeDimDB = typeof messageThemeDim.$inferSelect;
+export type InsertMessageThemeDim = z.infer<typeof insertMessageThemeDimSchema>;
+
+// Message Exposure Fact - tracks HCP exposure to message themes
+export const messageExposureFact = pgTable("message_exposure_fact", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+  messageThemeId: varchar("message_theme_id").notNull().references(() => messageThemeDim.id),
+
+  // Exposure metrics
+  touchFrequency: integer("touch_frequency").notNull(), // Total touches with this theme
+  uniqueChannels: integer("unique_channels").notNull().default(1), // Number of different channels used
+  channelDiversity: real("channel_diversity"), // 0-1 entropy score
+  avgTimeBetweenTouches: real("avg_time_between_touches"), // Days between touches
+
+  // Engagement metrics
+  engagementRate: real("engagement_rate"), // 0-1, how often HCP engages with theme
+  engagementDecay: real("engagement_decay"), // Rate of engagement decline (positive = declining)
+  lastEngagementDate: timestamp("last_engagement_date"),
+
+  // Saturation indicators
+  msi: real("msi"), // Message Saturation Index: 0-100
+  msiDirection: varchar("msi_direction", { length: 20 }), // 'increasing', 'stable', 'decreasing'
+  saturationRisk: varchar("saturation_risk", { length: 20 }), // 'low', 'medium', 'high', 'critical'
+
+  // Context
+  adoptionStage: varchar("adoption_stage", { length: 50 }), // 'awareness', 'consideration', 'trial', 'loyalty'
+  measurementPeriod: varchar("measurement_period", { length: 20 }), // 'Q1-2026', etc.
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertMessageExposureFactSchema = createInsertSchema(messageExposureFact).omit({
+  id: true,
+  msi: true,
+  msiDirection: true,
+  saturationRisk: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type MessageExposureFactDB = typeof messageExposureFact.$inferSelect;
+export type InsertMessageExposureFact = z.infer<typeof insertMessageExposureFactSchema>;
+
+// ---- Phase 12B: MSI Types and Schemas ----
+
+// Message theme categories
+export const messageThemeCategories = [
+  "efficacy",
+  "safety",
+  "rwe", // Real World Evidence
+  "peer_validation",
+  "cost_value",
+  "mechanism_of_action",
+  "patient_outcomes",
+  "dosing_convenience",
+] as const;
+
+export type MessageThemeCategory = (typeof messageThemeCategories)[number];
+
+// Adoption stages with different saturation tolerances
+export const adoptionStages = [
+  "awareness",    // New to brand - higher tolerance
+  "consideration", // Evaluating - medium tolerance
+  "trial",        // Testing - medium tolerance
+  "loyalty",      // Regular prescriber - lower tolerance (risk of fatigue)
+] as const;
+
+export type AdoptionStage = (typeof adoptionStages)[number];
+
+// MSI directions
+export const msiDirections = ["increasing", "stable", "decreasing"] as const;
+export type MsiDirection = (typeof msiDirections)[number];
+
+// Saturation risk levels
+export const saturationRiskLevels = ["low", "medium", "high", "critical"] as const;
+export type SaturationRiskLevel = (typeof saturationRiskLevels)[number];
+
+// MSI Components (for transparency in calculation)
+export const msiComponentsSchema = z.object({
+  frequencyComponent: z.number(), // 0-40, based on touch frequency
+  diversityComponent: z.number(), // 0-20, based on channel diversity (lower = worse)
+  decayComponent: z.number(),     // 0-40, based on engagement decay
+  stageModifier: z.number(),      // Multiplier based on adoption stage
+});
+
+export type MsiComponents = z.infer<typeof msiComponentsSchema>;
+
+// Message Theme API type
+export const messageThemeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  category: z.enum(messageThemeCategories).nullable(),
+  therapeuticArea: z.string().nullable(),
+  brandName: z.string().nullable(),
+  description: z.string().nullable(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type MessageTheme = z.infer<typeof messageThemeSchema>;
+
+// Message Exposure API type
+export const messageExposureSchema = z.object({
+  id: z.string(),
+  hcpId: z.string(),
+  messageThemeId: z.string(),
+  themeName: z.string().optional(), // Joined from message_theme_dim
+  themeCategory: z.enum(messageThemeCategories).nullable().optional(),
+  touchFrequency: z.number(),
+  uniqueChannels: z.number(),
+  channelDiversity: z.number().nullable(),
+  avgTimeBetweenTouches: z.number().nullable(),
+  engagementRate: z.number().nullable(),
+  engagementDecay: z.number().nullable(),
+  lastEngagementDate: z.string().nullable(),
+  msi: z.number().nullable(),
+  msiDirection: z.enum(msiDirections).nullable(),
+  msiComponents: msiComponentsSchema.nullable(),
+  saturationRisk: z.enum(saturationRiskLevels).nullable(),
+  adoptionStage: z.enum(adoptionStages).nullable(),
+  measurementPeriod: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type MessageExposure = z.infer<typeof messageExposureSchema>;
+
+// HCP Message Saturation Summary (aggregates all themes for an HCP)
+export const hcpMessageSaturationSummarySchema = z.object({
+  hcpId: z.string(),
+  hcpName: z.string().optional(),
+  overallMsi: z.number(), // Weighted average across all themes
+  themesAtRisk: z.number(), // Count of themes with high/critical saturation
+  totalThemes: z.number(),
+  topSaturatedTheme: z.object({
+    id: z.string(),
+    name: z.string(),
+    msi: z.number(),
+    category: z.enum(messageThemeCategories).nullable(),
+  }).nullable(),
+  exposures: z.array(messageExposureSchema),
+  riskLevel: z.enum(saturationRiskLevels),
+  recommendedAction: z.string().nullable(),
+});
+
+export type HcpMessageSaturationSummary = z.infer<typeof hcpMessageSaturationSummarySchema>;
+
+// Message Saturation Heatmap Data - for visualization
+export const messageSaturationHeatmapDataSchema = z.object({
+  themes: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    category: z.enum(messageThemeCategories).nullable(),
+    avgMsi: z.number(),
+    affectedHcpCount: z.number(),
+    riskDistribution: z.object({
+      low: z.number(),
+      medium: z.number(),
+      high: z.number(),
+      critical: z.number(),
+    }),
+  })),
+  hcpCells: z.array(z.object({
+    hcpId: z.string(),
+    themeId: z.string(),
+    msi: z.number(),
+    saturationRisk: z.enum(saturationRiskLevels),
+    adoptionStage: z.enum(adoptionStages).nullable(),
+  })),
+  summary: z.object({
+    totalHcpsAnalyzed: z.number(),
+    avgOverallMsi: z.number(),
+    hcpsAtRisk: z.number(), // HCPs with at least one high/critical theme
+    mostSaturatedTheme: z.string().nullable(),
+    leastSaturatedTheme: z.string().nullable(),
+  }),
+});
+
+export type MessageSaturationHeatmapData = z.infer<typeof messageSaturationHeatmapDataSchema>;
+
+// Request schemas for message saturation endpoints
+export const createMessageThemeRequestSchema = z.object({
+  name: z.string().min(1).max(200),
+  category: z.enum(messageThemeCategories).optional(),
+  therapeuticArea: z.string().optional(),
+  brandName: z.string().optional(),
+  description: z.string().optional(),
+});
+
+export type CreateMessageThemeRequest = z.infer<typeof createMessageThemeRequestSchema>;
+
+export const recordMessageExposureRequestSchema = z.object({
+  hcpId: z.string(),
+  messageThemeId: z.string(),
+  touchFrequency: z.number().min(0),
+  uniqueChannels: z.number().min(1).optional(),
+  channelDiversity: z.number().min(0).max(1).optional(),
+  avgTimeBetweenTouches: z.number().min(0).optional(),
+  engagementRate: z.number().min(0).max(1).optional(),
+  engagementDecay: z.number().optional(),
+  lastEngagementDate: z.string().optional(),
+  adoptionStage: z.enum(adoptionStages).optional(),
+  measurementPeriod: z.string().optional(),
+});
+
+export type RecordMessageExposureRequest = z.infer<typeof recordMessageExposureRequestSchema>;
+
+// Filter schema for message saturation queries
+export const messageSaturationFilterSchema = z.object({
+  themeIds: z.array(z.string()).optional(),
+  hcpIds: z.array(z.string()).optional(),
+  categories: z.array(z.enum(messageThemeCategories)).optional(),
+  therapeuticArea: z.string().optional(),
+  minMsi: z.number().optional(),
+  maxMsi: z.number().optional(),
+  saturationRisk: z.enum(saturationRiskLevels).optional(),
+  adoptionStage: z.enum(adoptionStages).optional(),
+  measurementPeriod: z.string().optional(),
+});
+
+export type MessageSaturationFilter = z.infer<typeof messageSaturationFilterSchema>;
+
+// ---- Phase 12B.4: MSI Benchmarks and Campaign Planning ----
+
+// MSI Benchmark Configuration table
+export const msiBenchmarkConfig = pgTable("msi_benchmark_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 200 }).notNull(),
+  therapeuticArea: varchar("therapeutic_area", { length: 100 }),
+  brandName: varchar("brand_name", { length: 100 }),
+  // MSI thresholds
+  underexposedThreshold: real("underexposed_threshold").notNull().default(20),
+  safeThreshold: real("safe_threshold").notNull().default(40),
+  approachingThreshold: real("approaching_threshold").notNull().default(50),
+  shiftThreshold: real("shift_threshold").notNull().default(65),
+  blockedThreshold: real("blocked_threshold").notNull().default(80),
+  // Stage-specific modifiers
+  awarenessModifier: real("awareness_modifier").notNull().default(0.7),
+  considerationModifier: real("consideration_modifier").notNull().default(0.85),
+  trialModifier: real("trial_modifier").notNull().default(0.9),
+  loyaltyModifier: real("loyalty_modifier").notNull().default(1.1),
+  // Stage-specific touch thresholds
+  awarenessTouchThreshold: integer("awareness_touch_threshold").notNull().default(20),
+  considerationTouchThreshold: integer("consideration_touch_threshold").notNull().default(15),
+  trialTouchThreshold: integer("trial_touch_threshold").notNull().default(12),
+  loyaltyTouchThreshold: integer("loyalty_touch_threshold").notNull().default(8),
+  // Metadata
+  isDefault: boolean("is_default").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertMsiBenchmarkConfigSchema = createInsertSchema(msiBenchmarkConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type MsiBenchmarkConfigDB = typeof msiBenchmarkConfig.$inferSelect;
+export type InsertMsiBenchmarkConfig = z.infer<typeof insertMsiBenchmarkConfigSchema>;
+
+// MSI Benchmark API type
+export const msiBenchmarkSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  therapeuticArea: z.string().nullable(),
+  brandName: z.string().nullable(),
+  thresholds: z.object({
+    underexposed: z.number(),
+    safe: z.number(),
+    approaching: z.number(),
+    shift: z.number(),
+    blocked: z.number(),
+  }),
+  stageModifiers: z.object({
+    awareness: z.number(),
+    consideration: z.number(),
+    trial: z.number(),
+    loyalty: z.number(),
+  }),
+  stageTouchThresholds: z.object({
+    awareness: z.number(),
+    consideration: z.number(),
+    trial: z.number(),
+    loyalty: z.number(),
+  }),
+  isDefault: z.boolean(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type MsiBenchmark = z.infer<typeof msiBenchmarkSchema>;
+
+// Create/Update benchmark request
+export const createMsiBenchmarkRequestSchema = z.object({
+  name: z.string().min(1).max(200),
+  therapeuticArea: z.string().optional(),
+  brandName: z.string().optional(),
+  thresholds: z.object({
+    underexposed: z.number().min(0).max(100).optional(),
+    safe: z.number().min(0).max(100).optional(),
+    approaching: z.number().min(0).max(100).optional(),
+    shift: z.number().min(0).max(100).optional(),
+    blocked: z.number().min(0).max(100).optional(),
+  }).optional(),
+  stageModifiers: z.object({
+    awareness: z.number().min(0).max(2).optional(),
+    consideration: z.number().min(0).max(2).optional(),
+    trial: z.number().min(0).max(2).optional(),
+    loyalty: z.number().min(0).max(2).optional(),
+  }).optional(),
+  stageTouchThresholds: z.object({
+    awareness: z.number().min(1).optional(),
+    consideration: z.number().min(1).optional(),
+    trial: z.number().min(1).optional(),
+    loyalty: z.number().min(1).optional(),
+  }).optional(),
+  isDefault: z.boolean().optional(),
+});
+
+export type CreateMsiBenchmarkRequest = z.infer<typeof createMsiBenchmarkRequestSchema>;
+
+// Pre-Campaign Saturation Report
+export const preCampaignReportSchema = z.object({
+  reportId: z.string(),
+  generatedAt: z.string(),
+  campaignName: z.string(),
+  therapeuticArea: z.string().nullable(),
+  targetHcpCount: z.number(),
+  benchmarkUsed: msiBenchmarkSchema.nullable(),
+  summary: z.object({
+    avgPortfolioMsi: z.number(),
+    hcpsReadyForMessaging: z.number(), // MSI < safeThreshold
+    hcpsNeedingCaution: z.number(),    // MSI in approaching zone
+    hcpsToAvoid: z.number(),           // MSI >= shiftThreshold
+    themeSaturationOverview: z.array(z.object({
+      themeId: z.string(),
+      themeName: z.string(),
+      avgMsi: z.number(),
+      recommendedAction: z.string(),
+    })),
+  }),
+  recommendations: z.array(z.object({
+    priority: z.enum(["high", "medium", "low"]),
+    type: z.enum(["theme_rotation", "audience_reduction", "channel_diversification", "pause_theme", "increase_exposure"]),
+    description: z.string(),
+    impactedHcpCount: z.number(),
+    suggestedThemes: z.array(z.string()).optional(),
+  })),
+  hcpDetails: z.array(z.object({
+    hcpId: z.string(),
+    hcpName: z.string(),
+    overallMsi: z.number(),
+    riskLevel: z.enum(saturationRiskLevels),
+    recommendedThemes: z.array(z.string()),
+    themesToAvoid: z.array(z.string()),
+    adoptionStage: z.enum(adoptionStages).nullable(),
+  })),
+  exportFormats: z.object({
+    csvAvailable: z.boolean(),
+    excelAvailable: z.boolean(),
+    pdfAvailable: z.boolean(),
+  }),
+});
+
+export type PreCampaignReport = z.infer<typeof preCampaignReportSchema>;
+
+// Generate Pre-Campaign Report Request
+export const generatePreCampaignReportRequestSchema = z.object({
+  campaignName: z.string().min(1),
+  hcpIds: z.array(z.string()).optional(), // If not provided, use all HCPs
+  themeIds: z.array(z.string()).optional(), // If not provided, analyze all active themes
+  therapeuticArea: z.string().optional(),
+  benchmarkId: z.string().optional(), // If not provided, use default benchmark
+  includeHcpDetails: z.boolean().optional().default(true),
+});
+
+export type GeneratePreCampaignReportRequest = z.infer<typeof generatePreCampaignReportRequestSchema>;
+
+// Campaign Checklist Item
+export const campaignChecklistItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  category: z.enum(["saturation", "compliance", "targeting", "timing", "content"]),
+  status: z.enum(["passed", "warning", "failed", "skipped"]),
+  details: z.string().nullable(),
+  recommendation: z.string().nullable(),
+});
+
+export type CampaignChecklistItem = z.infer<typeof campaignChecklistItemSchema>;
+
+// Campaign Launch Checklist
+export const campaignLaunchChecklistSchema = z.object({
+  campaignName: z.string(),
+  generatedAt: z.string(),
+  overallStatus: z.enum(["ready", "needs_review", "not_ready"]),
+  items: z.array(campaignChecklistItemSchema),
+  saturationSummary: z.object({
+    totalHcps: z.number(),
+    safeToMessage: z.number(),
+    needsReview: z.number(),
+    doNotMessage: z.number(),
+    avgMsi: z.number(),
+  }),
+});
+
+export type CampaignLaunchChecklist = z.infer<typeof campaignLaunchChecklistSchema>;
+
+// Export Data Format Types
+export const saturationExportFormat = z.enum(["csv", "excel", "json"]);
+export type SaturationExportFormat = z.infer<typeof saturationExportFormat>;
+
+export const saturationExportRequestSchema = z.object({
+  format: saturationExportFormat,
+  hcpIds: z.array(z.string()).optional(),
+  themeIds: z.array(z.string()).optional(),
+  includeComponents: z.boolean().optional().default(false),
+  includeBenchmarkComparison: z.boolean().optional().default(true),
+});
+
+export type SaturationExportRequest = z.infer<typeof saturationExportRequestSchema>;
+
+// ============================================================================
+// PHASE 12C: NEXT BEST ORBIT RECOMMENDATION
+// ============================================================================
+
+// NBO Action Types
+export const nboActionTypes = [
+  "engage",      // Initial engagement with opportunity
+  "reinforce",   // Strengthen existing relationship
+  "defend",      // Counter competitive pressure
+  "nurture",     // Low-touch maintenance
+  "expand",      // Multi-channel expansion
+  "pause",       // Reduce frequency due to saturation
+  "reactivate",  // Re-engage dormant HCP
+] as const;
+
+export type NBOActionType = (typeof nboActionTypes)[number];
+
+// NBO Confidence Levels
+export const nboConfidenceLevels = ["high", "medium", "low"] as const;
+export type NBOConfidenceLevel = (typeof nboConfidenceLevels)[number];
+
+// NBO Status
+export const nboStatuses = ["pending", "accepted", "deferred", "overridden", "expired"] as const;
+export type NBOStatus = (typeof nboStatuses)[number];
+
+// NBO Input Weights (for transparency)
+export const nboInputWeightsSchema = z.object({
+  engagementTrajectory: z.number().min(0).max(1).default(0.20),
+  adoptionStage: z.number().min(0).max(1).default(0.15),
+  channelAffinity: z.number().min(0).max(1).default(0.20),
+  messageSaturation: z.number().min(0).max(1).default(0.20),
+  competitivePressure: z.number().min(0).max(1).default(0.15),
+  recentTouchHistory: z.number().min(0).max(1).default(0.10),
+});
+
+export type NBOInputWeights = z.infer<typeof nboInputWeightsSchema>;
+
+// Default weights
+export const DEFAULT_NBO_WEIGHTS: NBOInputWeights = {
+  engagementTrajectory: 0.20,
+  adoptionStage: 0.15,
+  channelAffinity: 0.20,
+  messageSaturation: 0.20,
+  competitivePressure: 0.15,
+  recentTouchHistory: 0.10,
+};
+
+// NBO Input Snapshot - captures all decision inputs for auditability
+export const nboInputSnapshotSchema = z.object({
+  // Engagement trajectory
+  engagementScore: z.number().nullable(),
+  engagementTrend: z.enum(["improving", "stable", "declining"]).nullable(),
+  responseRate: z.number().nullable(),
+
+  // Adoption stage
+  adoptionStage: z.enum(adoptionStages).nullable(),
+  stageConfidence: z.number().nullable(),
+
+  // Channel affinity
+  preferredChannel: z.enum(channels).nullable(),
+  channelScores: z.record(z.enum(channels), z.number()).nullable(),
+  channelHealth: z.record(z.enum(channels), z.enum(["active", "opportunity", "declining", "blocked", "dark"])).nullable(),
+
+  // Message saturation (MSI)
+  overallMsi: z.number().nullable(),
+  msiRiskLevel: z.enum(saturationRiskLevels).nullable(),
+  saturatedThemes: z.array(z.string()).nullable(),
+  availableThemes: z.array(z.string()).nullable(),
+
+  // Competitive pressure (CPI)
+  cpi: z.number().nullable(),
+  cpiRiskLevel: z.enum(["low", "medium", "high", "critical"]).nullable(),
+  topCompetitor: z.string().nullable(),
+  competitiveFlag: z.string().nullable(),
+
+  // Recent touch history
+  daysSinceLastTouch: z.number().nullable(),
+  touchesLast30Days: z.number().nullable(),
+  touchesLast90Days: z.number().nullable(),
+
+  // Weights used
+  weights: nboInputWeightsSchema,
+
+  // Timestamp
+  capturedAt: z.string(),
+});
+
+export type NBOInputSnapshot = z.infer<typeof nboInputSnapshotSchema>;
+
+// NBO Component Scores - individual signal contributions
+export const nboComponentScoresSchema = z.object({
+  engagementScore: z.number(), // -1 to 1
+  adoptionScore: z.number(),   // -1 to 1
+  channelScore: z.number(),    // -1 to 1
+  saturationScore: z.number(), // -1 to 1 (negative = saturated)
+  competitiveScore: z.number(),// -1 to 1 (positive = under threat)
+  recencyScore: z.number(),    // -1 to 1
+
+  // Weighted composite
+  compositeScore: z.number(),  // 0 to 100
+});
+
+export type NBOComponentScores = z.infer<typeof nboComponentScoresSchema>;
+
+// Next Best Orbit Recommendation Fact Table
+export const nextBestOrbitRecommendationFact = pgTable("next_best_orbit_recommendation_fact", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+
+  // Recommendation
+  recommendedChannel: varchar("recommended_channel", { length: 50 }).notNull(),
+  recommendedTheme: varchar("recommended_theme", { length: 200 }),
+  actionType: varchar("action_type", { length: 50 }).notNull(),
+
+  // Confidence and scoring
+  confidence: real("confidence").notNull(),
+  confidenceLevel: varchar("confidence_level", { length: 20 }).notNull(),
+  compositeScore: real("composite_score").notNull(),
+  componentScores: jsonb("component_scores").$type<NBOComponentScores>(),
+
+  // Rationale
+  rationale: text("rationale").notNull(),
+  keyFactors: jsonb("key_factors").$type<string[]>(),
+
+  // Expected impact
+  expectedImpactMin: real("expected_impact_min"),
+  expectedImpactMax: real("expected_impact_max"),
+
+  // Input snapshot for auditability
+  inputs: jsonb("inputs").$type<NBOInputSnapshot>(),
+
+  // Lifecycle
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+  validUntil: timestamp("valid_until"),
+  acceptedAt: timestamp("accepted_at"),
+  acceptedBy: varchar("accepted_by", { length: 100 }),
+  overrideReason: text("override_reason"),
+
+  // Outcome tracking
+  outcomeRecorded: boolean("outcome_recorded").notNull().default(false),
+  actualOutcome: real("actual_outcome"),
+  outcomeRecordedAt: timestamp("outcome_recorded_at"),
+});
+
+export const insertNBORecommendationSchema = createInsertSchema(nextBestOrbitRecommendationFact).omit({
+  id: true,
+  generatedAt: true,
+});
+
+export type NBORecommendationDB = typeof nextBestOrbitRecommendationFact.$inferSelect;
+export type InsertNBORecommendation = z.infer<typeof insertNBORecommendationSchema>;
+
+// NBO Recommendation API Type
+export const nboRecommendationSchema = z.object({
+  id: z.string(),
+  hcpId: z.string(),
+  hcpName: z.string().optional(),
+
+  // Recommendation
+  recommendedChannel: z.enum(channels),
+  recommendedTheme: z.string().nullable(),
+  actionType: z.enum(nboActionTypes),
+
+  // Confidence
+  confidence: z.number(),
+  confidenceLevel: z.enum(nboConfidenceLevels),
+  compositeScore: z.number(),
+  componentScores: nboComponentScoresSchema.optional(),
+
+  // Rationale
+  rationale: z.string(),
+  keyFactors: z.array(z.string()),
+
+  // Expected impact
+  expectedImpact: z.object({
+    min: z.number().nullable(),
+    max: z.number().nullable(),
+    description: z.string(),
+  }),
+
+  // Input snapshot
+  inputs: nboInputSnapshotSchema.optional(),
+
+  // Status
+  status: z.enum(nboStatuses),
+  generatedAt: z.string(),
+  validUntil: z.string().nullable(),
+
+  // Urgency derived from inputs
+  urgency: z.enum(["high", "medium", "low"]),
+});
+
+export type NBORecommendation = z.infer<typeof nboRecommendationSchema>;
+
+// NBO Generation Request
+export const generateNBORequestSchema = z.object({
+  hcpIds: z.array(z.string()).optional(),
+  limit: z.number().min(1).max(1000).optional(),
+  weights: nboInputWeightsSchema.partial().optional(),
+  minConfidence: z.number().min(0).max(1).optional(),
+  includeInputs: z.boolean().optional().default(false),
+  validityHours: z.number().min(1).max(168).optional().default(24), // 1 hour to 1 week
+});
+
+export type GenerateNBORequest = z.infer<typeof generateNBORequestSchema>;
+
+// NBO Batch Result
+export const nboBatchResultSchema = z.object({
+  recommendations: z.array(nboRecommendationSchema),
+  summary: z.object({
+    total: z.number(),
+    byConfidence: z.object({
+      high: z.number(),
+      medium: z.number(),
+      low: z.number(),
+    }),
+    byAction: z.record(z.enum(nboActionTypes), z.number()),
+    byChannel: z.record(z.enum(channels), z.number()),
+    avgConfidence: z.number(),
+    avgCompositeScore: z.number(),
+  }),
+  generatedAt: z.string(),
+});
+
+export type NBOBatchResult = z.infer<typeof nboBatchResultSchema>;
+
+// NBO Update Request (for accepting/overriding)
+export const updateNBOStatusRequestSchema = z.object({
+  status: z.enum(["accepted", "deferred", "overridden"]),
+  acceptedBy: z.string().optional(),
+  overrideReason: z.string().optional(),
+});
+
+export type UpdateNBOStatusRequest = z.infer<typeof updateNBOStatusRequestSchema>;
+
+// NBO Outcome Recording
+export const recordNBOOutcomeRequestSchema = z.object({
+  actualOutcome: z.number().min(0).max(100),
+  notes: z.string().optional(),
+});
+
+export type RecordNBOOutcomeRequest = z.infer<typeof recordNBOOutcomeRequestSchema>;
+
+// NBO Decision Rule - for rule-based fast path
+export const nboDecisionRuleSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  priority: z.number(), // Lower = higher priority
+
+  // Conditions
+  conditions: z.object({
+    msiRange: z.object({ min: z.number().optional(), max: z.number().optional() }).optional(),
+    cpiRange: z.object({ min: z.number().optional(), max: z.number().optional() }).optional(),
+    adoptionStages: z.array(z.enum(adoptionStages)).optional(),
+    channelHealthStatus: z.array(z.enum(["active", "opportunity", "declining", "blocked", "dark"])).optional(),
+    daysSinceLastTouchRange: z.object({ min: z.number().optional(), max: z.number().optional() }).optional(),
+    engagementTrend: z.enum(["improving", "stable", "declining"]).optional(),
+  }),
+
+  // Outcome
+  outcome: z.object({
+    actionType: z.enum(nboActionTypes),
+    confidenceBoost: z.number().default(0),
+    rationaleTemplate: z.string(),
+  }),
+
+  isActive: z.boolean().default(true),
+});
+
+export type NBODecisionRule = z.infer<typeof nboDecisionRuleSchema>;
+
+// ============================================================================
+// PHASE 12C.4: NBO LEARNING LOOP
+// ============================================================================
+
+// Feedback types for NBO recommendations
+export const nboFeedbackTypes = [
+  "accepted",     // User accepted the recommendation
+  "rejected",     // User rejected the recommendation
+  "modified",     // User modified then executed
+  "deferred",     // User deferred for later
+  "expired",      // Recommendation expired without action
+  "executed",     // Recommendation was executed
+] as const;
+
+export type NBOFeedbackType = (typeof nboFeedbackTypes)[number];
+
+// Outcome types for measuring recommendation success
+export const nboOutcomeTypes = [
+  "engagement_improved",    // Engagement score increased
+  "engagement_declined",    // Engagement score decreased
+  "engagement_stable",      // No significant change
+  "competitive_defended",   // Competitive threat neutralized
+  "competitive_lost",       // Lost to competitor
+  "channel_activated",      // Channel became active
+  "relationship_reactivated", // Dormant HCP re-engaged
+  "saturation_reduced",     // MSI decreased
+  "pending",                // Outcome not yet measured
+] as const;
+
+export type NBOOutcomeType = (typeof nboOutcomeTypes)[number];
+
+// NBO Feedback Table - tracks recommendation outcomes
+export const nboFeedbackFact = pgTable("nbo_feedback_fact", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  recommendationId: varchar("recommendation_id").notNull(),
+  hcpId: varchar("hcp_id").notNull().references(() => hcpProfiles.id),
+
+  // What was recommended
+  recommendedAction: varchar("recommended_action", { length: 50 }).notNull(),
+  recommendedChannel: varchar("recommended_channel", { length: 50 }).notNull(),
+  recommendedTheme: varchar("recommended_theme", { length: 200 }),
+  originalConfidence: real("original_confidence").notNull(),
+
+  // User feedback
+  feedbackType: varchar("feedback_type", { length: 50 }).notNull(),
+  feedbackBy: varchar("feedback_by", { length: 100 }),
+  feedbackAt: timestamp("feedback_at").notNull().defaultNow(),
+  feedbackReason: text("feedback_reason"),
+
+  // If modified, what was actually executed
+  executedAction: varchar("executed_action", { length: 50 }),
+  executedChannel: varchar("executed_channel", { length: 50 }),
+  executedTheme: varchar("executed_theme", { length: 200 }),
+  executedAt: timestamp("executed_at"),
+
+  // Outcome measurement
+  outcomeType: varchar("outcome_type", { length: 50 }),
+  outcomeValue: real("outcome_value"), // e.g., engagement change %
+  outcomeMeasuredAt: timestamp("outcome_measured_at"),
+  measurementPeriodDays: integer("measurement_period_days").default(30),
+
+  // Before/After metrics for learning
+  engagementBefore: real("engagement_before"),
+  engagementAfter: real("engagement_after"),
+  msiBefore: real("msi_before"),
+  msiAfter: real("msi_after"),
+  cpiBefore: real("cpi_before"),
+  cpiAfter: real("cpi_after"),
+
+  // Learning flags
+  usedForTraining: boolean("used_for_training").default(false),
+  trainingBatchId: varchar("training_batch_id", { length: 100 }),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertNBOFeedbackSchema = createInsertSchema(nboFeedbackFact).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type NBOFeedbackDB = typeof nboFeedbackFact.$inferSelect;
+export type InsertNBOFeedback = z.infer<typeof insertNBOFeedbackSchema>;
+
+// NBO Feedback Recording Request
+export const recordNBOFeedbackRequestSchema = z.object({
+  recommendationId: z.string(),
+  feedbackType: z.enum(nboFeedbackTypes),
+  feedbackBy: z.string().optional(),
+  feedbackReason: z.string().optional(),
+  executedAction: z.enum(nboActionTypes).optional(),
+  executedChannel: z.enum(channels).optional(),
+  executedTheme: z.string().optional(),
+});
+
+export type RecordNBOFeedbackRequest = z.infer<typeof recordNBOFeedbackRequestSchema>;
+
+// NBO Outcome Measurement Request
+export const measureNBOOutcomeRequestSchema = z.object({
+  feedbackId: z.string(),
+  outcomeType: z.enum(nboOutcomeTypes),
+  outcomeValue: z.number().optional(),
+  engagementAfter: z.number().optional(),
+  msiAfter: z.number().optional(),
+  cpiAfter: z.number().optional(),
+});
+
+export type MeasureNBOOutcomeRequest = z.infer<typeof measureNBOOutcomeRequestSchema>;
+
+// NBO Learning Metrics Schema
+export const nboLearningMetricsSchema = z.object({
+  period: z.string(), // e.g., "2024-01", "last_30_days"
+
+  // Volume metrics
+  totalRecommendations: z.number(),
+  acceptedCount: z.number(),
+  rejectedCount: z.number(),
+  modifiedCount: z.number(),
+  expiredCount: z.number(),
+
+  // Acceptance rates
+  overallAcceptanceRate: z.number(),
+  acceptanceByAction: z.record(z.enum(nboActionTypes), z.number()),
+  acceptanceByConfidence: z.object({
+    high: z.number(),
+    medium: z.number(),
+    low: z.number(),
+  }),
+
+  // Outcome metrics
+  measuredCount: z.number(),
+  positiveOutcomeRate: z.number(), // % of executed recommendations with positive outcome
+  avgEngagementChange: z.number(),
+  avgMsiChange: z.number(),
+
+  // Confidence calibration
+  calibrationScore: z.number(), // How well confidence predicts success (0-1)
+  calibrationByBucket: z.array(z.object({
+    confidenceRange: z.string(), // e.g., "0.7-0.8"
+    predictedSuccessRate: z.number(),
+    actualSuccessRate: z.number(),
+    sampleSize: z.number(),
+  })),
+
+  // Action effectiveness
+  actionEffectiveness: z.array(z.object({
+    action: z.enum(nboActionTypes),
+    recommendedCount: z.number(),
+    executedCount: z.number(),
+    positiveOutcomeCount: z.number(),
+    avgOutcomeValue: z.number(),
+  })),
+
+  // Channel effectiveness
+  channelEffectiveness: z.array(z.object({
+    channel: z.enum(channels),
+    recommendedCount: z.number(),
+    executedCount: z.number(),
+    positiveOutcomeCount: z.number(),
+    avgOutcomeValue: z.number(),
+  })),
+
+  generatedAt: z.string(),
+});
+
+export type NBOLearningMetrics = z.infer<typeof nboLearningMetricsSchema>;
+
+// NBO Model Performance Summary
+export const nboModelPerformanceSchema = z.object({
+  // Overall health
+  overallHealth: z.enum(["excellent", "good", "fair", "poor"]),
+  healthScore: z.number().min(0).max(100),
+
+  // Key indicators
+  indicators: z.array(z.object({
+    name: z.string(),
+    value: z.number(),
+    trend: z.enum(["improving", "stable", "declining"]),
+    target: z.number().optional(),
+    status: z.enum(["on_track", "warning", "critical"]),
+  })),
+
+  // Recommendations for model improvement
+  improvementSuggestions: z.array(z.object({
+    area: z.string(),
+    issue: z.string(),
+    suggestion: z.string(),
+    priority: z.enum(["high", "medium", "low"]),
+  })),
+
+  // Training readiness
+  trainingReadiness: z.object({
+    newFeedbackSinceLastTraining: z.number(),
+    minFeedbackForTraining: z.number(),
+    isReadyForTraining: z.boolean(),
+    estimatedImprovementPotential: z.number().optional(),
+  }),
+
+  lastUpdated: z.string(),
+});
+
+export type NBOModelPerformance = z.infer<typeof nboModelPerformanceSchema>;
+
+// ============================================================================
+// PROMPT ANALYTICS (Phase 12D.4)
+// ============================================================================
+
+/**
+ * Prompt types for analytics tracking
+ */
+export const promptTypes = ["system", "role", "task", "guardrail"] as const;
+export type PromptType = (typeof promptTypes)[number];
+
+/**
+ * Prompt usage tracking - records each time a prompt is invoked
+ */
+export const promptUsage = pgTable("prompt_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Prompt identification
+  promptId: varchar("prompt_id", { length: 100 }).notNull(),
+  promptVersion: varchar("prompt_version", { length: 20 }).notNull(),
+  promptType: varchar("prompt_type", { length: 20 }).notNull(), // PromptType
+
+  // Usage context
+  agentType: varchar("agent_type", { length: 50 }),
+  agentRunId: varchar("agent_run_id"),
+  userId: varchar("user_id"),
+  roleType: varchar("role_type", { length: 50 }), // User persona
+  sessionId: varchar("session_id", { length: 100 }),
+
+  // Task context
+  taskType: varchar("task_type", { length: 100 }), // cohort-analysis, competitive-assessment, etc.
+  taskComplexity: varchar("task_complexity", { length: 20 }), // simple, moderate, complex
+
+  // Performance metrics
+  responseTimeMs: integer("response_time_ms"),
+  tokensUsed: integer("tokens_used"),
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
+
+  // Outcome tracking
+  wasSuccessful: boolean("was_successful"),
+  userSatisfactionScore: integer("user_satisfaction_score"), // 1-5
+  hadCorrection: boolean("had_correction").default(false),
+  correctionId: varchar("correction_id"),
+
+  // A/B testing
+  abTestGroup: varchar("ab_test_group", { length: 20 }), // control, variant_a, variant_b
+  abTestId: varchar("ab_test_id", { length: 100 }),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPromptUsageSchema = createInsertSchema(promptUsage).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPromptUsage = z.infer<typeof insertPromptUsageSchema>;
+export type PromptUsageDB = typeof promptUsage.$inferSelect;
+
+/**
+ * Prompt correction types
+ */
+export const correctionTypes = [
+  "factual_error",      // Agent stated something incorrect
+  "missing_context",    // Agent missed relevant information
+  "wrong_format",       // Output format was incorrect
+  "tone_issue",         // Tone was inappropriate for context
+  "compliance_issue",   // Output violated compliance rules
+  "hallucination",      // Agent made up information
+  "incomplete",         // Response was incomplete
+  "irrelevant",         // Response didn't address the question
+  "other",
+] as const;
+
+export type CorrectionType = (typeof correctionTypes)[number];
+
+/**
+ * Prompt corrections - tracks when users override or correct agent outputs
+ */
+export const promptCorrections = pgTable("prompt_corrections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Link to usage event
+  usageId: varchar("usage_id").references(() => promptUsage.id),
+
+  // Prompt that produced the output
+  promptId: varchar("prompt_id", { length: 100 }).notNull(),
+  promptVersion: varchar("prompt_version", { length: 20 }).notNull(),
+
+  // Who corrected
+  correctedBy: varchar("corrected_by", { length: 100 }).notNull(),
+  userRole: varchar("user_role", { length: 50 }),
+
+  // Correction details
+  correctionType: varchar("correction_type", { length: 50 }).notNull(), // CorrectionType
+  severity: varchar("severity", { length: 20 }).notNull(), // minor, moderate, major, critical
+
+  // Content comparison
+  originalOutput: text("original_output"),
+  correctedOutput: text("corrected_output"),
+  correctionNotes: text("correction_notes"),
+
+  // Categorization for learning
+  affectedSection: varchar("affected_section", { length: 100 }), // Which part of prompt caused issue
+  suggestedImprovement: text("suggested_improvement"),
+
+  // Resolution tracking
+  status: varchar("status", { length: 20 }).default("pending"), // pending, reviewed, incorporated, dismissed
+  reviewedBy: varchar("reviewed_by", { length: 100 }),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPromptCorrectionSchema = createInsertSchema(promptCorrections).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPromptCorrection = z.infer<typeof insertPromptCorrectionSchema>;
+export type PromptCorrectionDB = typeof promptCorrections.$inferSelect;
+
+/**
+ * A/B test status values
+ */
+export const abTestStatuses = ["draft", "active", "paused", "completed", "cancelled"] as const;
+export type ABTestStatus = (typeof abTestStatuses)[number];
+
+/**
+ * Prompt A/B tests - manages prompt variation experiments
+ */
+export const promptAbTests = pgTable("prompt_ab_tests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Test identity
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  hypothesis: text("hypothesis"),
+
+  // Test configuration
+  basePromptId: varchar("base_prompt_id", { length: 100 }).notNull(),
+  variantPromptId: varchar("variant_prompt_id", { length: 100 }).notNull(),
+
+  // Targeting
+  targetRoles: jsonb("target_roles").$type<string[]>(), // null = all roles
+  targetTaskTypes: jsonb("target_task_types").$type<string[]>(), // null = all tasks
+  trafficSplitPercent: integer("traffic_split_percent").default(50), // % to variant
+
+  // Success metrics
+  primaryMetric: varchar("primary_metric", { length: 50 }).notNull(), // satisfaction, accuracy, completion_rate
+  secondaryMetrics: jsonb("secondary_metrics").$type<string[]>(),
+  minimumSampleSize: integer("minimum_sample_size").default(100),
+
+  // Results
+  controlUsageCount: integer("control_usage_count").default(0),
+  variantUsageCount: integer("variant_usage_count").default(0),
+  controlSuccessRate: real("control_success_rate"),
+  variantSuccessRate: real("variant_success_rate"),
+  controlAvgSatisfaction: real("control_avg_satisfaction"),
+  variantAvgSatisfaction: real("variant_avg_satisfaction"),
+  statisticalSignificance: real("statistical_significance"),
+
+  // Winner determination
+  winner: varchar("winner", { length: 20 }), // control, variant, inconclusive
+  winnerRationale: text("winner_rationale"),
+
+  // Status and timeline
+  status: varchar("status", { length: 20 }).default("draft"), // ABTestStatus
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+
+  createdBy: varchar("created_by", { length: 100 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertPromptAbTestSchema = createInsertSchema(promptAbTests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPromptAbTest = z.infer<typeof insertPromptAbTestSchema>;
+export type PromptAbTestDB = typeof promptAbTests.$inferSelect;
+
+// ============================================================================
+// PROMPT ANALYTICS API TYPES
+// ============================================================================
+
+/**
+ * Prompt usage statistics aggregation
+ */
+export const promptUsageStatsSchema = z.object({
+  promptId: z.string(),
+  promptVersion: z.string(),
+  promptType: z.enum(promptTypes),
+
+  // Usage counts
+  totalUsage: z.number(),
+  usageByRole: z.record(z.string(), z.number()),
+  usageByTask: z.record(z.string(), z.number()),
+
+  // Performance
+  avgResponseTimeMs: z.number(),
+  avgTokensUsed: z.number(),
+  successRate: z.number(),
+  avgSatisfactionScore: z.number().nullable(),
+
+  // Quality
+  correctionRate: z.number(),
+  correctionsByType: z.record(z.string(), z.number()),
+
+  // Trends
+  usageTrend: z.array(z.object({
+    date: z.string(),
+    count: z.number(),
+    successRate: z.number(),
+  })),
+
+  period: z.object({
+    start: z.string(),
+    end: z.string(),
+  }),
+});
+
+export type PromptUsageStats = z.infer<typeof promptUsageStatsSchema>;
+
+/**
+ * Prompt correction summary for improvement pipeline
+ */
+export const promptCorrectionSummarySchema = z.object({
+  promptId: z.string(),
+  promptVersion: z.string(),
+
+  totalCorrections: z.number(),
+  pendingReview: z.number(),
+  incorporated: z.number(),
+
+  // Breakdown by type
+  byType: z.array(z.object({
+    type: z.enum(correctionTypes),
+    count: z.number(),
+    avgSeverity: z.number(),
+  })),
+
+  // Most common issues
+  topIssues: z.array(z.object({
+    section: z.string(),
+    issueCount: z.number(),
+    suggestedFix: z.string().nullable(),
+  })),
+
+  // Improvement suggestions
+  improvementPriority: z.enum(["high", "medium", "low"]),
+  suggestedActions: z.array(z.string()),
+});
+
+export type PromptCorrectionSummary = z.infer<typeof promptCorrectionSummarySchema>;
+
+/**
+ * A/B test results summary
+ */
+export const abTestResultsSchema = z.object({
+  testId: z.string(),
+  name: z.string(),
+  status: z.enum(abTestStatuses),
+
+  // Sample sizes
+  controlSampleSize: z.number(),
+  variantSampleSize: z.number(),
+  totalSampleSize: z.number(),
+
+  // Primary metric comparison
+  primaryMetric: z.string(),
+  controlValue: z.number(),
+  variantValue: z.number(),
+  percentChange: z.number(),
+
+  // Statistical analysis
+  pValue: z.number().nullable(),
+  confidenceInterval: z.object({
+    lower: z.number(),
+    upper: z.number(),
+  }).nullable(),
+  isSignificant: z.boolean(),
+
+  // Recommendation
+  recommendation: z.enum(["adopt_variant", "keep_control", "extend_test", "inconclusive"]),
+  rationale: z.string(),
+
+  // Timeline
+  daysRunning: z.number(),
+  estimatedDaysToSignificance: z.number().nullable(),
+});
+
+export type ABTestResults = z.infer<typeof abTestResultsSchema>;
+
+/**
+ * Overall prompt health dashboard
+ */
+export const promptHealthDashboardSchema = z.object({
+  // Overview
+  totalPromptsActive: z.number(),
+  totalUsageLast30Days: z.number(),
+  overallSuccessRate: z.number(),
+  overallSatisfactionScore: z.number().nullable(),
+
+  // Quality indicators
+  promptsNeedingAttention: z.array(z.object({
+    promptId: z.string(),
+    promptName: z.string(),
+    issue: z.string(),
+    severity: z.enum(["warning", "critical"]),
+    metric: z.string(),
+    currentValue: z.number(),
+    threshold: z.number(),
+  })),
+
+  // Correction insights
+  totalCorrectionsLast30Days: z.number(),
+  correctionTrend: z.enum(["increasing", "stable", "decreasing"]),
+  topCorrectionTypes: z.array(z.object({
+    type: z.string(),
+    count: z.number(),
+  })),
+
+  // A/B testing status
+  activeTests: z.number(),
+  testsReadyForDecision: z.number(),
+  recentWinners: z.array(z.object({
+    testName: z.string(),
+    winner: z.string(),
+    improvement: z.number(),
+  })),
+
+  // Improvement pipeline
+  pendingImprovements: z.number(),
+  improvementsThisMonth: z.number(),
+
+  generatedAt: z.string(),
+});
+
+export type PromptHealthDashboard = z.infer<typeof promptHealthDashboardSchema>;
+
+// ============================================================================
+// PHASE 12A.3: COMPETITIVE ALERT CONFIGURATION
+// ============================================================================
+
+/**
+ * Competitive Alert Configuration Table
+ *
+ * Stores configurable thresholds for competitive alerts, allowing
+ * different sensitivity levels per therapeutic area, brand, or globally.
+ */
+export const competitiveAlertConfig = pgTable("competitive_alert_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: varchar("description", { length: 500 }),
+
+  // Scope - can be global, per-TA, or per-competitor
+  scope: varchar("scope", { length: 20 }).notNull().default("global"), // 'global', 'therapeutic_area', 'competitor'
+  therapeuticArea: varchar("therapeutic_area", { length: 100 }), // null = applies to all
+  competitorId: varchar("competitor_id", { length: 100 }), // null = applies to all
+
+  // CPI Thresholds
+  criticalCpiThreshold: real("critical_cpi_threshold").notNull().default(75),
+  warningCpiThreshold: real("warning_cpi_threshold").notNull().default(50),
+
+  // Trend Thresholds
+  cpiTrendThreshold: real("cpi_trend_threshold").notNull().default(10), // % QoQ change
+  shareErosionThreshold: real("share_erosion_threshold").notNull().default(5), // % share loss
+  engagementAsymmetryThreshold: real("engagement_asymmetry_threshold").notNull().default(20), // point difference
+
+  // Alert Settings
+  alertFrequency: varchar("alert_frequency", { length: 20 }).notNull().default("daily"), // 'realtime', 'daily', 'weekly'
+  suppressDuplicateHours: integer("suppress_duplicate_hours").notNull().default(24),
+  isActive: boolean("is_active").notNull().default(true),
+
+  // Metadata
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdBy: varchar("created_by", { length: 100 }),
+});
+
+export const insertCompetitiveAlertConfigSchema = createInsertSchema(competitiveAlertConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCompetitiveAlertConfig = z.infer<typeof insertCompetitiveAlertConfigSchema>;
+export type CompetitiveAlertConfigDB = typeof competitiveAlertConfig.$inferSelect;
+
+// API type for alert configuration
+export const competitiveAlertConfigSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  scope: z.enum(["global", "therapeutic_area", "competitor"]),
+  therapeuticArea: z.string().nullable(),
+  competitorId: z.string().nullable(),
+  criticalCpiThreshold: z.number().min(0).max(100),
+  warningCpiThreshold: z.number().min(0).max(100),
+  cpiTrendThreshold: z.number().min(0).max(100),
+  shareErosionThreshold: z.number().min(0).max(100),
+  engagementAsymmetryThreshold: z.number().min(0).max(100),
+  alertFrequency: z.enum(["realtime", "daily", "weekly"]),
+  suppressDuplicateHours: z.number().min(0),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  createdBy: z.string().nullable(),
+});
+
+export type CompetitiveAlertConfig = z.infer<typeof competitiveAlertConfigSchema>;
+
+// Request type for creating/updating alert config
+export const createCompetitiveAlertConfigSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  scope: z.enum(["global", "therapeutic_area", "competitor"]).default("global"),
+  therapeuticArea: z.string().optional(),
+  competitorId: z.string().optional(),
+  criticalCpiThreshold: z.number().min(0).max(100).default(75),
+  warningCpiThreshold: z.number().min(0).max(100).default(50),
+  cpiTrendThreshold: z.number().min(0).max(100).default(10),
+  shareErosionThreshold: z.number().min(0).max(100).default(5),
+  engagementAsymmetryThreshold: z.number().min(0).max(100).default(20),
+  alertFrequency: z.enum(["realtime", "daily", "weekly"]).default("daily"),
+  suppressDuplicateHours: z.number().min(0).default(24),
+  isActive: z.boolean().default(true),
+});
+
+export type CreateCompetitiveAlertConfig = z.infer<typeof createCompetitiveAlertConfigSchema>;
+
+// Alert thresholds resolved for a specific context
+export const resolvedAlertThresholdsSchema = z.object({
+  criticalCpi: z.number(),
+  warningCpi: z.number(),
+  cpiTrendThreshold: z.number(),
+  shareErosionThreshold: z.number(),
+  engagementAsymmetryThreshold: z.number(),
+  sourceConfigId: z.string().nullable(), // which config these came from
+  sourceConfigName: z.string().nullable(),
+});
+
+export type ResolvedAlertThresholds = z.infer<typeof resolvedAlertThresholdsSchema>;

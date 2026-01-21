@@ -109,6 +109,16 @@ export {
   type PromptLoadOptions,
 } from "./prompt-manager";
 
+// Prompt Analytics (Phase 12D.4)
+export {
+  PromptAnalytics,
+  promptAnalytics,
+  type UsageContext,
+  type UsageMetrics,
+  type CorrectionSubmission,
+  type ABTestConfig,
+} from "./prompt-analytics";
+
 // Initialize and register agents
 import { AgentRegistry } from "./base-agent";
 import { channelHealthMonitor } from "./channel-health-monitor";

@@ -1,6 +1,7 @@
-import type { HCPProfile, Channel, ConstraintCheckResult } from "@shared/schema";
+import type { HCPProfile, Channel, ConstraintCheckResult, HcpCompetitiveSummary } from "@shared/schema";
 import { classifyChannelHealth, type ChannelHealth, type HealthStatus } from "./channel-health";
 import { constraintManager } from "./constraint-manager";
+import { competitiveInsightEngine, type CompetitiveFlag } from "./competitive-insight-engine";
 
 /**
  * Next Best Action (NBA) Engine
@@ -604,5 +605,212 @@ export async function getConstraintAwareNBASummary(
       type,
       count,
     })),
+  };
+}
+
+// ============================================================================
+// PHASE 12A: COMPETITIVE-AWARE NBA GENERATION
+// ============================================================================
+
+/**
+ * Extended NBA result with competitive intelligence
+ */
+export interface CompetitiveAwareNBA extends NextBestAction {
+  competitiveContext?: {
+    cpi: number;
+    riskLevel: "low" | "medium" | "high" | "critical";
+    flag: CompetitiveFlag;
+    topCompetitor?: {
+      name: string;
+      cpi: number;
+    };
+    urgencyBoost: number;
+    confidenceAdjustment: number;
+    recommendedAction?: string;
+    competitorContext?: string;
+  };
+}
+
+/**
+ * Generate NBA with competitive pressure adjustments
+ *
+ * This function enhances standard NBA recommendations by:
+ * - Boosting urgency for HCPs under competitive pressure
+ * - Adding competitor context to reasoning
+ * - Recommending defensive actions when needed
+ * - Adjusting confidence based on competitive landscape
+ */
+export function generateCompetitiveAwareNBA(
+  hcp: HCPProfile,
+  competitiveSummary: HcpCompetitiveSummary | null,
+  channelHealth?: ChannelHealth[],
+  config: NBAConfig = { prioritizeOpportunities: true, addressBlocked: true, reEngageThresholdDays: 60, minConfidenceThreshold: 40 }
+): CompetitiveAwareNBA {
+  // Generate base NBA
+  const baseNBA = generateNBA(hcp, channelHealth, config);
+
+  // If no competitive data, return base NBA
+  if (!competitiveSummary || competitiveSummary.signals.length === 0) {
+    return baseNBA;
+  }
+
+  // Get competitive adjustments
+  const adjustment = competitiveInsightEngine.getNBACompetitiveAdjustment(competitiveSummary);
+  const flag = competitiveInsightEngine.getCompetitiveFlag(competitiveSummary);
+
+  // Apply urgency boost
+  let newUrgency = baseNBA.urgency;
+  if (adjustment.urgencyBoost >= 0.7) {
+    newUrgency = "high";
+  } else if (adjustment.urgencyBoost >= 0.3 && baseNBA.urgency === "low") {
+    newUrgency = "medium";
+  }
+
+  // Apply confidence adjustment (capped at 100)
+  const newConfidence = Math.min(100, Math.max(0, baseNBA.confidence + adjustment.confidenceAdjustment));
+
+  // Enhance reasoning with competitive context
+  let enhancedReasoning = baseNBA.reasoning;
+  if (adjustment.competitorContext) {
+    enhancedReasoning += ` | Competitive: ${adjustment.competitorContext}`;
+  }
+
+  // Modify action type for defensive scenarios
+  let newActionType = baseNBA.actionType;
+  let newSuggestedTiming = baseNBA.suggestedTiming;
+
+  if (flag.type === "defensive_intervention") {
+    // Override to re-engage action for defensive intervention
+    if (baseNBA.actionType !== "re_engage") {
+      newActionType = "re_engage";
+      enhancedReasoning = `DEFENSIVE: ${adjustment.competitorContext || "High competitive pressure detected"}. ${enhancedReasoning}`;
+      newSuggestedTiming = "ASAP - competitive threat requires immediate response";
+    }
+  } else if (flag.type === "competitive_opportunity" && baseNBA.actionType === "maintain") {
+    // Capitalize on competitor weakness
+    newActionType = "expand";
+    enhancedReasoning = `OPPORTUNITY: Competitor weakness detected. ${enhancedReasoning}`;
+    newSuggestedTiming = "Within 1 week - capitalize on competitor vulnerability";
+  }
+
+  return {
+    ...baseNBA,
+    urgency: newUrgency,
+    confidence: newConfidence,
+    reasoning: enhancedReasoning,
+    actionType: newActionType,
+    suggestedTiming: newSuggestedTiming,
+    competitiveContext: {
+      cpi: competitiveSummary.overallCpi,
+      riskLevel: competitiveSummary.riskLevel,
+      flag,
+      topCompetitor: competitiveSummary.topCompetitor ?? undefined,
+      urgencyBoost: adjustment.urgencyBoost,
+      confidenceAdjustment: adjustment.confidenceAdjustment,
+      recommendedAction: adjustment.recommendedAction,
+      competitorContext: adjustment.competitorContext,
+    },
+  };
+}
+
+/**
+ * Generate competitive-aware NBAs for multiple HCPs
+ */
+export function generateCompetitiveAwareNBAs(
+  hcps: HCPProfile[],
+  competitiveSummaries: Map<string, HcpCompetitiveSummary | null>,
+  config: NBAConfig = { prioritizeOpportunities: true, addressBlocked: true, reEngageThresholdDays: 60, minConfidenceThreshold: 40 }
+): CompetitiveAwareNBA[] {
+  return hcps.map((hcp) => {
+    const summary = competitiveSummaries.get(hcp.id) || null;
+    return generateCompetitiveAwareNBA(hcp, summary, undefined, config);
+  });
+}
+
+/**
+ * Prioritize NBAs with competitive pressure taken into account
+ *
+ * HCPs with higher competitive pressure are prioritized alongside urgency
+ */
+export function prioritizeCompetitiveAwareNBAs(
+  nbas: CompetitiveAwareNBA[],
+  limit?: number,
+  prioritizeCompetitiveThreats: boolean = true
+): CompetitiveAwareNBA[] {
+  const urgencyOrder = { high: 0, medium: 1, low: 2 };
+  const riskOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+
+  const sorted = [...nbas].sort((a, b) => {
+    // If prioritizing competitive threats, factor in CPI risk level
+    if (prioritizeCompetitiveThreats) {
+      const aRisk = a.competitiveContext?.riskLevel || "low";
+      const bRisk = b.competitiveContext?.riskLevel || "low";
+
+      // Critical/high risk gets priority
+      if (riskOrder[aRisk] < 2 || riskOrder[bRisk] < 2) {
+        const riskDiff = riskOrder[aRisk] - riskOrder[bRisk];
+        if (riskDiff !== 0) return riskDiff;
+      }
+    }
+
+    // Then by urgency
+    const urgencyDiff = urgencyOrder[a.urgency] - urgencyOrder[b.urgency];
+    if (urgencyDiff !== 0) return urgencyDiff;
+
+    // Then by confidence
+    return b.confidence - a.confidence;
+  });
+
+  return limit ? sorted.slice(0, limit) : sorted;
+}
+
+/**
+ * Get summary statistics for competitive-aware NBAs
+ */
+export function getCompetitiveAwareNBASummary(nbas: CompetitiveAwareNBA[]): {
+  totalActions: number;
+  byUrgency: Record<string, number>;
+  byActionType: Record<string, number>;
+  byChannel: Record<string, number>;
+  avgConfidence: number;
+  competitiveSummary: {
+    hcpsWithCompetitiveData: number;
+    avgCpi: number;
+    byRiskLevel: Record<string, number>;
+    defensiveInterventionsNeeded: number;
+    competitiveOpportunities: number;
+  };
+} {
+  const baseSummary = getNBASummary(nbas);
+
+  // Competitive metrics
+  const withCompetitiveData = nbas.filter(n => n.competitiveContext);
+  const byRiskLevel: Record<string, number> = { low: 0, medium: 0, high: 0, critical: 0 };
+  let totalCpi = 0;
+  let defensiveCount = 0;
+  let opportunityCount = 0;
+
+  for (const nba of withCompetitiveData) {
+    if (nba.competitiveContext) {
+      byRiskLevel[nba.competitiveContext.riskLevel]++;
+      totalCpi += nba.competitiveContext.cpi;
+      if (nba.competitiveContext.flag.type === "defensive_intervention") {
+        defensiveCount++;
+      }
+      if (nba.competitiveContext.flag.type === "competitive_opportunity") {
+        opportunityCount++;
+      }
+    }
+  }
+
+  return {
+    ...baseSummary,
+    competitiveSummary: {
+      hcpsWithCompetitiveData: withCompetitiveData.length,
+      avgCpi: withCompetitiveData.length > 0 ? Math.round(totalCpi / withCompetitiveData.length) : 0,
+      byRiskLevel,
+      defensiveInterventionsNeeded: defensiveCount,
+      competitiveOpportunities: opportunityCount,
+    },
   };
 }
