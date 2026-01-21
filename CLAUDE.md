@@ -37,6 +37,25 @@ npm run db:push
 npm run dev
 ```
 
+## Starting the Dev Server (Important!)
+
+**When user says "run dev server", "start the server", or similar, ALWAYS run this checklist first:**
+
+1. **Check PostgreSQL**: `/opt/homebrew/opt/postgresql@16/bin/pg_isready -h localhost`
+   - If not running: `brew services start postgresql@16` and wait 3 seconds
+
+2. **Check .env exists**: `ls .env` — if missing, `cp .env.example .env`
+
+3. **Export env vars**: `export $(cat .env | xargs)` — REQUIRED before npm run dev
+
+4. **Start server**: `npm run dev`
+
+5. **Verify**: Look for "serving on port 3000" in output
+
+6. **Tell user**: "Server running at http://localhost:3000"
+
+The user is non-technical and won't remember prerequisites. Always check everything.
+
 ## Architecture
 
 ### Monorepo Structure
