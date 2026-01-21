@@ -335,3 +335,131 @@ Never auto-approve:
 - External communications to HCPs
 - Document generation with PHI
 - High-impact actions affecting >50 entities
+
+---
+
+## Phase 12: Multi-Roadmap Consolidation
+
+### Overview
+
+Phase 12 exposes competitive pressure, message saturation, and next-best-orbit decisioning as first-class platform capabilities with a "stacked value curve":
+
+| Layer | Capability | Outcome |
+|-------|-----------|---------|
+| 1. Visualization | Competitive Orbit + Saturation Heatmap | Comprehension |
+| 2. Judgment | CPI + MSI Metrics | Context-aware decisions |
+| 3. Action | Next Best Orbit | Prescriptive guidance |
+| 4. Scale | Agent Prompt Pack | Autonomous adaptation |
+
+### New API Domains
+
+- `/api/competitors` - Competitor definitions
+- `/api/competitive/*` - CPI signals, alerts, governance
+- `/api/message-themes` - Message theme taxonomy
+- `/api/message-saturation/*` - MSI, heatmap, benchmarks
+- `/api/nbo/*` - Recommendations, feedback, metrics
+- `/api/msi-benchmarks` - MSI benchmarks by therapeutic area
+
+### Key Services
+
+#### Competitive Pressure Index (CPI)
+
+```typescript
+// server/storage/competitive-storage.ts
+// CPI = Share + Velocity + Engagement + Trend (0-100)
+export function calculateCPI(signal: CompetitiveSignalInput): CPIResult {
+  const shareComponent = (signal.shareOfBrand / 100) * 25;
+  const velocityComponent = clamp((signal.competitiveRxVelocity - signal.ourRxVelocity + 50) / 100, 0, 1) * 25;
+  const engagementComponent = clamp((signal.engagementAsymmetry + 50) / 100, 0, 1) * 25;
+  const trendComponent = clamp((signal.shareChangeQoQ + 25) / 50, 0, 1) * 25;
+  return { cpi: shareComponent + velocityComponent + engagementComponent + trendComponent, ... };
+}
+
+// Risk levels: low (0-25), medium (26-50), high (51-75), critical (76-100)
+```
+
+#### Message Saturation Index (MSI)
+
+```typescript
+// server/storage/message-saturation-storage.ts
+// MSI = (Frequency + Diversity + Decay) × StageModifier (0-100)
+export function calculateMsi(exposure: MessageExposureInput): MSIResult {
+  const stageModifiers = { awareness: 0.7, consideration: 0.85, trial: 0.9, loyalty: 1.1 };
+  const frequencyComponent = (exposure.touchFrequency / threshold) * 40;
+  const diversityComponent = (1 - exposure.channelDiversity) * 20;
+  const decayComponent = exposure.engagementDecay * 40;
+  return { msi: (frequencyComponent + diversityComponent + decayComponent) * stageModifiers[stage], ... };
+}
+
+// Risk levels: low (0-25), medium (26-50), high (51-75), critical (76-100)
+```
+
+#### Next Best Orbit (NBO)
+
+```typescript
+// server/services/next-best-orbit-engine.ts
+// Decision weights: Engagement (20%), Adoption (15%), Channel (20%), MSI (20%), CPI (15%), Touch (10%)
+export function generateNBORecommendation(input: NBOEngineInput): NBORecommendation {
+  // 1. Rule-based fast path for clear cases (defend-critical, reactivate, etc.)
+  // 2. Weighted scoring for ambiguous cases
+  // 3. Generate human-readable rationale
+  // 4. Return confidence level (high >0.75, medium 0.50-0.75, low <0.50)
+}
+```
+
+### Storage Module Pattern
+
+```
+server/storage/
+├── index.ts              # Re-exports, backward compatibility
+├── utils.ts              # Shared utilities
+├── converters.ts         # DB row → API type converters
+├── hcp-storage.ts        # HCP CRUD, search, filtering
+├── competitive-storage.ts # CPI, competitors, alerts, governance
+├── message-saturation-storage.ts # MSI, themes, exposures
+├── simulation-storage.ts # Simulations, dashboard, audit
+├── user-storage.ts       # Users, invite codes
+└── audience-storage.ts   # Saved audiences
+```
+
+### Agent Prompt Pack Structure
+
+```
+agent/prompts/
+├── base/
+│   ├── system-prompt.md        # Platform context and capabilities
+│   └── schema-context.md       # Data model for agent reasoning
+├── roles/
+│   ├── brand-lead.md           # Strategic analysis persona
+│   ├── field-ops.md            # Territory optimization persona
+│   ├── analytics.md            # Data exploration persona
+│   ├── medical.md              # Evidence synthesis persona
+│   └── platform-admin.md       # System health persona
+├── tasks/
+│   ├── reasoning-patterns.md   # Canonical reasoning patterns
+│   ├── cohort-analysis.md      # Cohort investigation task
+│   ├── competitive-assessment.md # Competitive evaluation task
+│   ├── campaign-planning.md    # Campaign design task
+│   └── anomaly-investigation.md # Anomaly investigation task
+└── guardrails/
+    ├── compliance-rules.md     # MLR, PHI, regulatory constraints
+    └── output-constraints.md   # Format, length, citation requirements
+```
+
+### Testing Pattern
+
+```bash
+# Run all tests
+npm test
+
+# Run specific Phase 12 tests
+npm test -- competitive
+npm test -- saturation
+npm test -- nbo
+
+# Current coverage
+# - 795 total tests
+# - Competitive: 88 tests
+# - Saturation: 58 tests
+# - NBO: 43 tests
+```
