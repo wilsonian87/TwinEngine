@@ -1,6 +1,17 @@
 /**
  * Data Generation Configuration
  * Distribution weights and constants for realistic data generation
+ *
+ * @see DOMAIN-ANCHOR (claude-brain/templates/DOMAIN-ANCHOR.md) Part 8 for baseline distributions
+ *
+ * Note: This config extends DOMAIN-ANCHOR with specialty-specific tier distributions
+ * and segment-by-tier correlations based on industry patterns. When updating distributions,
+ * ensure alignment with DOMAIN-ANCHOR principles:
+ * - Tier 1: ~8-10% of population (high-value targets)
+ * - Tier 2: ~15-20% of population (growth potential)
+ * - Tier 3: ~70-75% of population (maintenance)
+ *
+ * Canonical reference: DOMAIN-ANCHOR Part 8 (Synthetic Data Guidelines)
  */
 
 import type { Specialty, Tier, Segment, Channel } from "@shared/schema";

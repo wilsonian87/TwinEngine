@@ -540,6 +540,11 @@ export async function registerRoutes(
   });
 
   // ============ HCP endpoints (protected) ============
+  // NOTE: NPI is included in HCP responses by design for internal analytics use.
+  // This is acceptable for authenticated internal tools but should be reviewed
+  // if exposing to external clients. See DOMAIN-ANCHOR Part 6 (Anti-Patterns).
+  // Consider: response transformer to omit NPI for external-facing APIs.
+
   app.get("/api/hcps", async (req, res) => {
     try {
       const hcps = await storage.getAllHcps();

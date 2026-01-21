@@ -2,6 +2,10 @@
 
 This document provides the data model context for AI agents working with TwinEngine.
 
+> **Canonical Reference:** For implementation details, field-level constraints, and architectural
+> implications, see **DOMAIN-ANCHOR** (`claude-brain/templates/DOMAIN-ANCHOR.md`).
+> This document is a quick reference; DOMAIN-ANCHOR provides the authoritative domain context.
+
 ## Core Entities
 
 ### HCP (Healthcare Professional)
@@ -89,3 +93,23 @@ Group HCPs by segment and calculate averages for engagement, churn risk, and con
 
 ### Time-Series Analysis
 Compare metrics across periods (MoM, QoQ) to identify trends.
+
+---
+
+## DOMAIN-ANCHOR Cross-Reference
+
+For deeper context, consult these DOMAIN-ANCHOR sections:
+
+| Topic | DOMAIN-ANCHOR Section |
+|-------|----------------------|
+| Entity definitions, business meaning | Part 1: Entity Glossary |
+| CPI, MSI, Adoption Stage formulas | Part 2: Metric Definitions |
+| Entity relationships diagram | Part 3: Relationship Map |
+| Field-level constraints (NPI, tier, etc.) | Part 4: Field-Level Context |
+| SQL query patterns | Part 5: Query Patterns |
+| Anti-patterns to avoid | Part 6: Anti-Patterns |
+| Compliance/regulatory context | Part 7: Regulatory & Compliance |
+| Synthetic data distributions | Part 8: Synthetic Data Guidelines |
+| TwinEngine file mapping | Part 10: TwinEngine Implementation |
+
+**Location:** `claude-brain/templates/DOMAIN-ANCHOR.md`
