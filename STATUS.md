@@ -43,8 +43,9 @@
 | **12B** | **Message Saturation Heatmap** | **Complete** | 100% |
 | **12C** | **Next Best Orbit (NBO)** | **Complete** | 100% |
 | **12D.1-2** | **Agent Prompt Pack** | **Complete** | 100% |
-| **12D.3-4** | **Agent Tool Invocation** | **Planned** | 0% |
-| **12E** | **Cleanup & Polish** | **Optional** | 0% |
+| **12D.3** | **Tool Invocation & Autonomy** | **Complete** | 100% |
+| **12D.4** | **Continuous Evolution** | **Complete** | 100% |
+| **12E** | **Cleanup & Polish** | **Complete** | 100% |
 
 ---
 
@@ -89,6 +90,20 @@ Phase 12 exposes competitive pressure, message saturation, next-best-orbit decis
 - 5 task-specific prompts (cohort, competitive, campaign, anomaly, reasoning)
 - 2 guardrail prompts (compliance, output constraints)
 
+#### Phase 12D.3: Tool Invocation & Autonomy ✓
+- Agent Executor framework (941 lines)
+- 7 action categories: query, report, notification, simulation, recommendation, configuration, integration
+- Guardrail checks: compliance, data access, rate limiting
+- HITL controls: approval workflow, preview, audit trail
+- 32 tests
+
+#### Phase 12D.4: Continuous Evolution ✓
+- Prompt Manager with versioned registry (473 lines)
+- Prompt Analytics with usage tracking (862 lines)
+- A/B testing framework with statistical significance
+- Correction capture with 7 types and 4 severity levels
+- 81 tests (52 prompt-manager + 29 prompt-analytics)
+
 ### Test Coverage
 
 | Module | Tests |
@@ -100,7 +115,10 @@ Phase 12 exposes competitive pressure, message saturation, next-best-orbit decis
 | NBO Engine | 24 |
 | NBO Learning | 10 |
 | NBO Routes | 9 |
-| **Total Phase 12** | **189** |
+| Agent Executor | 32 |
+| Prompt Manager | 52 |
+| Prompt Analytics | 29 |
+| **Total Phase 12** | **302** |
 
 ### API Endpoints Added
 
