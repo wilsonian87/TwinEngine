@@ -15,6 +15,7 @@ import { CommandPaletteProvider, useCommandPaletteState } from "@/hooks/use-comm
 import { KeyboardShortcutsProvider, useKeyboardShortcutsState } from "@/hooks/use-keyboard-shortcuts";
 import { ShortcutsModal } from "@/components/ui/shortcuts-modal";
 import { FirstRunGuide } from "@/components/onboarding";
+import { DevToolbar } from "@/components/dev-toolbar";
 import NotFound from "@/pages/not-found";
 import HCPExplorer from "@/pages/hcp-explorer";
 import Simulations from "@/pages/simulations";
@@ -149,6 +150,7 @@ function App() {
             <KeyboardShortcutsWrapper>
               <CommandPaletteWrapper>
                 <AuthenticatedApp />
+                <DevToolbar />
               </CommandPaletteWrapper>
             </KeyboardShortcutsWrapper>
             <Toaster />
