@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, real, jsonb, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, real, jsonb, timestamp, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 // HCP Specialties
@@ -81,26 +81,37 @@ export const hcpProfiles = pgTable("hcp_profiles", {
   organization: varchar("organization", { length: 200 }).notNull(),
   city: varchar("city", { length: 100 }).notNull(),
   state: varchar("state", { length: 10 }).notNull(),
-  
+
   // Engagement metrics
   overallEngagementScore: integer("overall_engagement_score").notNull().default(0),
   channelPreference: varchar("channel_preference", { length: 20 }).notNull(),
   channelEngagements: jsonb("channel_engagements").notNull().$type<ChannelEngagement[]>(),
-  
+
   // Prescribing data
   monthlyRxVolume: integer("monthly_rx_volume").notNull().default(0),
   yearlyRxVolume: integer("yearly_rx_volume").notNull().default(0),
   marketSharePct: real("market_share_pct").notNull().default(0),
   prescribingTrend: jsonb("prescribing_trend").notNull().$type<PrescribingTrend[]>(),
-  
+
   // Prediction scores
   conversionLikelihood: integer("conversion_likelihood").notNull().default(0),
   churnRisk: integer("churn_risk").notNull().default(0),
-  
+
   // Metadata
   lastUpdated: timestamp("last_updated").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  // Indexes for common filter/sort operations
+  specialtyIdx: index("hcp_specialty_idx").on(table.specialty),
+  tierIdx: index("hcp_tier_idx").on(table.tier),
+  stateIdx: index("hcp_state_idx").on(table.state),
+  segmentIdx: index("hcp_segment_idx").on(table.segment),
+  engagementScoreIdx: index("hcp_engagement_score_idx").on(table.overallEngagementScore),
+  churnRiskIdx: index("hcp_churn_risk_idx").on(table.churnRisk),
+  conversionIdx: index("hcp_conversion_idx").on(table.conversionLikelihood),
+  // Composite index for common filter combinations
+  tierSpecialtyIdx: index("hcp_tier_specialty_idx").on(table.tier, table.specialty),
+}));
 
 export const insertHcpProfileSchema = createInsertSchema(hcpProfiles).omit({
   id: true,
@@ -205,7 +216,12 @@ export const auditLogs = pgTable("audit_logs", {
   userId: varchar("user_id", { length: 100 }),
   ipAddress: varchar("ip_address", { length: 50 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  entityTypeIdx: index("audit_entity_type_idx").on(table.entityType),
+  entityIdIdx: index("audit_entity_id_idx").on(table.entityId),
+  createdAtIdx: index("audit_created_at_idx").on(table.createdAt),
+  userIdIdx: index("audit_user_id_idx").on(table.userId),
+}));
 
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({
   id: true,
@@ -480,7 +496,13 @@ export const stimuliEvents = pgTable("stimuli_events", {
 
   eventDate: timestamp("event_date").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  hcpIdIdx: index("stimuli_hcp_id_idx").on(table.hcpId),
+  campaignIdIdx: index("stimuli_campaign_id_idx").on(table.campaignId),
+  channelIdx: index("stimuli_channel_idx").on(table.channel),
+  eventDateIdx: index("stimuli_event_date_idx").on(table.eventDate),
+  statusIdx: index("stimuli_status_idx").on(table.status),
+}));
 
 export const insertStimuliEventSchema = createInsertSchema(stimuliEvents).omit({
   id: true,
@@ -1965,7 +1987,13 @@ export const outcomeEvents = pgTable("outcome_events", {
 
   eventDate: timestamp("event_date").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  hcpIdIdx: index("outcome_hcp_id_idx").on(table.hcpId),
+  campaignIdIdx: index("outcome_campaign_id_idx").on(table.campaignId),
+  outcomeTypeIdx: index("outcome_type_idx").on(table.outcomeType),
+  eventDateIdx: index("outcome_event_date_idx").on(table.eventDate),
+  hcpEventDateIdx: index("outcome_hcp_event_date_idx").on(table.hcpId, table.eventDate),
+}));
 
 export const insertOutcomeEventSchema = createInsertSchema(outcomeEvents).omit({
   id: true,
@@ -4536,7 +4564,13 @@ export const hcpCompetitiveSignalFact = pgTable("hcp_competitive_signal_fact", {
   confidenceLevel: real("confidence_level"), // 0-1 confidence in the data
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  hcpIdIdx: index("competitive_signal_hcp_id_idx").on(table.hcpId),
+  competitorIdIdx: index("competitive_signal_competitor_id_idx").on(table.competitorId),
+  measurementDateIdx: index("competitive_signal_measurement_date_idx").on(table.measurementDate),
+  cpiIdx: index("competitive_signal_cpi_idx").on(table.cpi),
+  hcpCompetitorIdx: index("competitive_signal_hcp_competitor_idx").on(table.hcpId, table.competitorId),
+}));
 
 export const insertHcpCompetitiveSignalFactSchema = createInsertSchema(hcpCompetitiveSignalFact).omit({
   id: true,
@@ -4754,7 +4788,13 @@ export const messageExposureFact = pgTable("message_exposure_fact", {
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  hcpIdIdx: index("msg_exposure_hcp_id_idx").on(table.hcpId),
+  themeIdIdx: index("msg_exposure_theme_id_idx").on(table.messageThemeId),
+  msiIdx: index("msg_exposure_msi_idx").on(table.msi),
+  saturationRiskIdx: index("msg_exposure_saturation_risk_idx").on(table.saturationRisk),
+  hcpThemeIdx: index("msg_exposure_hcp_theme_idx").on(table.hcpId, table.messageThemeId),
+}));
 
 export const insertMessageExposureFactSchema = createInsertSchema(messageExposureFact).omit({
   id: true,
