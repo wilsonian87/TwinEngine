@@ -2,6 +2,76 @@
 
 All notable changes to TwinEngine are documented in this file.
 
+## [1.13.0] - 2026-01-22
+
+### Phase 13: Integration & Design System Overhaul - Complete
+
+This release transforms TwinEngine's user experience with a light-mode-first design, intuitive module naming, and seamless cross-module navigation. Users can now flow from discovery to action without manual context switching.
+
+**Status:** Complete with QA pass.
+
+### Added
+
+#### Phase 13.0 - Foundation
+- Module renaming for clarity: Signal Index → HCP Explorer, Cohort Lab → Audience Builder, Scenario Lab → Simulation Studio, Catalyst Queue → Action Queue, Nerve Center → Dashboard
+- Light-mode-first CSS variables with OmniVor brand colors (purple #6b21a8, gold #d97706)
+- Sidebar reorganization: Explore → Analyze → Activate → System sections
+
+#### Phase 13.1 - Navigation Architecture
+- `ContextualActionBar` - Selection-based action bar with bulk operations
+- `PostActionMenu` - Post-save action menus with next-step CTAs
+- `HCPProfileDrawer` - Quick-view drawer for HCP profiles
+- `BreadcrumbBar` - Context-aware breadcrumb navigation
+- `NavigationContext` - Cross-module navigation state management
+
+#### Phase 13.2 - Explore Integration
+- HCP Explorer multi-select with shift-click range selection
+- Create audience from HCP selection with PostActionMenu flow
+- CSV export for selected or filtered HCPs
+
+#### Phase 13.3 - Analyze Integration
+- Dashboard metric drill-down to filtered HCP Explorer views
+- Audience comparison entry from Audience Builder
+- Comparison insight CTAs for actionable next steps
+
+#### Phase 13.4 - Activate Integration
+- Simulation context persistence via URL parameters
+- "View Recommended Actions" CTA on simulation results
+- Action Queue HCP links with profile drawer integration
+- Bulk approve/reject for action recommendations
+
+#### Phase 13.5 - Polish & QA
+- Empty states with forward-action CTAs across all modules
+- Updated EMPTY_STATE_COPY with new module terminology
+
+#### Phase 13.6 - Technical Queue Fixes
+- HCP Explorer pagination (50 HCPs/page) for performance with large datasets
+- Message Saturation auto-seeding on server startup
+- Reverse simulation now factors audience size into confidence scoring
+- "Simulate" button on saved audiences in Audience Builder
+- Market share rounded to 1 decimal place in HCP cards
+
+### Changed
+- Default theme switched from "system" to "light"
+- UI primitives (Input, Select, Textarea) now use theme-aware Tailwind classes
+- Sidebar navigation grouped by workflow phase
+
+### Technical Details
+
+#### Files Added
+- `client/src/components/ui/contextual-action-bar.tsx`
+- `client/src/components/ui/post-action-menu.tsx`
+- `client/src/components/ui/breadcrumb-bar.tsx`
+- `client/src/components/hcp-profile-drawer.tsx`
+- `client/src/contexts/navigation-context.tsx`
+
+#### Performance
+- Bundle size: 1,637 KB JS, 116 KB CSS (within 0.2% of Phase 12 baseline)
+- HCP Explorer now renders 50 items/page instead of 2500+
+- Tests: 795/795 passing
+
+---
+
 ## [1.12.0] - 2026-01-20
 
 ### Phase 12: Multi-Roadmap Consolidation - Complete
