@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { ActionQueue } from "@/components/action-queue";
+import { HCPProfileDrawer } from "@/components/hcp-profile-drawer";
 import {
   Select,
   SelectContent,
@@ -10,9 +12,12 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import type { SavedAudience, HCPProfile } from "@shared/schema";
+import type { HCPDrawerAction } from "@/components/hcp-profile-drawer";
 
 export default function ActionQueuePage() {
+  const [, navigate] = useLocation();
   const [selectedAudienceId, setSelectedAudienceId] = useState<string>("");
+  const [selectedHcpId, setSelectedHcpId] = useState<string | null>(null);
 
   // Fetch saved audiences
   const { data: audiences = [] } = useQuery<SavedAudience[]>({
@@ -48,13 +53,29 @@ export default function ActionQueuePage() {
       ? "All HCPs"
       : selectedAudience?.name;
 
+  // Phase 13.4: Handle HCP drawer actions
+  const handleHcpDrawerAction = (action: HCPDrawerAction, hcpId: string) => {
+    setSelectedHcpId(null);
+    switch (action) {
+      case "view":
+        navigate(`/?hcp=${hcpId}`);
+        break;
+      case "ecosystem":
+        navigate(`/ecosystem-map?hcp=${hcpId}`);
+        break;
+      case "audience":
+        navigate(`/audience-builder?addHcp=${hcpId}`);
+        break;
+    }
+  };
+
   return (
     <div className="h-full overflow-auto">
       <div className="sticky top-0 z-10 border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold" data-testid="text-page-title">
-              Catalyst Queue
+              Action Queue
             </h1>
             <p className="text-sm text-muted-foreground">
               Prioritized next best actions for your cohorts
@@ -92,7 +113,11 @@ export default function ActionQueuePage() {
 
       <div className="p-6">
         {selectedAudienceId ? (
-          <ActionQueue hcpIds={hcpIds} audienceName={audienceName} />
+          <ActionQueue
+            hcpIds={hcpIds}
+            audienceName={audienceName}
+            onHcpClick={(hcpId) => setSelectedHcpId(hcpId)}
+          />
         ) : (
           <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
             <p className="text-sm">
@@ -104,6 +129,14 @@ export default function ActionQueuePage() {
           </div>
         )}
       </div>
+
+      {/* Phase 13.4: HCP Profile Drawer for quick preview */}
+      <HCPProfileDrawer
+        hcpId={selectedHcpId}
+        isOpen={!!selectedHcpId}
+        onClose={() => setSelectedHcpId(null)}
+        onAction={handleHcpDrawerAction}
+      />
     </div>
   );
 }

@@ -1,9 +1,9 @@
 # STATUS.md
 
-**Last Updated:** 2026-01-20
+**Last Updated:** 2026-01-22
 **Project:** TwinEngine - HCP Digital Twin Platform (OmniVor)
-**Current Phase:** 12 Complete - Multi-Roadmap Consolidation
-**Overall Status:** Phase 12 Complete (Demo Ready)
+**Current Phase:** 13 In Progress - Integration & Design System Overhaul
+**Overall Status:** Phase 13 Complete - Integration & Design System Overhaul
 
 ---
 
@@ -46,6 +46,240 @@
 | **12D.3** | **Tool Invocation & Autonomy** | **Complete** | 100% |
 | **12D.4** | **Continuous Evolution** | **Complete** | 100% |
 | **12E** | **Cleanup & Polish** | **Complete** | 100% |
+| **13.0** | **Foundation (Renames, Light Mode)** | **Complete** | 100% |
+| **13.1** | **Navigation Architecture** | **Complete** | 100% |
+| **13.2** | **Explore Integration** | **Complete** | 100% |
+| **13.3** | **Analyze Integration** | **Complete** | 100% |
+| **13.4** | **Activate Integration** | **Complete** | 100% |
+| **13.5** | **Polish & QA** | **Complete** | 100% |
+
+---
+
+## Phase 13: Integration & Design System Overhaul - In Progress
+
+### Overview
+
+Phase 13 transforms disconnected modules into a cohesive platform with intuitive user journeys, light-mode-first design, and white-label-ready naming.
+
+### Completed Milestones
+
+#### Phase 13.0: Foundation ✓
+
+**Completed:** 2026-01-22
+
+**M13.0.1: Module Renames**
+- Renamed 10 modules to descriptive, white-label-ready names
+- Signal Index → HCP Explorer
+- Cohort Lab → Audience Builder
+- Scenario Lab → Simulation Studio
+- Catalyst Queue → Action Queue
+- Nerve Center → Dashboard
+- Feature Store / Signal Diagnostic → Channel Health
+- Agent Orchestrator → Agent Manager
+- Constraint Surface → Constraints
+- Allocation Lab → Portfolio Optimizer
+
+**M13.0.2: Sidebar Reorganization**
+- New section structure: Explore → Analyze → Activate → System
+- Logical grouping by workflow phase
+
+**M13.0.3: CSS Variable Update**
+- Light-mode-first OmniVor brand colors
+- Purple primary (#6b21a8) instead of blue
+- Gold accent (#d97706)
+- Enhanced shadow system for light mode
+
+**M13.0.4: Theme Default Switch**
+- Default theme changed from "system" to "light"
+- Dark mode still available via toggle
+
+**Files Modified:**
+- `client/src/components/app-sidebar.tsx`
+- `client/src/components/ui/command-palette.tsx`
+- `client/src/index.css`
+- `client/src/components/theme-provider.tsx`
+
+**Verification:**
+- TypeScript: ✅ Passes
+- Tests: ✅ 795/795 passing
+- Build: ✅ Succeeds
+
+#### Phase 13.1: Navigation Architecture ✓
+
+**Completed:** 2026-01-22
+
+**M13.1.1: ContextualActionBar Component**
+- Sticky bottom bar that appears on selection
+- Animated entrance/exit with spring physics
+- Selection count, clear button, action buttons
+- File: `client/src/components/ui/contextual-action-bar.tsx`
+
+**M13.1.2: PostActionMenu Component**
+- Modal/drawer that appears after save actions
+- "What's next?" flow with action cards
+- Supports modal, drawer, and inline variants
+- File: `client/src/components/ui/post-action-menu.tsx`
+
+**M13.1.3: HCPProfileDrawer Component**
+- Slide-in drawer for HCP profile preview
+- Quick stats, channel health bars, recent touches
+- Action CTAs: View Full Profile, View Ecosystem, Add to Audience
+- File: `client/src/components/hcp-profile-drawer.tsx`
+
+**M13.1.4: BreadcrumbBar & NavigationContext**
+- Context for tracking navigation drill-down path
+- Breadcrumb component with clickable items
+- SimpleBreadcrumb for inline use
+- Files: `client/src/contexts/navigation-context.tsx`, `client/src/components/ui/breadcrumb-bar.tsx`
+
+**Verification:**
+- TypeScript: ✅ Passes
+- Tests: ✅ 795/795 passing
+- Build: ✅ Succeeds
+
+#### Phase 13.2: Explore Integration ✓
+
+**Completed:** 2026-01-22
+
+**M13.2.1: HCP Explorer Multi-Select**
+- Updated all page titles to match new module names (Audience Builder, Simulation Studio, Action Queue, Dashboard)
+- Integrated ContextualActionBar component replacing inline floating bar
+- Animated spring physics entrance/exit
+- Shift+click range selection, Ctrl/Cmd+click toggle selection already present
+
+**M13.2.2: Create Audience from Selection**
+- PostActionMenu integrated after saving audiences
+- "What's next?" flow with actions: Run Simulation, Generate Recommendations, Compare Audiences
+- Navigation to related modules with audience context
+
+**M13.2.3: Export from HCP Explorer**
+- CSV export functionality with all HCP fields
+- Timestamped filename generation
+- Export action integrated into ContextualActionBar
+
+**Files Modified:**
+- `client/src/pages/hcp-explorer.tsx` - ContextualActionBar integration, PostActionMenu
+- `client/src/pages/audience-builder.tsx` - Title update
+- `client/src/pages/simulations.tsx` - Title update
+- `client/src/pages/action-queue.tsx` - Title update
+- `client/src/pages/dashboard.tsx` - Title update
+
+**Verification:**
+- TypeScript: ✅ Passes
+- Tests: ✅ 795/795 passing
+- Build: ✅ Succeeds
+
+#### Phase 13.3: Analyze Integration ✓
+
+**Completed:** 2026-01-22
+
+**M13.3.1: Dashboard Metric Drill-Down**
+- All dashboard MetricCards now clickable with drill-down navigation
+- Total HCPs → HCP Explorer
+- Active Audiences → Audience Builder
+- Simulations → Simulation Studio
+- Avg Engagement → HCP Explorer (sorted by engagement)
+- Channel Health → Channel Health page
+- Actions Queued → Action Queue
+- Hover states and cursor-pointer for affordance
+
+**M13.3.2: Audience Comparison Entry**
+- Added "Saved Audiences" collapsible section to Audience Builder
+- Multi-select checkboxes for audience list (max 2)
+- "Compare Selected" button appears when 2 audiences selected
+- Navigates to `/cohort-compare?a={id1}&b={id2}`
+- Audience Comparison reads query params for pre-selection
+- Updated page title to "Audience Comparison"
+
+**M13.3.3: Comparison Insight CTAs**
+- Key Divergences section now includes actionable CTAs
+- Engagement insights → "View Engagement Trends" (Channel Health)
+- Conversion insights → "Run Simulation" (Simulation Studio)
+- Channel insights → "Optimize [Channel]" (Channel Health)
+- Structured InsightWithAction type for better organization
+
+**Files Modified:**
+- `client/src/pages/dashboard.tsx` - Metric card onClick handlers
+- `client/src/pages/audience-builder.tsx` - Saved Audiences section
+- `client/src/pages/cohort-compare.tsx` - Query params, insight CTAs, title update
+
+**Verification:**
+- TypeScript: ✅ Passes
+- Tests: ✅ 795/795 passing
+- Build: ✅ Succeeds
+
+#### Phase 13.4: Activate Integration ✓
+
+**Completed:** 2026-01-22
+
+**M13.4.1: Simulation Context Persistence**
+- Read `audience` param from URL on simulations page
+- Pass initialAudience to SimulationBuilder component
+- Auto-expand audience picker when coming from audience link
+- Display audience context banner similar to seedHcp banner
+- Clear individual params while preserving others
+
+**M13.4.2: Simulation Results → Action Queue**
+- Added "View Recommended Actions" CTA in simulation results
+- Primary action button navigates to `/action-queue?simulation={id}`
+- Demoted "Save Results" to secondary when actions button is present
+
+**M13.4.3: Action Queue HCP Links**
+- HCP names in ActionQueue table are now clickable
+- Clicking opens HCPProfileDrawer for quick profile preview
+- Drawer actions navigate to Explorer, Ecosystem Map, or Audience Builder
+
+**M13.4.4: Bulk Operations in Action Queue**
+- Added ContextualActionBar for bulk operations
+- Shows when actions are selected: Export CSV, Send to Slack, Create Jira Tickets
+- Spring-animated entrance/exit for better UX
+
+**Files Modified:**
+- `client/src/pages/simulations.tsx` - Audience context, URL param handling
+- `client/src/components/simulation-builder.tsx` - initialAudience prop, actions CTA
+- `client/src/pages/action-queue.tsx` - HCPProfileDrawer integration
+- `client/src/components/action-queue.tsx` - onHcpClick, ContextualActionBar
+
+**Verification:**
+- TypeScript: ✅ Passes
+- Tests: ✅ 795/795 passing
+- Build: ✅ Succeeds
+
+#### Phase 13.5: Polish & QA ✓
+
+**Completed:** 2026-01-22
+
+**M13.5.1: Empty States with Forward Actions**
+- Updated EMPTY_STATE_COPY with new module names (HCP Explorer, Audience Builder, Simulation Studio, Action Queue)
+- Added forward action presets for all major empty states
+- Added "Create Your First Simulation" CTA on empty history tab
+- Empty states guide users to logical next steps
+
+**M13.5.2: Build Verification**
+- TypeScript: ✅ Passes
+- Tests: ✅ 795/795 passing
+- Build: ✅ Succeeds (3.1s)
+- Bundle size: 1,635 KB JS, 116 KB CSS
+
+**Files Modified:**
+- `client/src/components/ui/empty-state.tsx` - Updated copy presets
+- `client/src/pages/simulations.tsx` - Forward action on empty history
+
+---
+
+## Phase 13 Summary - Complete
+
+**Duration:** Single session
+**Total Milestones:** 16 (across 6 sub-phases)
+**Test Coverage:** 795/795 passing (100%)
+
+### Key Deliverables
+
+1. **Navigation Architecture** - BreadcrumbBar, ContextualActionBar, PostActionMenu, HCPProfileDrawer, NavigationContext
+2. **Module Renaming** - Signal Index → HCP Explorer, Cohort Lab → Audience Builder, Scenario Lab → Simulation Studio, Catalyst Queue → Action Queue, Nerve Center → Dashboard
+3. **Design System Updates** - Light-mode-first CSS variables, OmniVor brand colors (purple #6b21a8, gold #d97706)
+4. **Cross-Module Navigation** - Dashboard drill-down, audience comparison entry, simulation context persistence, action queue HCP links
+5. **Contextual UX** - Multi-select action bars, post-save action menus, insight CTAs, bulk operations
 
 ---
 

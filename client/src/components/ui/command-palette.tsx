@@ -46,7 +46,7 @@ interface NavigationItem {
   path: string;
   icon: React.ReactNode;
   keywords?: string[];
-  category: 'intelligence' | 'activation' | 'system' | 'settings';
+  category: 'explore' | 'analyze' | 'activate' | 'system' | 'settings';
 }
 
 interface ActionItem {
@@ -63,86 +63,97 @@ interface ActionItem {
 // ============================================================================
 
 const navigationItems: NavigationItem[] = [
-  // Intelligence
+  // EXPLORE - Finding and organizing HCPs
   {
-    id: 'signal-index',
-    label: 'Signal Index',
-    description: 'Browse HCP profiles and engagement signals',
+    id: 'hcp-explorer',
+    label: 'HCP Explorer',
+    description: 'Search and browse HCP profiles',
     path: '/hcp-explorer',
-    icon: <Search className="w-4 h-4" />,
+    icon: <Users className="w-4 h-4" />,
     keywords: ['hcp', 'explorer', 'profiles', 'search', 'healthcare', 'physician'],
-    category: 'intelligence',
+    category: 'explore',
   },
   {
-    id: 'cohort-lab',
-    label: 'Cohort Lab',
-    description: 'Build audiences with AI-powered queries',
+    id: 'audience-builder',
+    label: 'Audience Builder',
+    description: 'Create and manage HCP audiences',
     path: '/audience-builder',
     icon: <Users className="w-4 h-4" />,
     keywords: ['audience', 'builder', 'cohort', 'segment', 'query', 'ai'],
-    category: 'intelligence',
+    category: 'explore',
   },
+
+  // ANALYZE - Understanding what's happening
   {
-    id: 'nerve-center',
-    label: 'Nerve Center',
-    description: 'Analytics dashboard and key metrics',
+    id: 'dashboard',
+    label: 'Dashboard',
+    description: 'Overview metrics and insights',
     path: '/dashboard',
     icon: <Activity className="w-4 h-4" />,
     keywords: ['dashboard', 'analytics', 'metrics', 'overview', 'home'],
-    category: 'intelligence',
-  },
-
-  // Activation
-  {
-    id: 'scenario-lab',
-    label: 'Scenario Lab',
-    description: 'Simulate campaign outcomes',
-    path: '/simulations',
-    icon: <FlaskConical className="w-4 h-4" />,
-    keywords: ['simulation', 'campaign', 'scenario', 'predict', 'forecast'],
-    category: 'activation',
+    category: 'analyze',
   },
   {
-    id: 'catalyst-queue',
-    label: 'Catalyst Queue',
-    description: 'Next best actions and recommendations',
-    path: '/action-queue',
-    icon: <Zap className="w-4 h-4" />,
-    keywords: ['action', 'queue', 'nba', 'recommendation', 'next'],
-    category: 'activation',
-  },
-  {
-    id: 'cohort-compare',
-    label: 'Cohort Compare',
+    id: 'audience-comparison',
+    label: 'Audience Comparison',
     description: 'Side-by-side audience analysis',
     path: '/cohort-compare',
     icon: <GitCompare className="w-4 h-4" />,
-    keywords: ['compare', 'analysis', 'side', 'diff'],
-    category: 'activation',
+    keywords: ['compare', 'analysis', 'side', 'diff', 'audience'],
+    category: 'analyze',
+  },
+  {
+    id: 'channel-health',
+    label: 'Channel Health',
+    description: 'Channel performance diagnostics',
+    path: '/feature-store',
+    icon: <Activity className="w-4 h-4" />,
+    keywords: ['health', 'diagnostic', 'channel', 'feature', 'performance'],
+    category: 'analyze',
   },
 
-  // System
+  // ACTIVATE - Taking action on insights
   {
-    id: 'signal-diagnostic',
-    label: 'Signal Diagnostic',
-    description: 'Channel health analysis',
-    path: '/feature-store',
-    icon: <Stethoscope className="w-4 h-4" />,
-    keywords: ['health', 'diagnostic', 'channel', 'feature'],
-    category: 'system',
+    id: 'simulation-studio',
+    label: 'Simulation Studio',
+    description: 'Campaign simulation and forecasting',
+    path: '/simulations',
+    icon: <FlaskConical className="w-4 h-4" />,
+    keywords: ['simulation', 'campaign', 'scenario', 'predict', 'forecast'],
+    category: 'activate',
   },
   {
-    id: 'agent-orchestrator',
-    label: 'Agent Orchestrator',
+    id: 'action-queue',
+    label: 'Action Queue',
+    description: 'Review and approve recommendations',
+    path: '/action-queue',
+    icon: <Zap className="w-4 h-4" />,
+    keywords: ['action', 'queue', 'nba', 'recommendation', 'next'],
+    category: 'activate',
+  },
+  {
+    id: 'portfolio-optimizer',
+    label: 'Portfolio Optimizer',
+    description: 'Resource allocation optimization',
+    path: '/allocation-lab',
+    icon: <Beaker className="w-4 h-4" />,
+    keywords: ['allocation', 'optimization', 'portfolio', 'budget'],
+    category: 'activate',
+  },
+
+  // SYSTEM - Configuration and advanced features
+  {
+    id: 'agent-manager',
+    label: 'Agent Manager',
     description: 'Autonomous agents and alerts',
     path: '/agents',
     icon: <Bot className="w-4 h-4" />,
-    keywords: ['agent', 'bot', 'automation', 'alert', 'orchestrator'],
+    keywords: ['agent', 'bot', 'automation', 'alert', 'manager'],
     category: 'system',
   },
   {
-    id: 'constraint-surface',
-    label: 'Constraint Surface',
+    id: 'constraints',
+    label: 'Constraints',
     description: 'Capacity, budget, and compliance',
     path: '/constraints',
     icon: <Shield className="w-4 h-4" />,
@@ -150,12 +161,12 @@ const navigationItems: NavigationItem[] = [
     category: 'system',
   },
   {
-    id: 'allocation-lab',
-    label: 'Allocation Lab',
-    description: 'Portfolio optimization',
-    path: '/allocation-lab',
-    icon: <Beaker className="w-4 h-4" />,
-    keywords: ['allocation', 'optimization', 'portfolio', 'budget'],
+    id: 'model-evaluation',
+    label: 'Model Evaluation',
+    description: 'Prediction accuracy tracking',
+    path: '/model-evaluation',
+    icon: <Activity className="w-4 h-4" />,
+    keywords: ['model', 'evaluation', 'accuracy', 'prediction'],
     category: 'system',
   },
 
@@ -244,10 +255,11 @@ export function CommandPalette() {
     return navItem?.icon || <FileText className="w-4 h-4" />;
   };
 
-  // Category labels
+  // Category labels (Phase 13: Explore/Analyze/Activate/System)
   const categoryLabels: Record<string, string> = {
-    intelligence: 'Intelligence',
-    activation: 'Activation',
+    explore: 'Explore',
+    analyze: 'Analyze',
+    activate: 'Activate',
     system: 'System',
     settings: 'Settings',
   };
@@ -348,8 +360,8 @@ export function CommandPalette() {
                   ))}
                 </Command.Group>
 
-                {/* Navigation by Category */}
-                {['intelligence', 'activation', 'system', 'settings'].map((category) => {
+                {/* Navigation by Category (Phase 13: Explore/Analyze/Activate/System) */}
+                {['explore', 'analyze', 'activate', 'system', 'settings'].map((category) => {
                   const items = navigationItems.filter((i) => i.category === category);
                   if (items.length === 0) return null;
 

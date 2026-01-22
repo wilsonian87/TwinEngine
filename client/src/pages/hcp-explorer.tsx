@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, AlertCircle, Download, Save, X, CheckSquare, Search, List } from "lucide-react";
+import { useLocation } from "wouter";
+import { RefreshCw, AlertCircle, Download, Save, CheckSquare, List, FlaskConical, Zap, GitCompare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -20,6 +21,8 @@ import { HCPFilterSidebar } from "@/components/hcp-filter-sidebar";
 import { HCPDetailPanel } from "@/components/hcp-detail-panel";
 import { ViewCustomizer, useViewSettings } from "@/components/view-customizer";
 import { KeyboardNavHint } from "@/components/ui/focus-indicator";
+import { PostActionMenu } from "@/components/ui/post-action-menu";
+import { ContextualActionBar } from "@/components/ui/contextual-action-bar";
 import { useToast } from "@/hooks/use-toast";
 import { useKeyboardNavigation } from "@/hooks/use-command-palette";
 import type { HCPProfile, HCPFilter } from "@shared/schema";
@@ -33,7 +36,10 @@ export default function HCPExplorer() {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [audienceName, setAudienceName] = useState("");
   const [audienceDescription, setAudienceDescription] = useState("");
+  const [showPostActionMenu, setShowPostActionMenu] = useState(false);
+  const [savedAudienceInfo, setSavedAudienceInfo] = useState<{ id: string; name: string; count: number } | null>(null);
 
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -58,10 +64,17 @@ export default function HCPExplorer() {
       if (!response.ok) throw new Error("Failed to save audience");
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/audiences"] });
-      toast({ title: "Audience Saved", description: `"${audienceName}" saved with ${selectedIds.size} HCPs` });
+      // Store saved audience info for PostActionMenu
+      setSavedAudienceInfo({
+        id: data.id,
+        name: audienceName,
+        count: selectedIds.size,
+      });
       setSaveDialogOpen(false);
+      setShowPostActionMenu(true);
+      clearSelection();
       setAudienceName("");
       setAudienceDescription("");
     },
@@ -227,9 +240,9 @@ export default function HCPExplorer() {
       <div className="flex-1 overflow-hidden">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-6 py-3">
           <div>
-            <h1 className="text-lg font-semibold" data-testid="text-page-title">Signal Index</h1>
+            <h1 className="text-lg font-semibold" data-testid="text-page-title">HCP Explorer</h1>
             <p className="text-sm text-muted-foreground">
-              Explore and analyze HCP engagement signals
+              Search and browse HCP profiles
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -259,49 +272,6 @@ export default function HCPExplorer() {
             />
           </div>
         </div>
-
-        {/* Floating action bar for selection */}
-        {selectedIds.size > 0 && (
-          <div className="sticky top-[65px] z-20 mx-6 mt-3 flex items-center justify-between rounded-lg border bg-primary text-primary-foreground px-4 py-2 shadow-lg">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium" data-testid="text-selection-count">
-                {selectedIds.size} HCP{selectedIds.size !== 1 ? "s" : ""} selected
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearSelection}
-                className="h-7 text-xs text-primary-foreground hover:text-primary-foreground hover:bg-primary/80"
-                data-testid="button-clear-selection"
-              >
-                <X className="h-3.5 w-3.5 mr-1" />
-                Clear
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={exportToCsv}
-                className="h-7 text-xs"
-                data-testid="button-export-csv"
-              >
-                <Download className="h-3.5 w-3.5 mr-1.5" />
-                Export CSV
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setSaveDialogOpen(true)}
-                className="h-7 text-xs"
-                data-testid="button-save-audience"
-              >
-                <Save className="h-3.5 w-3.5 mr-1.5" />
-                Save as Audience
-              </Button>
-            </div>
-          </div>
-        )}
 
         <div className="h-[calc(100%-64px)] overflow-auto p-6">
           {isError ? (
@@ -424,6 +394,70 @@ export default function HCPExplorer() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Post-save action menu - Phase 13.2 */}
+      <PostActionMenu
+        isOpen={showPostActionMenu}
+        title="Audience saved"
+        subtitle={savedAudienceInfo ? `${savedAudienceInfo.name} (${savedAudienceInfo.count} HCPs)` : undefined}
+        actions={[
+          {
+            label: "Run Simulation",
+            description: "Test campaign impact on this audience",
+            icon: <FlaskConical className="h-5 w-5" />,
+            onClick: () => {
+              if (savedAudienceInfo) {
+                navigate(`/simulations?audience=${savedAudienceInfo.id}`);
+              }
+            },
+          },
+          {
+            label: "Generate Recommendations",
+            description: "Get next best actions for this audience",
+            icon: <Zap className="h-5 w-5" />,
+            onClick: () => {
+              if (savedAudienceInfo) {
+                navigate(`/action-queue?audience=${savedAudienceInfo.id}`);
+              }
+            },
+          },
+          {
+            label: "Compare Audiences",
+            description: "Analyze against another audience",
+            icon: <GitCompare className="h-5 w-5" />,
+            onClick: () => {
+              if (savedAudienceInfo) {
+                navigate(`/cohort-compare?a=${savedAudienceInfo.id}`);
+              }
+            },
+          },
+        ]}
+        onDismiss={() => {
+          setShowPostActionMenu(false);
+          setSavedAudienceInfo(null);
+        }}
+      />
+
+      {/* Phase 13.2: Contextual action bar for multi-select */}
+      <ContextualActionBar
+        selectionCount={selectedIds.size}
+        selectionLabel="HCP"
+        actions={[
+          {
+            label: "Export CSV",
+            onClick: exportToCsv,
+            variant: "secondary",
+            icon: <Download className="h-4 w-4" />,
+          },
+          {
+            label: "Save as Audience",
+            onClick: () => setSaveDialogOpen(true),
+            variant: "primary",
+            icon: <Save className="h-4 w-4" />,
+          },
+        ]}
+        onClear={clearSelection}
+      />
     </div>
   );
 }

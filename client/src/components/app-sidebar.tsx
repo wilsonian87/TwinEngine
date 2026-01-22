@@ -1,29 +1,27 @@
 /**
  * OmniVor Application Sidebar
  *
- * Navigation with branded module names:
- * - Signal Index (HCP Explorer)
- * - Cohort Lab (Audience Builder)
- * - Catalyst Queue (Action Queue)
- * - Scenario Lab (Simulations)
- * - Nerve Center (Dashboard)
+ * Phase 13 Navigation Overhaul:
+ * - Descriptive module names (white-label ready)
+ * - Organized into Explore / Analyze / Activate / System sections
+ * - Light mode compatible styling
  */
 
 import { useLocation, Link } from "wouter";
 import {
-  Search,
   Users,
+  UserPlus,
+  LayoutDashboard,
   FlaskConical,
   Activity,
   Settings,
-  Database,
   TrendingUp,
   BarChart3,
   GitCompare,
   Bot,
-  Shield,
-  Beaker,
-  Zap,
+  ListTodo,
+  Sliders,
+  PieChart,
   Hexagon,
   Info,
   Flame,
@@ -44,49 +42,44 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { LogoIcon } from "@/components/brand";
 import { BRAND_CONFIG } from "@/lib/brand-config";
-import { FeatureTooltip, NOMENCLATURE_TOOLTIPS } from "@/components/onboarding";
 
-// Primary navigation - data exploration & analysis modules
-const navigationItems = [
+// Phase 13: Organized navigation sections (Explore / Analyze / Activate / System)
+
+// EXPLORE - Finding and organizing HCPs
+const exploreItems = [
   {
-    title: "Signal Index",
+    title: "HCP Explorer",
     url: "/",
-    icon: Search,
-    description: "HCP profile exploration",
-    tooltip: NOMENCLATURE_TOOLTIPS.signalIndex,
-  },
-  {
-    title: "Cohort Lab",
-    url: "/audience-builder",
     icon: Users,
-    description: "AI-powered audience building",
-    tooltip: NOMENCLATURE_TOOLTIPS.cohortLab,
+    description: "Search and browse HCP profiles",
   },
   {
-    title: "Catalyst Queue",
-    url: "/action-queue",
-    icon: Zap,
-    description: "Next best actions",
+    title: "Audience Builder",
+    url: "/audience-builder",
+    icon: UserPlus,
+    description: "Create and manage HCP audiences",
+  },
+];
+
+// ANALYZE - Understanding what's happening
+const analyzeItems = [
+  {
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: LayoutDashboard,
+    description: "Overview metrics and insights",
   },
   {
-    title: "Cohort Compare",
+    title: "Audience Comparison",
     url: "/cohort-compare",
     icon: GitCompare,
-    description: "Side-by-side analysis",
+    description: "Side-by-side audience analysis",
   },
   {
-    title: "Scenario Lab",
-    url: "/simulations",
-    icon: FlaskConical,
-    description: "Campaign simulation",
-    tooltip: NOMENCLATURE_TOOLTIPS.scenarioLab,
-  },
-  {
-    title: "Nerve Center",
-    url: "/dashboard",
+    title: "Channel Health",
+    url: "/feature-store",
     icon: Activity,
-    description: "Analytics dashboard",
-    tooltip: NOMENCLATURE_TOOLTIPS.nerveCenter,
+    description: "Channel performance diagnostics",
   },
   {
     title: "Message Saturation",
@@ -94,46 +87,55 @@ const navigationItems = [
     icon: Flame,
     description: "Track message theme fatigue",
   },
+];
+
+// ACTIVATE - Taking action on insights
+const activateItems = [
+  {
+    title: "Simulation Studio",
+    url: "/simulations",
+    icon: FlaskConical,
+    description: "Campaign simulation and forecasting",
+  },
+  {
+    title: "Action Queue",
+    url: "/action-queue",
+    icon: ListTodo,
+    description: "Review and approve recommendations",
+  },
   {
     title: "Next Best Orbit",
     url: "/next-best-orbit",
     icon: Target,
     description: "AI-powered engagement recommendations",
   },
+  {
+    title: "Portfolio Optimizer",
+    url: "/allocation-lab",
+    icon: PieChart,
+    description: "Resource allocation optimization",
+  },
 ];
 
-// System modules - configuration & infrastructure
+// SYSTEM - Configuration and advanced features
 const systemItems = [
   {
-    title: "Feature Store",
-    url: "/feature-store",
-    icon: Database,
-    description: "Data pipeline status",
+    title: "Agent Manager",
+    url: "/agents",
+    icon: Bot,
+    description: "Autonomous agents and alerts",
+  },
+  {
+    title: "Constraints",
+    url: "/constraints",
+    icon: Sliders,
+    description: "Capacity, budget, and compliance",
   },
   {
     title: "Model Evaluation",
     url: "/model-evaluation",
     icon: BarChart3,
     description: "Prediction accuracy tracking",
-  },
-  {
-    title: "Agent Orchestrator",
-    url: "/agents",
-    icon: Bot,
-    description: "Autonomous agents & alerts",
-  },
-  {
-    title: "Constraint Surface",
-    url: "/constraints",
-    icon: Shield,
-    description: "Capacity, budget & compliance",
-  },
-  {
-    title: "Allocation Lab",
-    url: "/allocation-lab",
-    icon: Beaker,
-    description: "Portfolio optimization",
-    tooltip: NOMENCLATURE_TOOLTIPS.allocationLab,
   },
 ];
 
@@ -181,50 +183,34 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Primary Navigation */}
+        {/* EXPLORE - Finding and organizing HCPs */}
         <SidebarGroup>
           <SidebarGroupLabel
             className="text-xs font-semibold uppercase tracking-wider px-4"
             style={{ color: "var(--muted-gray, #52525b)" }}
           >
-            Modules
+            Explore
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigationItems.map((item) => {
+              {exploreItems.map((item) => {
                 const isActive = location === item.url || (item.url === "/" && location === "/hcp-explorer");
-                const menuButton = (
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive}
-                    tooltip={item.description}
-                    className="transition-all duration-200"
-                  >
-                    <Link
-                      href={item.url}
-                      data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                );
-
                 return (
                   <SidebarMenuItem key={item.title}>
-                    {item.tooltip ? (
-                      <FeatureTooltip
-                        id={item.tooltip.id}
-                        title={item.tooltip.title}
-                        description={item.tooltip.description}
-                        formerName={item.tooltip.formerName}
-                        position="right"
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.description}
+                      className="transition-all duration-200"
+                    >
+                      <Link
+                        href={item.url}
+                        data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
                       >
-                        {menuButton}
-                      </FeatureTooltip>
-                    ) : (
-                      menuButton
-                    )}
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
               })}
@@ -232,7 +218,77 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* System Modules */}
+        {/* ANALYZE - Understanding what's happening */}
+        <SidebarGroup>
+          <SidebarGroupLabel
+            className="text-xs font-semibold uppercase tracking-wider px-4"
+            style={{ color: "var(--muted-gray, #52525b)" }}
+          >
+            Analyze
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {analyzeItems.map((item) => {
+                const isActive = location === item.url;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.description}
+                      className="transition-all duration-200"
+                    >
+                      <Link
+                        href={item.url}
+                        data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* ACTIVATE - Taking action on insights */}
+        <SidebarGroup>
+          <SidebarGroupLabel
+            className="text-xs font-semibold uppercase tracking-wider px-4"
+            style={{ color: "var(--muted-gray, #52525b)" }}
+          >
+            Activate
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {activateItems.map((item) => {
+                const isActive = location === item.url;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.description}
+                      className="transition-all duration-200"
+                    >
+                      <Link
+                        href={item.url}
+                        data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* SYSTEM - Configuration and advanced features */}
         <SidebarGroup>
           <SidebarGroupLabel
             className="text-xs font-semibold uppercase tracking-wider px-4"
@@ -244,38 +300,22 @@ export function AppSidebar() {
             <SidebarMenu>
               {systemItems.map((item) => {
                 const isActive = location === item.url;
-                const menuButton = (
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive}
-                    tooltip={item.description}
-                    className="transition-all duration-200"
-                  >
-                    <Link
-                      href={item.url}
-                      data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                );
-
                 return (
                   <SidebarMenuItem key={item.title}>
-                    {item.tooltip ? (
-                      <FeatureTooltip
-                        id={item.tooltip.id}
-                        title={item.tooltip.title}
-                        description={item.tooltip.description}
-                        formerName={item.tooltip.formerName}
-                        position="right"
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.description}
+                      className="transition-all duration-200"
+                    >
+                      <Link
+                        href={item.url}
+                        data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
                       >
-                        {menuButton}
-                      </FeatureTooltip>
-                    ) : (
-                      menuButton
-                    )}
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
               })}

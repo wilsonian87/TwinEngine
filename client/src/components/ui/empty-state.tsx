@@ -235,6 +235,56 @@ export function EmptyState({
  * Use brand voice consistently.
  */
 export const EMPTY_STATE_COPY = {
+  // Phase 13.5: Updated module names and forward actions
+  hcpExplorer: {
+    title: 'No HCPs found.',
+    description: 'Connect your data sources or adjust your search criteria.',
+    icon: 'users',
+    actionLabel: 'Clear Filters',
+  },
+  hcpExplorerSearch: {
+    title: 'No HCPs match.',
+    description: 'Try adjusting your filters or search terms.',
+    icon: 'search',
+  },
+  audienceBuilder: {
+    title: 'No saved audiences yet.',
+    description: 'Create your first audience using natural language or filters.',
+    icon: 'users',
+    actionLabel: 'Go to HCP Explorer',
+    secondaryLabel: 'Learn More',
+  },
+  simulationStudio: {
+    title: 'No simulations run yet.',
+    description: 'Build your first scenario to predict outcomes and optimize engagement.',
+    icon: 'flask',
+    actionLabel: 'Create Simulation',
+  },
+  actionQueue: {
+    title: 'Select an audience to begin.',
+    description: 'Choose an audience to view personalized action recommendations.',
+    icon: 'zap',
+    actionLabel: 'Create Audience',
+  },
+  actionQueueEmpty: {
+    title: 'All actions completed!',
+    description: 'Great work! All recommended actions have been processed.',
+    icon: 'zap',
+    actionLabel: 'View Dashboard',
+  },
+  dashboard: {
+    title: 'No data yet.',
+    description: 'Start exploring HCPs to populate your dashboard.',
+    icon: 'activity',
+    actionLabel: 'Go to HCP Explorer',
+  },
+  comparison: {
+    title: 'Select audiences to compare.',
+    description: 'Choose two audiences to see side-by-side analysis.',
+    icon: 'users',
+    actionLabel: 'Go to Audience Builder',
+  },
+  // Legacy names for backwards compatibility
   signalIndex: {
     title: 'No signals yet.',
     description: 'Connect your data sources and let OmniVor feed.',

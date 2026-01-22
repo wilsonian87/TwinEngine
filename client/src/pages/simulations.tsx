@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch, useLocation } from "wouter";
-import { FlaskConical, Clock, ArrowRight, AlertCircle, X, GitBranch } from "lucide-react";
+import { FlaskConical, Clock, ArrowRight, AlertCircle, X, GitBranch, Users } from "lucide-react";
 import { SignalCard, SignalCardContent, SignalCardHeader } from "@/components/ui/signal-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,14 @@ import { useToast } from "@/hooks/use-toast";
 import { SimulationBuilder } from "@/components/simulation-builder";
 import { CounterfactualBacktesting } from "@/components/counterfactual-backtesting";
 import { apiRequest } from "@/lib/queryClient";
-import type { SimulationResult, InsertSimulationScenario, HCPProfile } from "@shared/schema";
+import type { SimulationResult, InsertSimulationScenario, HCPProfile, SavedAudience } from "@shared/schema";
 
 export default function Simulations() {
   const [currentResult, setCurrentResult] = useState<SimulationResult | null>(null);
   const [seedHcp, setSeedHcp] = useState<HCPProfile | null>(null);
   const [isSeedCleared, setIsSeedCleared] = useState(false);
+  const [initialAudience, setInitialAudience] = useState<SavedAudience | null>(null);
+  const [isAudienceCleared, setIsAudienceCleared] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const searchString = useSearch();
@@ -27,11 +29,25 @@ export default function Simulations() {
     queryKey: ["/api/simulations/history"],
   });
 
-  const seedHcpId = new URLSearchParams(searchString).get("seedHcp");
-  
+  // Phase 13.4: Read URL params for context
+  const params = new URLSearchParams(searchString);
+  const seedHcpId = params.get("seedHcp");
+  const audienceId = params.get("audience");
+
   const { data: fetchedSeedHcp } = useQuery<HCPProfile>({
     queryKey: [`/api/hcps/${seedHcpId}`],
     enabled: !!seedHcpId && !isSeedCleared,
+  });
+
+  // Phase 13.4: Fetch audience if provided in URL
+  const { data: fetchedAudience } = useQuery<SavedAudience>({
+    queryKey: [`/api/audiences/${audienceId}`],
+    queryFn: async () => {
+      const response = await fetch(`/api/audiences/${audienceId}`);
+      if (!response.ok) throw new Error("Failed to fetch audience");
+      return response.json();
+    },
+    enabled: !!audienceId && !isAudienceCleared,
   });
 
   useEffect(() => {
@@ -46,10 +62,35 @@ export default function Simulations() {
     }
   }, [seedHcpId]);
 
+  // Phase 13.4: Set initial audience from URL
+  useEffect(() => {
+    if (fetchedAudience && !isAudienceCleared) {
+      setInitialAudience(fetchedAudience);
+    }
+  }, [fetchedAudience, isAudienceCleared]);
+
+  useEffect(() => {
+    if (audienceId) {
+      setIsAudienceCleared(false);
+    }
+  }, [audienceId]);
+
   const clearSeedHcp = () => {
     setSeedHcp(null);
     setIsSeedCleared(true);
-    setLocation('/simulations');
+    // Clear only seedHcp param, keep audience if present
+    const newParams = new URLSearchParams(searchString);
+    newParams.delete("seedHcp");
+    setLocation(newParams.toString() ? `/simulations?${newParams}` : '/simulations');
+  };
+
+  const clearAudience = () => {
+    setInitialAudience(null);
+    setIsAudienceCleared(true);
+    // Clear only audience param, keep seedHcp if present
+    const newParams = new URLSearchParams(searchString);
+    newParams.delete("audience");
+    setLocation(newParams.toString() ? `/simulations?${newParams}` : '/simulations');
   };
 
   const runSimulation = useMutation({
@@ -89,7 +130,7 @@ export default function Simulations() {
       <div className="sticky top-0 z-10 border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold" data-testid="text-page-title">Scenario Lab</h1>
+            <h1 className="text-lg font-semibold" data-testid="text-page-title">Simulation Studio</h1>
             <p className="text-sm text-muted-foreground">
               Build and run what-if scenarios to optimize engagement
             </p>
@@ -117,31 +158,59 @@ export default function Simulations() {
           </TabsList>
 
           <TabsContent value="builder">
-            {seedHcp && (
-              <div className="mb-4 flex items-center gap-2 rounded-lg border bg-muted/50 p-3">
-                <Badge variant="outline" className="text-xs">Seed HCP</Badge>
-                <span className="text-sm font-medium">
-                  Dr. {seedHcp.firstName} {seedHcp.lastName}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {seedHcp.specialty} • {seedHcp.tier}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="ml-auto h-6 w-6"
-                  onClick={clearSeedHcp}
-                  data-testid="button-clear-seed"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
+            {/* Phase 13.4: Context banners for seed HCP and audience */}
+            <div className="space-y-3 mb-4">
+              {seedHcp && (
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/50 p-3">
+                  <Badge variant="outline" className="text-xs">Seed HCP</Badge>
+                  <span className="text-sm font-medium">
+                    Dr. {seedHcp.firstName} {seedHcp.lastName}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {seedHcp.specialty} • {seedHcp.tier}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-auto h-6 w-6"
+                    onClick={clearSeedHcp}
+                    data-testid="button-clear-seed"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {initialAudience && (
+                <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <Badge variant="outline" className="text-xs border-primary/50 text-primary">
+                    <Users className="h-3 w-3 mr-1" />
+                    Audience
+                  </Badge>
+                  <span className="text-sm font-medium">
+                    {initialAudience.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {initialAudience.hcpCount.toLocaleString()} HCPs
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-auto h-6 w-6"
+                    onClick={clearAudience}
+                    data-testid="button-clear-audience"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
             <SimulationBuilder
               onRunSimulation={(scenario) => runSimulation.mutate(scenario)}
               isRunning={runSimulation.isPending}
               result={currentResult}
               seedHcp={seedHcp}
+              initialAudience={initialAudience}
+              onNavigateToActions={(simulationId) => setLocation(`/action-queue?simulation=${simulationId}`)}
             />
           </TabsContent>
 
@@ -179,10 +248,23 @@ export default function Simulations() {
                 <div className="mb-4 rounded-full bg-muted p-6">
                   <FlaskConical className="h-10 w-10 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-semibold">No scenarios run yet.</h3>
+                <h3 className="text-lg font-semibold">No simulations run yet.</h3>
                 <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                   Build your first scenario to predict outcomes and optimize engagement signals.
                 </p>
+                {/* Phase 13.5: Forward action to builder tab */}
+                <Button
+                  variant="default"
+                  className="mt-4"
+                  onClick={() => {
+                    const builderTab = document.querySelector('[data-testid="tab-builder"]') as HTMLButtonElement;
+                    builderTab?.click();
+                  }}
+                  data-testid="button-create-first-simulation"
+                >
+                  <FlaskConical className="h-4 w-4 mr-2" />
+                  Create Your First Simulation
+                </Button>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearch, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -199,9 +200,29 @@ function BreakdownCompare({ title, dataA, dataB }: BreakdownCompareProps) {
   );
 }
 
+// Phase 13.3: Insight type for structured insights with actions
+interface InsightWithAction {
+  text: string;
+  audienceId: string;
+  audienceName: string;
+  type: 'engagement' | 'conversion' | 'channel';
+  channel?: string;
+}
+
 export default function CohortCompare() {
   const [cohortA, setCohortA] = useState<string>("");
   const [cohortB, setCohortB] = useState<string>("");
+  const searchString = useSearch();
+  const [, navigate] = useLocation();
+
+  // Phase 13.3: Read query params for pre-selection
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const aParam = params.get("a");
+    const bParam = params.get("b");
+    if (aParam) setCohortA(aParam);
+    if (bParam) setCohortB(bParam);
+  }, [searchString]);
 
   // Fetch saved audiences
   const { data: audiences = [] } = useQuery<SavedAudience[]>({
@@ -248,27 +269,33 @@ export default function CohortCompare() {
     return calculateOverlap(audienceA.hcpIds, audienceB.hcpIds);
   }, [audienceA, audienceB]);
 
-  // Key insights
-  const insights = useMemo(() => {
-    const result: string[] = [];
+  // Key insights - Phase 13.3: Now includes actionable CTAs
+  const insights = useMemo((): InsightWithAction[] => {
+    const result: InsightWithAction[] = [];
     if (!audienceA || !audienceB) return result;
 
     const engagementDiff = metricsA.avgEngagement - metricsB.avgEngagement;
     if (Math.abs(engagementDiff) > 10) {
-      result.push(
-        engagementDiff > 0
-          ? `${audienceA.name} has ${engagementDiff}% higher avg engagement`
-          : `${audienceB.name} has ${Math.abs(engagementDiff)}% higher avg engagement`
-      );
+      const winner = engagementDiff > 0 ? audienceA : audienceB;
+      const loser = engagementDiff > 0 ? audienceB : audienceA;
+      result.push({
+        text: `${winner.name} has ${Math.abs(engagementDiff)}% higher avg engagement than ${loser.name}`,
+        audienceId: loser.id,
+        audienceName: loser.name,
+        type: 'engagement',
+      });
     }
 
     const conversionDiff = metricsA.avgConversionLikelihood - metricsB.avgConversionLikelihood;
     if (Math.abs(conversionDiff) > 5) {
-      result.push(
-        conversionDiff > 0
-          ? `${audienceA.name} has ${conversionDiff}% higher conversion likelihood`
-          : `${audienceB.name} has ${Math.abs(conversionDiff)}% higher conversion likelihood`
-      );
+      const winner = conversionDiff > 0 ? audienceA : audienceB;
+      const loser = conversionDiff > 0 ? audienceB : audienceA;
+      result.push({
+        text: `${winner.name} has ${Math.abs(conversionDiff)}% higher conversion likelihood`,
+        audienceId: loser.id,
+        audienceName: loser.name,
+        type: 'conversion',
+      });
     }
 
     // Find biggest channel preference differences
@@ -280,16 +307,42 @@ export default function CohortCompare() {
       const diff = (metricsA.channelPrefBreakdown[channel] || 0) - (metricsB.channelPrefBreakdown[channel] || 0);
       if (Math.abs(diff) > 15) {
         const label = channelLabels[channel as Channel] || channel;
-        result.push(
-          diff > 0
-            ? `${audienceA.name} has ${diff}% more ${label}-preferred HCPs`
-            : `${audienceB.name} has ${Math.abs(diff)}% more ${label}-preferred HCPs`
-        );
+        const winner = diff > 0 ? audienceA : audienceB;
+        result.push({
+          text: `${winner.name} has ${Math.abs(diff)}% more ${label}-preferred HCPs`,
+          audienceId: winner.id,
+          audienceName: winner.name,
+          type: 'channel',
+          channel: channel,
+        });
       }
     }
 
     return result;
   }, [audienceA, audienceB, metricsA, metricsB]);
+
+  // Get CTA action based on insight type
+  const getInsightAction = (insight: InsightWithAction) => {
+    switch (insight.type) {
+      case 'engagement':
+        return {
+          label: 'View Engagement Trends',
+          onClick: () => navigate(`/feature-store?audience=${insight.audienceId}`),
+        };
+      case 'conversion':
+        return {
+          label: 'Run Simulation',
+          onClick: () => navigate(`/simulations?audience=${insight.audienceId}`),
+        };
+      case 'channel':
+        return {
+          label: `Optimize ${channelLabels[insight.channel as Channel] || insight.channel}`,
+          onClick: () => navigate(`/feature-store?audience=${insight.audienceId}&channel=${insight.channel}`),
+        };
+      default:
+        return null;
+    }
+  };
 
   // Export comparison summary
   const exportComparison = () => {
@@ -329,7 +382,7 @@ export default function CohortCompare() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold" data-testid="text-page-title">
-              Cohort Comparison
+              Audience Comparison
             </h1>
             <p className="text-sm text-muted-foreground">
               Compare two saved audiences side-by-side
@@ -450,20 +503,39 @@ export default function CohortCompare() {
               </CardContent>
             </Card>
 
-            {/* Key Insights */}
+            {/* Key Insights - Phase 13.3: Now with actionable CTAs */}
             {insights.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">Key Divergences</CardTitle>
+                  <CardDescription className="text-xs">
+                    Insights with suggested actions to improve performance
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-2">
-                    {insights.map((insight, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm">
-                        <Activity className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        <span>{insight}</span>
-                      </li>
-                    ))}
+                  <ul className="space-y-3">
+                    {insights.map((insight, i) => {
+                      const action = getInsightAction(insight);
+                      return (
+                        <li key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
+                          <Activity className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm">{insight.text}</p>
+                          </div>
+                          {action && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={action.onClick}
+                              className="shrink-0 text-xs h-7"
+                              data-testid={`insight-action-${i}`}
+                            >
+                              {action.label}
+                            </Button>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </CardContent>
               </Card>

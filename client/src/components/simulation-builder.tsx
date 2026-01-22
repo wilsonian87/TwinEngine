@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X, TrendingUp, Save, RefreshCw, HelpCircle, Info, Mail, Phone, Video, Globe, Calendar, FolderOpen, Database, Check, ArrowRightLeft, Lightbulb, ArrowRight, Wand2, Ticket } from "lucide-react";
+import { Play, RotateCcw, Target, Zap, BarChart2, UserSearch, Sparkles, Users, ChevronDown, ChevronUp, X, TrendingUp, Save, RefreshCw, HelpCircle, Info, Mail, Phone, Video, Globe, Calendar, FolderOpen, Database, Check, ArrowRightLeft, Lightbulb, ArrowRight, Wand2, Ticket, ListTodo } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -156,6 +156,10 @@ interface SimulationBuilderProps {
   result?: SimulationResult | null;
   selectedHcpCount?: number;
   seedHcp?: HCPProfile | null;
+  /** Phase 13.4: Pre-selected audience from URL context */
+  initialAudience?: SavedAudience | null;
+  /** Phase 13.4: Navigate to action queue with context */
+  onNavigateToActions?: (simulationId: string) => void;
 }
 
 export function SimulationBuilder({
@@ -165,6 +169,8 @@ export function SimulationBuilder({
   result,
   selectedHcpCount = 0,
   seedHcp = null,
+  initialAudience = null,
+  onNavigateToActions,
 }: SimulationBuilderProps) {
   const { toast } = useToast();
   const [scenarioName, setScenarioName] = useState("New Campaign Scenario");
@@ -186,6 +192,14 @@ export function SimulationBuilder({
   const [showPresetRationale, setShowPresetRationale] = useState(false);
   const [selectedSavedAudience, setSelectedSavedAudience] = useState<SavedAudience | null>(null);
   const [showAudiencePicker, setShowAudiencePicker] = useState(false);
+
+  // Phase 13.4: Pre-select audience from URL context
+  useEffect(() => {
+    if (initialAudience) {
+      setSelectedSavedAudience(initialAudience);
+      setShowAudiencePicker(true); // Expand to show selected audience
+    }
+  }, [initialAudience]);
 
   // Reverse simulation state
   const [showReverseMode, setShowReverseMode] = useState(false);
@@ -919,6 +933,19 @@ export function SimulationBuilder({
 
                 {/* Action CTAs */}
                 <div className="border-t pt-4 space-y-2">
+                  {/* Phase 13.4: Primary CTA to view recommended actions */}
+                  {onNavigateToActions && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => onNavigateToActions(result.id)}
+                      data-testid="button-view-actions"
+                    >
+                      <ListTodo className="h-3.5 w-3.5 mr-1.5" />
+                      View Recommended Actions
+                    </Button>
+                  )}
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -932,7 +959,7 @@ export function SimulationBuilder({
                     </Button>
                     {onSaveResult && (
                       <Button
-                        variant="default"
+                        variant={onNavigateToActions ? "outline" : "default"}
                         size="sm"
                         className="flex-1"
                         onClick={() => onSaveResult(result, scenarioName)}

@@ -42,61 +42,89 @@
   --gradient-card-elevated: linear-gradient(135deg, rgba(107, 33, 168, 0.1) 0%, #0a0a0b 100%);
 }
 
-/* LIGHT MODE (secondary theme) */
+/* ============================================================================
+   PHASE 13: LIGHT MODE (Default Theme)
+   OmniVor Brand-aligned light theme
+   ============================================================================ */
 :root {
   --button-outline: rgba(0,0,0, .10);
   --badge-outline: rgba(0,0,0, .05);
   --opaque-button-border-intensity: -8;
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
-  --background: 210 5% 98%;
-  --foreground: 210 6% 12%;
-  --border: 210 6% 90%;
-  --card: 210 5% 96%;
-  --card-foreground: 210 6% 12%;
-  --card-border: 210 6% 92%;
-  --sidebar: 210 5% 94%;
-  --sidebar-foreground: 210 6% 14%;
-  --sidebar-border: 210 6% 88%;
-  --sidebar-primary: 207 85% 42%;
-  --sidebar-primary-foreground: 210 5% 98%;
-  --sidebar-accent: 210 8% 88%;
-  --sidebar-accent-foreground: 210 6% 14%;
-  --sidebar-ring: 207 85% 42%;
-  --popover: 210 6% 92%;
-  --popover-foreground: 210 6% 14%;
-  --popover-border: 210 6% 87%;
-  --primary: 207 85% 42%;
-  --primary-foreground: 210 5% 98%;
-  --secondary: 210 8% 86%;
-  --secondary-foreground: 210 6% 14%;
-  --muted: 210 8% 88%;
-  --muted-foreground: 210 6% 32%;
-  --accent: 210 12% 90%;
-  --accent-foreground: 210 6% 14%;
-  --destructive: 0 72% 45%;
-  --destructive-foreground: 0 5% 98%;
-  --input: 210 8% 76%;
-  --ring: 207 85% 42%;
-  --chart-1: 207 85% 42%;
-  --chart-2: 195 75% 38%;
-  --chart-3: 175 65% 35%;
-  --chart-4: 160 55% 32%;
-  --chart-5: 145 50% 30%;
+
+  /* Backgrounds - Off-white page, white cards */
+  --background: 0 0% 98%;              /* #fafafa - Off-white page bg */
+  --foreground: 240 10% 10%;           /* #18181b - Primary text */
+  --border: 240 6% 90%;                /* #e4e4e7 - Subtle border */
+  --card: 0 0% 100%;                   /* #ffffff - Card background */
+  --card-foreground: 240 10% 10%;
+  --card-border: 240 6% 90%;
+
+  /* Sidebar - Light variant */
+  --sidebar: 0 0% 100%;                /* White sidebar */
+  --sidebar-foreground: 240 10% 10%;
+  --sidebar-border: 240 6% 90%;
+  --sidebar-primary: 270 70% 40%;      /* OmniVor Purple */
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 240 5% 96%;
+  --sidebar-accent-foreground: 240 10% 10%;
+  --sidebar-ring: 270 70% 45%;
+
+  /* Popover */
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 10%;
+  --popover-border: 240 6% 90%;
+
+  /* Primary: OmniVor Consumption Purple */
+  --primary: 270 70% 40%;              /* #6b21a8 */
+  --primary-foreground: 0 0% 98%;
+
+  /* Secondary */
+  --secondary: 240 5% 96%;             /* #f4f4f5 */
+  --secondary-foreground: 240 10% 10%;
+
+  /* Muted */
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;      /* #71717a */
+
+  /* Accent: OmniVor Catalyst Gold */
+  --accent: 30 95% 44%;                /* #d97706 */
+  --accent-foreground: 240 10% 10%;
+
+  /* Semantic */
+  --destructive: 0 84% 60%;            /* #ef4444 */
+  --destructive-foreground: 0 0% 98%;
+
+  /* Input */
+  --input: 240 6% 90%;
+  --ring: 270 70% 45%;                 /* Purple focus ring */
+
+  /* Chart Colors - OmniVor Brand Palette */
+  --chart-1: 270 70% 40%;              /* Purple */
+  --chart-2: 30 95% 44%;               /* Gold */
+  --chart-3: 262 83% 58%;              /* Violet */
+  --chart-4: 240 5% 46%;               /* Gray */
+  --chart-5: 270 70% 60%;              /* Light purple */
+
+  /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: .5rem;
-  --shadow-2xs: 0px 2px 0px 0px hsl(210 6% 14% / 0.00);
-  --shadow-xs: 0px 2px 0px 0px hsl(210 6% 14% / 0.00);
-  --shadow-sm: 0px 2px 0px 0px hsl(210 6% 14% / 0.00), 0px 1px 2px -1px hsl(210 6% 14% / 0.00);
-  --shadow: 0px 2px 0px 0px hsl(210 6% 14% / 0.00), 0px 1px 2px -1px hsl(210 6% 14% / 0.00);
-  --shadow-md: 0px 2px 0px 0px hsl(210 6% 14% / 0.00), 0px 2px 4px -1px hsl(210 6% 14% / 0.00);
-  --shadow-lg: 0px 2px 0px 0px hsl(210 6% 14% / 0.00), 0px 4px 6px -1px hsl(210 6% 14% / 0.00);
-  --shadow-xl: 0px 2px 0px 0px hsl(210 6% 14% / 0.00), 0px 8px 10px -1px hsl(210 6% 14% / 0.00);
-  --shadow-2xl: 0px 2px 0px 0px hsl(210 6% 14% / 0.00);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+
+  /* Shadow scale for light mode */
+  --shadow-2xs: 0px 1px 2px 0px rgb(0 0 0 / 0.03);
+  --shadow-xs: 0px 1px 2px 0px rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --shadow-hover: 0 10px 40px -10px rgb(107 33 168 / 0.15);
 
 /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));

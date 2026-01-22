@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Table,
@@ -46,6 +46,7 @@ import {
   Ticket,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ContextualActionBar } from "@/components/ui/contextual-action-bar";
 import type { Channel } from "@shared/schema";
 import type { NextBestAction } from "../../../server/services/nba-engine";
 
@@ -60,6 +61,8 @@ import type { NextBestAction } from "../../../server/services/nba-engine";
 interface ActionQueueProps {
   hcpIds: string[];
   audienceName?: string;
+  /** Phase 13.4: Callback when HCP name is clicked for profile preview */
+  onHcpClick?: (hcpId: string) => void;
 }
 
 // Response type from API
@@ -136,7 +139,7 @@ interface JiraStatusResponse {
   defaultProject?: string;
 }
 
-export function ActionQueue({ hcpIds, audienceName }: ActionQueueProps) {
+export function ActionQueue({ hcpIds, audienceName, onHcpClick }: ActionQueueProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [urgencyFilter, setUrgencyFilter] = useState<string>("all");
   const [actionTypeFilter, setActionTypeFilter] = useState<string>("all");
@@ -745,7 +748,18 @@ export function ActionQueue({ hcpIds, audienceName }: ActionQueueProps) {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <span className="font-medium">{nba.hcpName}</span>
+                        {/* Phase 13.4: Clickable HCP name for profile preview */}
+                        {onHcpClick ? (
+                          <button
+                            onClick={() => onHcpClick(nba.hcpId)}
+                            className="font-medium text-primary hover:underline text-left"
+                            data-testid={`hcp-link-${nba.hcpId}`}
+                          >
+                            {nba.hcpName}
+                          </button>
+                        ) : (
+                          <span className="font-medium">{nba.hcpName}</span>
+                        )}
                         <span className="block text-xs text-muted-foreground">{nba.hcpId}</span>
                       </div>
                     </TableCell>
@@ -809,6 +823,43 @@ export function ActionQueue({ hcpIds, audienceName }: ActionQueueProps) {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Phase 13.4: Contextual action bar for bulk operations */}
+      <ContextualActionBar
+        selectionCount={selectedIds.size}
+        selectionLabel="action"
+        actions={[
+          {
+            label: "Export CSV",
+            onClick: () => exportToCSV(true),
+            variant: "secondary",
+            icon: <Download className="h-4 w-4" />,
+          },
+          ...(slackStatus?.configured
+            ? [
+                {
+                  label: "Send to Slack",
+                  onClick: () =>
+                    sendToSlackMutation.mutate({ nbas: filteredNbas, onlySelected: true }),
+                  variant: "secondary" as const,
+                  icon: <MessageSquare className="h-4 w-4" />,
+                },
+              ]
+            : []),
+          ...(jiraStatus?.configured
+            ? [
+                {
+                  label: "Create Jira Tickets",
+                  onClick: () =>
+                    createJiraTicketsMutation.mutate({ nbas: filteredNbas, onlySelected: true }),
+                  variant: "primary" as const,
+                  icon: <Ticket className="h-4 w-4" />,
+                },
+              ]
+            : []),
+        ]}
+        onClear={() => setSelectedIds(new Set())}
+      />
     </div>
   );
 }

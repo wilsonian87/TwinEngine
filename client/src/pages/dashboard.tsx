@@ -9,7 +9,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
-import { RefreshCw, Download, Calendar, Users, Activity, FlaskConical, Target, Zap, Stethoscope } from 'lucide-react';
+import { RefreshCw, Download, Calendar, Users, Activity, FlaskConical, Target, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MetricCardSkeleton, ChartSkeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/error-state';
@@ -119,7 +119,7 @@ export default function Dashboard() {
               className="text-lg font-semibold text-signal-white"
               data-testid="text-page-title"
             >
-              Nerve Center
+              Dashboard
             </h1>
             <p className="text-sm text-muted-gray">
               Strategic intelligence at a glance
@@ -189,16 +189,17 @@ export default function Dashboard() {
             {/* Quick Actions */}
             <QuickActions onNavigate={navigate} className="mb-8" />
 
-            {/* Metrics Grid */}
+            {/* Metrics Grid - Phase 13.3: Click to drill-down */}
             <MetricsGrid columns={6} className="mb-8">
               <MetricCard
-                label="Signals Processed"
-                value={signalCount}
+                label="Total HCPs"
+                value={metrics.totalHcps}
                 trend={14}
                 trendLabel="vs last month"
-                icon={Activity}
-                tooltip="Total engagement signals processed by OmniVor"
+                icon={Users}
+                tooltip="Click to explore all HCP profiles"
                 sparklineData={[45, 52, 48, 61, 55, 67, 72]}
+                onClick={() => navigate('/')}
                 delay={0}
               />
               <MetricCard
@@ -206,23 +207,29 @@ export default function Dashboard() {
                 value={23}
                 secondaryMetric="3 need action"
                 icon={Users}
-                tooltip="Saved audience segments being monitored"
+                tooltip="Click to manage saved audiences"
+                onClick={() => navigate('/audience-builder')}
                 delay={0.05}
               />
               <MetricCard
-                label="Scenarios Run"
+                label="Simulations"
                 value={metrics.totalSimulations}
                 secondaryMetric="2 pending"
                 icon={FlaskConical}
-                tooltip="Campaign simulations executed this period"
+                tooltip="Click to view simulation history"
+                onClick={() => navigate('/simulations')}
                 delay={0.1}
               />
               <MetricCard
-                label="Patterns Found"
-                value={patternCount}
-                secondaryMetric="5 new today"
-                icon={Zap}
-                tooltip="Insights crystallized from signal analysis"
+                label="Avg Engagement"
+                value={Math.round(metrics.avgEngagementScore)}
+                suffix="%"
+                trend={5}
+                trendLabel="vs last month"
+                icon={Activity}
+                tooltip="Click to view high-engagement HCPs"
+                sparklineData={[58, 62, 60, 65, 63, 68, Math.round(metrics.avgEngagementScore)]}
+                onClick={() => navigate('/?sort=engagement&order=desc')}
                 delay={0.15}
               />
               <MetricCard
@@ -232,8 +239,9 @@ export default function Dashboard() {
                 trend={-3}
                 trendLabel="2 channels low"
                 icon={Stethoscope}
-                tooltip="Overall channel signal quality score"
+                tooltip="Click to view channel diagnostics"
                 sparklineData={[78, 75, 72, 74, 71, 73, 72]}
+                onClick={() => navigate('/feature-store')}
                 delay={0.2}
               />
               <MetricCard
@@ -241,7 +249,7 @@ export default function Dashboard() {
                 value={156}
                 secondaryMetric="24 high-priority"
                 icon={Target}
-                tooltip="Next best actions awaiting execution"
+                tooltip="Click to review action recommendations"
                 onClick={() => navigate('/action-queue')}
                 delay={0.25}
               />
