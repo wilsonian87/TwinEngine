@@ -469,6 +469,18 @@ export default function CohortCompare() {
           <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
             <ArrowLeftRight className="h-8 w-8 mx-auto mb-3 opacity-50" />
             <p className="text-sm">Select two different audiences to compare</p>
+            {audiences.length < 2 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => navigate("/audience-builder")}
+                data-testid="button-create-audience"
+              >
+                <Users className="h-4 w-4 mr-1.5" />
+                Create Audiences in Builder
+              </Button>
+            )}
           </div>
         ) : (
           <>

@@ -112,23 +112,23 @@ export default function Dashboard() {
   return (
     <div className="h-full overflow-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-border-gray bg-background/95 backdrop-blur-sm px-6 py-4">
+      <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur-sm px-6 py-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1
-              className="text-lg font-semibold text-signal-white"
+              className="text-lg font-semibold text-foreground"
               data-testid="text-page-title"
             >
               Dashboard
             </h1>
-            <p className="text-sm text-muted-gray">
+            <p className="text-sm text-muted-foreground">
               Strategic intelligence at a glance
             </p>
           </div>
           <div className="flex items-center gap-3">
             <Select defaultValue="30d">
               <SelectTrigger
-                className="w-36 border-border-gray"
+                className="w-36"
                 data-testid="select-time-range"
               >
                 <Calendar className="mr-2 h-4 w-4" />
@@ -146,14 +146,13 @@ export default function Dashboard() {
               size="icon"
               onClick={() => refetch()}
               disabled={isRefetching}
-              className="border-border-gray"
               data-testid="button-refresh"
             >
               <RefreshCw
                 className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`}
               />
             </Button>
-            <Button variant="outline" className="border-border-gray" data-testid="button-export">
+            <Button variant="outline" data-testid="button-export">
               <Download className="mr-2 h-4 w-4" />
               Export
             </Button>
@@ -297,8 +296,8 @@ function DashboardSkeleton() {
     <div className="space-y-8">
       {/* Welcome skeleton */}
       <div className="space-y-2">
-        <div className="h-8 w-64 rounded bg-border-gray animate-shimmer bg-gradient-to-r from-border-gray via-consumption-purple/10 to-border-gray bg-[length:200%_100%]" />
-        <div className="h-5 w-96 rounded bg-border-gray animate-shimmer bg-gradient-to-r from-border-gray via-consumption-purple/10 to-border-gray bg-[length:200%_100%]" />
+        <div className="h-8 w-64 rounded bg-muted animate-pulse" />
+        <div className="h-5 w-96 rounded bg-muted animate-pulse" />
       </div>
 
       {/* Quick actions skeleton */}
@@ -306,7 +305,7 @@ function DashboardSkeleton() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-9 w-28 rounded-lg bg-border-gray animate-shimmer bg-gradient-to-r from-border-gray via-consumption-purple/10 to-border-gray bg-[length:200%_100%]"
+            className="h-9 w-28 rounded-lg bg-muted animate-pulse"
             style={{ animationDelay: `${i * 0.1}s` }}
           />
         ))}
@@ -330,7 +329,7 @@ function DashboardSkeleton() {
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="h-24 rounded-lg bg-border-gray animate-shimmer bg-gradient-to-r from-border-gray via-consumption-purple/10 to-border-gray bg-[length:200%_100%]"
+              className="h-24 rounded-lg bg-muted animate-pulse"
               style={{ animationDelay: `${i * 0.1}s` }}
             />
           ))}

@@ -105,7 +105,7 @@ export function QuickActions({ actions, onNavigate, className }: QuickActionsPro
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
     >
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-gray mb-3">
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
         Quick Actions
       </h2>
       <div className="flex flex-wrap gap-2">
@@ -135,7 +135,7 @@ function QuickActionButton({ action }: QuickActionButtonProps) {
       onClick={action.onClick}
       className={cn(
         'gap-2',
-        action.variant !== 'primary' && 'border-border-gray hover:bg-white/[0.03] hover:border-consumption-purple/30'
+        action.variant !== 'primary' && 'hover:bg-muted/50 hover:border-primary/30'
       )}
     >
       <Icon className="w-4 h-4" />
@@ -201,8 +201,8 @@ export function ExpandedQuickActions({ onNavigate, className }: ExpandedQuickAct
             className={cn(
               'flex flex-col items-start p-4 rounded-xl border text-left transition-all',
               action.variant === 'primary'
-                ? 'border-consumption-purple/30 bg-consumption-purple/5 hover:bg-consumption-purple/10'
-                : 'border-border-gray bg-void-black hover:border-border-gray/80 hover:bg-white/[0.02]'
+                ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
+                : 'border-border bg-card hover:border-border hover:bg-muted/50'
             )}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -217,16 +217,16 @@ export function ExpandedQuickActions({ onNavigate, className }: ExpandedQuickAct
               className={cn(
                 'flex items-center justify-center w-10 h-10 rounded-lg mb-3',
                 action.variant === 'primary'
-                  ? 'bg-consumption-purple/20 text-consumption-purple'
-                  : 'bg-border-gray/50 text-muted-gray'
+                  ? 'bg-primary/20 text-primary'
+                  : 'bg-muted text-muted-foreground'
               )}
             >
               <Icon className="w-5 h-5" />
             </div>
-            <span className="text-sm font-semibold text-signal-white mb-1">
+            <span className="text-sm font-semibold text-foreground mb-1">
               {action.label}
             </span>
-            <span className="text-xs text-data-gray">{action.description}</span>
+            <span className="text-xs text-muted-foreground">{action.description}</span>
           </motion.button>
         );
       })}

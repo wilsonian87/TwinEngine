@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,6 +78,7 @@ const recommendationIcons: Record<string, typeof Lightbulb> = {
 export function NLAudienceBuilder() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollPositionRef = useRef(0);
 
@@ -1032,7 +1034,8 @@ export function NLAudienceBuilder() {
                 {filteredHcps.slice(0, 50).map((hcp) => (
                   <div
                     key={hcp.id}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover-elevate"
+                    className="flex items-center justify-between p-3 rounded-lg border bg-card hover-elevate cursor-pointer"
+                    onClick={() => navigate(`/?hcp=${hcp.id}`)}
                     data-testid={`preview-hcp-${hcp.id}`}
                   >
                     <div className="flex flex-col min-w-0">

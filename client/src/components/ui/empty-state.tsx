@@ -99,20 +99,20 @@ const sizeConfig = {
 
 const variantConfig = {
   default: {
-    iconBg: 'bg-border-gray/50',
-    iconColor: 'text-muted-gray',
+    iconBg: 'bg-muted',
+    iconColor: 'text-muted-foreground',
   },
   search: {
-    iconBg: 'bg-consumption-purple/10',
-    iconColor: 'text-consumption-purple',
+    iconBg: 'bg-primary/10',
+    iconColor: 'text-primary',
   },
   error: {
-    iconBg: 'bg-error-red/10',
-    iconColor: 'text-error-red',
+    iconBg: 'bg-destructive/10',
+    iconColor: 'text-destructive',
   },
   minimal: {
     iconBg: 'bg-transparent',
-    iconColor: 'text-muted-gray',
+    iconColor: 'text-muted-foreground',
   },
 };
 
@@ -187,7 +187,7 @@ export function EmptyState({
       {/* Title */}
       <h3
         className={cn(
-          'font-semibold text-signal-white mb-2',
+          'font-semibold text-foreground mb-2',
           sizeStyles.title
         )}
       >
@@ -198,7 +198,7 @@ export function EmptyState({
       {description && (
         <p
           className={cn(
-            'text-data-gray mb-6',
+            'text-muted-foreground mb-6',
             sizeStyles.description,
             sizeStyles.maxWidth
           )}

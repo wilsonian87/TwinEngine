@@ -96,13 +96,13 @@ const SignalCard = React.forwardRef<HTMLDivElement, SignalCardProps>(
         style={{
           // Variant-specific backgrounds
           ...(variant === "elevated" && {
-            background: "linear-gradient(135deg, rgba(107, 33, 168, 0.08) 0%, var(--card) 100%)",
+            background: "linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(var(--card)) 100%)",
           }),
           ...(variant === "glass" && {
-            background: "rgba(10, 10, 11, 0.8)",
+            background: "hsl(var(--card) / 0.9)",
           }),
           ...(variant === "accent" && {
-            borderLeftColor: "var(--catalyst-gold, #d97706)",
+            borderLeftColor: "hsl(var(--accent))",
           }),
         }}
         data-selected={selected}

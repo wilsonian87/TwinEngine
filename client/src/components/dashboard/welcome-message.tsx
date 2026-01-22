@@ -72,10 +72,10 @@ export function WelcomeMessage({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
     >
-      <h1 className="text-2xl font-bold text-signal-white mb-2">
+      <h1 className="text-2xl font-bold text-foreground mb-2">
         {greeting}{userName ? `, ${userName}` : ''}.
       </h1>
-      <p className="text-data-gray text-base leading-relaxed">
+      <p className="text-muted-foreground text-base leading-relaxed">
         OmniVor has processed{' '}
         <AnimatedNumber
           value={signalCount}
@@ -116,7 +116,7 @@ export function CompactWelcome({ signalCount, className }: CompactWelcomeProps) 
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4 }}
     >
-      <p className="text-data-gray text-sm">
+      <p className="text-muted-foreground text-sm">
         <AnimatedNumber
           value={signalCount}
           highlightColor="gold"

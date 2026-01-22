@@ -116,7 +116,7 @@ export default function NBODashboard() {
             <Target className="h-6 w-6 text-blue-600" />
             Next Best Orbit
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-muted-foreground mt-1">
             AI-powered engagement recommendations combining engagement, saturation, and competitive signals
           </p>
         </div>
@@ -136,7 +136,7 @@ export default function NBODashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-gray-500">HCPs in portfolio</p>
+            <p className="text-xs text-muted-foreground">HCPs in portfolio</p>
           </CardContent>
         </Card>
 
@@ -151,7 +151,7 @@ export default function NBODashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-gray-500">Immediate action needed</p>
+            <p className="text-xs text-muted-foreground">Immediate action needed</p>
           </CardContent>
         </Card>
 
@@ -166,7 +166,7 @@ export default function NBODashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-gray-500">Counter competitive pressure</p>
+            <p className="text-xs text-muted-foreground">Counter competitive pressure</p>
           </CardContent>
         </Card>
 
@@ -185,7 +185,7 @@ export default function NBODashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-gray-500">Growth opportunities</p>
+            <p className="text-xs text-muted-foreground">Growth opportunities</p>
           </CardContent>
         </Card>
       </div>
@@ -274,8 +274,8 @@ export default function NBODashboard() {
           ) : filteredRecommendations.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <Target className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                <p className="text-gray-500">No recommendations match your filters</p>
+                <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No recommendations match your filters</p>
               </CardContent>
             </Card>
           ) : (
@@ -295,8 +295,8 @@ export default function NBODashboard() {
         <TabsContent value="all" className="mt-6">
           <Card>
             <CardContent className="py-12 text-center">
-              <BarChart3 className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500 mb-4">
+              <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground mb-4">
                 Generate recommendations for a specific cohort
               </p>
               <Button variant="outline">Select Cohort</Button>

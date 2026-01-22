@@ -66,9 +66,9 @@ interface PatternCardProps {
 
 const severityConfig = {
   insight: {
-    borderColor: 'border-l-consumption-purple',
-    iconBg: 'bg-consumption-purple/10',
-    iconColor: 'text-consumption-purple',
+    borderColor: 'border-l-primary',
+    iconBg: 'bg-primary/10',
+    iconColor: 'text-primary',
     Icon: Lightbulb,
   },
   warning: {
@@ -78,9 +78,9 @@ const severityConfig = {
     Icon: AlertTriangle,
   },
   opportunity: {
-    borderColor: 'border-l-catalyst-gold',
-    iconBg: 'bg-catalyst-gold/10',
-    iconColor: 'text-catalyst-gold',
+    borderColor: 'border-l-accent',
+    iconBg: 'bg-accent/10',
+    iconColor: 'text-accent',
     Icon: TrendingUp,
   },
 };
@@ -126,11 +126,11 @@ function PatternCard({ pattern, onClick }: PatternCardProps) {
   return (
     <motion.div
       className={cn(
-        'relative rounded-lg border border-border-gray bg-void-black',
+        'relative rounded-lg border border-border bg-card',
         'border-l-4',
         config.borderColor,
         'transition-all duration-200',
-        onClick && 'cursor-pointer hover:border-border-gray/80 hover:bg-white/[0.02]'
+        onClick && 'cursor-pointer hover:border-border hover:bg-muted/50'
       )}
       onClick={onClick}
       whileHover={onClick ? { x: 4 } : undefined}
@@ -150,34 +150,34 @@ function PatternCard({ pattern, onClick }: PatternCardProps) {
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold text-signal-white mb-1">
+            <h4 className="text-sm font-semibold text-foreground mb-1">
               {pattern.title}
             </h4>
-            <p className="text-xs text-data-gray line-clamp-2">
+            <p className="text-xs text-muted-foreground line-clamp-2">
               {pattern.description}
             </p>
 
             {/* Footer */}
             <div className="flex items-center gap-4 mt-3">
-              <div className="flex items-center gap-1 text-[10px] text-muted-gray">
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Clock className="w-3 h-3" />
                 {formatRelativeTime(pattern.timestamp)}
               </div>
               {pattern.relatedHcpCount && (
-                <div className="flex items-center gap-1 text-[10px] text-muted-gray">
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Users className="w-3 h-3" />
                   {pattern.relatedHcpCount.toLocaleString()} HCPs
                 </div>
               )}
               {CategoryIcon && (
-                <CategoryIcon className="w-3 h-3 text-muted-gray" />
+                <CategoryIcon className="w-3 h-3 text-muted-foreground" />
               )}
             </div>
           </div>
 
           {/* Arrow */}
           {onClick && (
-            <ArrowRight className="w-4 h-4 text-muted-gray shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
           )}
         </div>
       </div>
@@ -218,11 +218,11 @@ export function PatternHighlights({
   if (patterns.length === 0) {
     return (
       <div className={cn('py-8 text-center', className)}>
-        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-border-gray/50 mx-auto mb-3">
-          <Lightbulb className="w-5 h-5 text-muted-gray" />
+        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-muted mx-auto mb-3">
+          <Lightbulb className="w-5 h-5 text-muted-foreground" />
         </div>
-        <p className="text-sm text-muted-gray">No patterns detected yet.</p>
-        <p className="text-xs text-muted-gray mt-1">
+        <p className="text-sm text-muted-foreground">No patterns detected yet.</p>
+        <p className="text-xs text-muted-foreground mt-1">
           Patterns will appear as OmniVor processes more signals.
         </p>
       </div>
@@ -232,11 +232,11 @@ export function PatternHighlights({
   return (
     <section className={className}>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-signal-white">
+        <h2 className="text-lg font-semibold text-foreground">
           Patterns Crystallized
         </h2>
         {patterns.length > maxPatterns && (
-          <button className="text-xs text-consumption-purple hover:underline">
+          <button className="text-xs text-primary hover:underline">
             View all ({patterns.length})
           </button>
         )}
@@ -286,14 +286,14 @@ export function CompactPatternList({
             className={cn(
               'w-full flex items-center gap-2 p-2 rounded-lg',
               'text-left transition-colors',
-              'hover:bg-white/[0.02]'
+              'hover:bg-muted/50'
             )}
           >
             <div className={cn('w-1.5 h-1.5 rounded-full', config.iconBg.replace('/10', ''))} />
-            <span className="text-xs text-signal-white truncate flex-1">
+            <span className="text-xs text-foreground truncate flex-1">
               {pattern.title}
             </span>
-            <span className="text-[10px] text-muted-gray shrink-0">
+            <span className="text-[10px] text-muted-foreground shrink-0">
               {formatRelativeTime(pattern.timestamp)}
             </span>
           </button>

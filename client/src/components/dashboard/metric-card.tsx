@@ -93,9 +93,9 @@ export function MetricCard({
   return (
     <motion.div
       className={cn(
-        'relative rounded-xl border border-border-gray bg-void-black p-5',
+        'relative rounded-xl border border-border bg-card p-5',
         'transition-all duration-200',
-        isClickable && 'cursor-pointer hover:border-consumption-purple/50 hover:bg-consumption-purple/5',
+        isClickable && 'cursor-pointer hover:border-primary/50 hover:bg-primary/5',
         className
       )}
       initial={{ opacity: 0, y: 16 }}
@@ -110,13 +110,13 @@ export function MetricCard({
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-gray">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             {label}
           </span>
           {tooltip && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Info className="h-3 w-3 text-muted-gray hover:text-data-gray cursor-help" />
+                <Info className="h-3 w-3 text-muted-foreground hover:text-foreground cursor-help" />
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs text-xs">{tooltip}</p>
@@ -124,13 +124,13 @@ export function MetricCard({
             </Tooltip>
           )}
         </div>
-        {Icon && <Icon className="h-4 w-4 text-process-violet" />}
+        {Icon && <Icon className="h-4 w-4 text-primary" />}
       </div>
 
       {/* Main Value */}
       <div className="flex items-end justify-between">
         <div>
-          <div className="text-3xl font-bold text-catalyst-gold font-mono tracking-tight">
+          <div className="text-2xl font-bold text-accent font-mono tracking-tight">
             {prefix}
             <AnimatedNumber
               value={value}
@@ -147,7 +147,7 @@ export function MetricCard({
               <TrendIndicator value={trend} label={trendLabel} />
             )}
             {secondaryMetric && (
-              <span className="text-xs text-muted-gray">{secondaryMetric}</span>
+              <span className="text-xs text-muted-foreground">{secondaryMetric}</span>
             )}
           </div>
         </div>
@@ -198,7 +198,7 @@ function TrendIndicator({ value, label }: TrendIndicatorProps) {
         {isPositive && '+'}
         {value}%
       </span>
-      {label && <span className="text-muted-gray font-normal">{label}</span>}
+      {label && <span className="text-muted-foreground font-normal">{label}</span>}
     </div>
   );
 }
@@ -248,8 +248,8 @@ export function HighlightMetricCard({
   ...props
 }: HighlightMetricCardProps) {
   const highlightClasses = {
-    purple: 'border-consumption-purple/30 bg-consumption-purple/5',
-    gold: 'border-catalyst-gold/30 bg-catalyst-gold/5',
+    purple: 'border-primary/30 bg-primary/5',
+    gold: 'border-accent/30 bg-accent/5',
     green: 'border-emerald-500/30 bg-emerald-500/5',
   };
 
@@ -271,15 +271,15 @@ export function CompactMetricCard({
   return (
     <div
       className={cn(
-        'rounded-lg border border-border-gray bg-void-black p-3',
+        'rounded-lg border border-border bg-card p-3',
         className
       )}
     >
-      <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-gray">
+      <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
         {label}
       </span>
       <div className="flex items-baseline gap-2 mt-1">
-        <span className="text-xl font-bold text-catalyst-gold font-mono">
+        <span className="text-xl font-bold text-accent font-mono">
           {prefix}
           <AnimatedNumber value={value} format={format} duration={600} />
           {suffix}
@@ -288,7 +288,7 @@ export function CompactMetricCard({
           <span
             className={cn(
               'text-xs font-medium',
-              trend > 0 ? 'text-emerald-400' : trend < 0 ? 'text-red-400' : 'text-muted-gray'
+              trend > 0 ? 'text-emerald-400' : trend < 0 ? 'text-red-400' : 'text-muted-foreground'
             )}
           >
             {trend > 0 && '+'}
