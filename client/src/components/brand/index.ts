@@ -1,9 +1,22 @@
 /**
- * OmniVor Labs Brand Components
+ * OmniVor Labs Brand Components & Context
  *
- * Export all brand-specific components from a single entry point.
+ * Centralized exports for all brand-specific components, context, and hooks.
+ *
+ * Components:
+ * - Wordmark, WordmarkCompact, WordmarkDisplay - Logo variants
+ * - LogoIcon - Standalone icon
+ *
+ * Context & Hooks:
+ * - BrandProvider - Wrap app to enable brand context
+ * - useBrand - Full brand context access
+ * - useTagline - Current session tagline
+ * - useModuleName - Get module display names
+ * - useBrandColors - Get brand color palette
+ * - useBrandCopy - Get brand copy text
  */
 
+// Components
 export {
   Wordmark,
   WordmarkCompact,
@@ -12,3 +25,13 @@ export {
   type WordmarkVariant,
   type WordmarkSize,
 } from "./Wordmark";
+
+// Context & Hooks
+export {
+  BrandProvider,
+  useBrand,
+  useTagline,
+  useModuleName,
+  useBrandColors,
+  useBrandCopy,
+} from "./BrandContext";

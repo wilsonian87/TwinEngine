@@ -8,7 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { BrandProvider } from "@/contexts/BrandContext";
+import { BrandProvider } from "@/components/brand";
 import { PageTransition } from "@/components/transitions";
 import { CommandPalette, CommandPaletteTrigger } from "@/components/ui/command-palette";
 import { CommandPaletteProvider, useCommandPaletteState } from "@/hooks/use-command-palette";

@@ -15,8 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, ArrowRight, Hexagon, Search, Users, FlaskConical, Zap } from "lucide-react";
-import { WordmarkDisplay, LogoIcon } from "@/components/brand";
-import { useBrand } from "@/contexts/BrandContext";
+import { WordmarkDisplay, LogoIcon, useBrand } from "@/components/brand";
 import { BRAND_CONFIG } from "@/lib/brand-config";
 import { cn } from "@/lib/utils";
 
