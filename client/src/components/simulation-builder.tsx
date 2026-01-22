@@ -212,7 +212,7 @@ export function SimulationBuilder({
     rationale: string;
   } | null>(null);
 
-  // Compute reverse simulation recommendation based on target
+  // Compute reverse simulation recommendation based on target AND audience
   const computeReverseRecommendation = () => {
     // Heuristic-based recommendation engine
     // In production, this would call a backend API with an ML model
@@ -222,27 +222,66 @@ export function SimulationBuilder({
     let confidence: number;
     let rationale: string;
 
+    // Get effective audience size for calculations
+    const effectiveAudienceSize = selectedSavedAudience
+      ? selectedSavedAudience.hcpCount + (includeLookalikes ? similarHcps.length : 0)
+      : selectedHcpCount > 0
+        ? selectedHcpCount + (includeLookalikes && seedHcp ? similarHcps.length : 0)
+        : allHcps.length;
+
+    // Audience size affects achievable lift and confidence
+    // Smaller audiences can achieve higher lifts with personalized strategies
+    // Larger audiences require scalable approaches with lower confidence
+    const audienceSizeFactor = effectiveAudienceSize <= 50 ? 1.2
+      : effectiveAudienceSize <= 200 ? 1.0
+      : effectiveAudienceSize <= 500 ? 0.85
+      : 0.7;
+
+    const audienceSizeContext = effectiveAudienceSize <= 50
+      ? "small, highly-targeted audience"
+      : effectiveAudienceSize <= 200
+        ? "mid-sized audience"
+        : effectiveAudienceSize <= 500
+          ? "larger audience requiring scalable tactics"
+          : "large-scale audience where personalization is limited";
+
     if (targetRxLift <= 5) {
       // Low lift target - mature strategy is efficient
       recommendedPreset = "mature";
-      recommendedFrequency = 3;
+      recommendedFrequency = effectiveAudienceSize > 200 ? 2 : 3;
       recommendedDuration = 4;
-      confidence = 85;
-      rationale = "A maintenance strategy with moderate touchpoints should achieve this modest lift with high efficiency.";
+      confidence = Math.min(Math.round(85 * audienceSizeFactor), 95);
+      rationale = `For this ${audienceSizeContext} (${effectiveAudienceSize.toLocaleString()} HCPs), a maintenance strategy with moderate touchpoints should achieve this modest lift efficiently.`;
     } else if (targetRxLift <= 12) {
       // Medium lift target - launching strategy
       recommendedPreset = "launching";
-      recommendedFrequency = Math.min(6 + Math.floor(targetRxLift / 3), 10);
-      recommendedDuration = 4;
-      confidence = 72;
-      rationale = "An active engagement strategy with multi-channel presence is recommended to achieve this growth target.";
+      const baseFrequency = 6 + Math.floor(targetRxLift / 3);
+      // Reduce frequency for larger audiences to maintain efficiency
+      recommendedFrequency = Math.min(
+        effectiveAudienceSize > 300 ? baseFrequency - 1 : baseFrequency,
+        10
+      );
+      recommendedDuration = effectiveAudienceSize > 200 ? 5 : 4;
+      confidence = Math.min(Math.round(72 * audienceSizeFactor), 85);
+      rationale = `For this ${audienceSizeContext} (${effectiveAudienceSize.toLocaleString()} HCPs), an active engagement strategy with multi-channel presence is recommended to achieve this growth target.`;
     } else {
       // High lift target - aggressive pre-launch style
       recommendedPreset = "pre_launch";
-      recommendedFrequency = Math.min(8 + Math.floor(targetRxLift / 5), 15);
+      const baseFrequency = 8 + Math.floor(targetRxLift / 5);
+      // High lift is harder to achieve at scale
+      recommendedFrequency = Math.min(
+        effectiveAudienceSize > 100 ? baseFrequency : baseFrequency + 2,
+        15
+      );
       recommendedDuration = Math.min(6 + Math.floor(targetRxLift / 10), 9);
-      confidence = Math.max(55 - (targetRxLift - 15) * 2, 35);
-      rationale = "Achieving high lift requires intensive relationship-building through webinars and rep visits. Note: targets above 15% have lower confidence.";
+      const baseConfidence = Math.max(55 - (targetRxLift - 15) * 2, 35);
+      confidence = Math.max(Math.round(baseConfidence * audienceSizeFactor), 25);
+
+      // Warn about difficulty with larger audiences
+      const scaleWarning = effectiveAudienceSize > 200
+        ? " Note: achieving high lift at this audience scale is challenging and may require increased investment."
+        : "";
+      rationale = `For this ${audienceSizeContext} (${effectiveAudienceSize.toLocaleString()} HCPs), intensive relationship-building through webinars and rep visits is required.${scaleWarning}${targetRxLift > 15 ? " Targets above 15% have inherently lower confidence." : ""}`;
     }
 
     setReverseRecommendation({

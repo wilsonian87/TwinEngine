@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { GitCompare, Users, FolderOpen, ChevronDown, ChevronUp } from "lucide-react";
+import { GitCompare, Users, FolderOpen, ChevronDown, ChevronUp, FlaskConical } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { SavedAudience } from "@shared/schema";
 
@@ -153,6 +153,19 @@ export default function AudienceBuilder() {
                             <Badge variant="secondary" className="shrink-0">
                               {audience.hcpIds.length} HCPs
                             </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/simulations?audience=${audience.id}`);
+                              }}
+                              data-testid={`button-simulate-${audience.id}`}
+                            >
+                              <FlaskConical className="h-3.5 w-3.5 mr-1" />
+                              Simulate
+                            </Button>
                           </div>
                         ))}
                       </div>

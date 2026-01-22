@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { RefreshCw, AlertCircle, Download, Save, CheckSquare, List, FlaskConical, Zap, GitCompare } from "lucide-react";
+import { RefreshCw, AlertCircle, Download, Save, CheckSquare, List, FlaskConical, Zap, GitCompare, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -38,6 +38,8 @@ export default function HCPExplorer() {
   const [audienceDescription, setAudienceDescription] = useState("");
   const [showPostActionMenu, setShowPostActionMenu] = useState(false);
   const [savedAudienceInfo, setSavedAudienceInfo] = useState<{ id: string; name: string; count: number } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 50;
 
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -127,18 +129,30 @@ export default function HCPExplorer() {
     return result;
   }, [hcps, filter]);
 
-  // Keyboard navigation for HCP list
-  const hcpIds = useMemo(() => filteredHcps.map((h) => h.id), [filteredHcps]);
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredHcps.length / ITEMS_PER_PAGE);
+  const paginatedHcps = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredHcps.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredHcps, currentPage]);
+
+  // Keyboard navigation for HCP list (only current page)
+  const hcpIds = useMemo(() => paginatedHcps.map((h) => h.id), [paginatedHcps]);
 
   const handleKeyboardSelect = useCallback((id: string) => {
-    const hcp = filteredHcps.find((h) => h.id === id);
+    const hcp = paginatedHcps.find((h) => h.id === id);
     if (hcp) {
       setSelectedHcp(hcp);
     }
-  }, [filteredHcps]);
+  }, [paginatedHcps]);
 
   const handleKeyboardAction = useCallback((id: string, action: 'edit' | 'delete' | 'view') => {
-    const hcp = filteredHcps.find((h) => h.id === id);
+    const hcp = paginatedHcps.find((h) => h.id === id);
     if (!hcp) return;
 
     if (action === 'view') {
@@ -318,8 +332,40 @@ export default function HCPExplorer() {
             </div>
           ) : (
             <>
+              {/* Pagination info */}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-muted-foreground">
+                  Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredHcps.length)} of {filteredHcps.length.toLocaleString()} HCPs
+                </p>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      data-testid="button-prev-page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground min-w-[80px] text-center">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      data-testid="button-next-page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               <div className={gridClasses}>
-                {filteredHcps.map((hcp) => (
+                {paginatedHcps.map((hcp) => (
                   <HCPProfileCard
                     key={hcp.id}
                     hcp={hcp}
@@ -332,8 +378,36 @@ export default function HCPExplorer() {
                   />
                 ))}
               </div>
+
+              {/* Bottom pagination for long pages */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground mx-4">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )}
+
               <KeyboardNavHint
-                show={filteredHcps.length > 0}
+                show={paginatedHcps.length > 0}
                 hint="navigate • Enter to view"
               />
             </>

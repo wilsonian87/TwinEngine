@@ -249,7 +249,7 @@ export function HCPProfileCard({
               className="block font-mono text-xl font-bold text-foreground"
               data-testid={`text-marketshare-${hcp.npi}`}
             >
-              {hcp.marketSharePct}%
+              {hcp.marketSharePct.toFixed(1)}%
             </span>
             <span className="text-xs text-muted-foreground">Share</span>
           </div>

@@ -207,7 +207,11 @@ export async function registerRoutes(
   if (process.env.NODE_ENV !== "production") {
     try {
       await storage.seedHcpData(100);
-      debugLog("STARTUP", "Database seeding completed successfully");
+      debugLog("STARTUP", "HCP database seeding completed successfully");
+
+      // Seed message saturation data
+      const saturationResult = await messageSaturationStorage.seedMessageSaturationData();
+      debugLog("STARTUP", `Message saturation seeding completed: ${saturationResult.themesCreated} themes, ${saturationResult.exposuresCreated} exposures`);
     } catch (error) {
       console.error("[STARTUP] Error seeding database:", error);
     }
