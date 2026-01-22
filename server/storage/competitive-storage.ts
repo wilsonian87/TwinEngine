@@ -10,6 +10,7 @@
 import { randomUUID } from "crypto";
 import { db } from "../db";
 import { eq, desc, and, gte, lte, inArray, sql } from "drizzle-orm";
+import { debugLog } from "../utils/config";
 import {
   competitorDim,
   hcpCompetitiveSignalFact,
@@ -505,11 +506,11 @@ export class CompetitiveStorage {
     // Check if data already exists
     const existingCompetitors = await db.select().from(competitorDim).limit(1);
     if (existingCompetitors.length > 0) {
-      console.log("[CompetitiveStorage] Competitor data already seeded");
+      debugLog("CompetitiveStorage", "Competitor data already seeded");
       return { competitors: 0, signals: 0 };
     }
 
-    console.log("[CompetitiveStorage] Seeding competitor data...");
+    debugLog("CompetitiveStorage", "Seeding competitor data...");
 
     // Define realistic competitors
     const competitorData: InsertCompetitorDim[] = [
@@ -532,7 +533,7 @@ export class CompetitiveStorage {
     // Get existing HCPs
     const hcps = await db.select().from(hcpProfiles).limit(100);
     if (hcps.length === 0) {
-      console.log("[CompetitiveStorage] No HCPs found, skipping signal generation");
+      debugLog("CompetitiveStorage", "No HCPs found, skipping signal generation");
       return { competitors: competitors.length, signals: 0 };
     }
 
@@ -574,7 +575,7 @@ export class CompetitiveStorage {
       }
     }
 
-    console.log(`[CompetitiveStorage] Seeded ${competitors.length} competitors and ${signalCount} signals`);
+    debugLog("CompetitiveStorage", `Seeded ${competitors.length} competitors and ${signalCount} signals`);
     return { competitors: competitors.length, signals: signalCount };
   }
 

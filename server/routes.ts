@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { competitiveStorage } from "./storage/competitive-storage";
 import { messageSaturationStorage } from "./storage/message-saturation-storage";
 import { hashPassword } from "./auth";
-import { requireEnvVar } from "./utils/config";
+import { requireEnvVar, debugLog } from "./utils/config";
 import { safeParseLimitOffset, safeParseLimit } from "./utils/validation";
 import { authRateLimiter } from "./middleware/rate-limit";
 import { classifyChannelHealth, classifyCohortChannelHealth, getHealthSummary } from "./services/channel-health";
@@ -207,7 +207,7 @@ export async function registerRoutes(
   if (process.env.NODE_ENV !== "production") {
     try {
       await storage.seedHcpData(100);
-      console.log("[STARTUP] Database seeding completed successfully");
+      debugLog("STARTUP", "Database seeding completed successfully");
     } catch (error) {
       console.error("[STARTUP] Error seeding database:", error);
     }

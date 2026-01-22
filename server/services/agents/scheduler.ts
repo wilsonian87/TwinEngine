@@ -15,6 +15,7 @@ import cron, { ScheduledTask } from "node-cron";
 import { AgentRegistry, type BaseAgent, type AgentOutput, type AgentAlert } from "./base-agent";
 import { storage } from "../../storage";
 import { createJiraIntegration, isJiraConfigured, defaultTicketTemplates } from "../integrations";
+import { debugLog } from "../../utils/config";
 
 // Scheduler configuration
 export interface SchedulerConfig {
@@ -89,7 +90,7 @@ export class AgentScheduler {
     const registry = AgentRegistry.getInstance();
     const agents = registry.getAll();
 
-    console.log(`[Scheduler] Initializing scheduler with ${agents.length} agents`);
+    debugLog("Scheduler", `Initializing with ${agents.length} agents`);
 
     for (const agent of agents) {
       await this.scheduleAgent(agent);
@@ -99,7 +100,7 @@ export class AgentScheduler {
       this.start();
     }
 
-    console.log(`[Scheduler] Initialization complete. Enabled: ${this.state.config.enabled}`);
+    debugLog("Scheduler", `Initialization complete. Enabled: ${this.state.config.enabled}`);
   }
 
   /**
@@ -111,7 +112,7 @@ export class AgentScheduler {
     const triggers = definition?.triggers;
 
     if (!triggers?.scheduled?.enabled || !triggers.scheduled.cron) {
-      console.log(`[Scheduler] Agent ${agent.type} has no scheduled trigger - skipping`);
+      debugLog("Scheduler", `Agent ${agent.type} has no scheduled trigger - skipping`);
       return;
     }
 
@@ -145,7 +146,7 @@ export class AgentScheduler {
     };
 
     this.state.jobs.set(agent.type, job);
-    console.log(`[Scheduler] Scheduled agent ${agent.type} with cron: ${cronExpression}`);
+    debugLog("Scheduler", `Scheduled agent ${agent.type} with cron: ${cronExpression}`);
   }
 
   /**
@@ -178,7 +179,7 @@ export class AgentScheduler {
       return;
     }
 
-    console.log(`[Scheduler] Starting scheduled run for ${agentType}`);
+    debugLog("Scheduler", `Starting scheduled run for ${agentType}`);
 
     job.isRunning = true;
     job.lastRunAt = new Date();
@@ -264,7 +265,7 @@ export class AgentScheduler {
       }
 
       job.runCount++;
-      console.log(`[Scheduler] Completed scheduled run for ${agentType}. Status: ${result.status}`);
+      debugLog("Scheduler", `Completed scheduled run for ${agentType}. Status: ${result.status}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`[Scheduler] Error running agent ${agentType}:`, errorMessage);
@@ -279,23 +280,23 @@ export class AgentScheduler {
    */
   start(): void {
     if (this.state.isRunning) {
-      console.log("[Scheduler] Scheduler is already running");
+      debugLog("Scheduler", "Scheduler is already running");
       return;
     }
 
-    console.log(`[Scheduler] Starting scheduler with ${this.state.jobs.size} jobs`);
+    debugLog("Scheduler", `Starting scheduler with ${this.state.jobs.size} jobs`);
 
     const jobEntries = Array.from(this.state.jobs.entries());
     for (const [agentType, job] of jobEntries) {
       job.task.start();
-      console.log(`[Scheduler] Started job for ${agentType}`);
+      debugLog("Scheduler", `Started job for ${agentType}`);
     }
 
     this.state.isRunning = true;
 
     // Run agents on startup if configured
     if (this.state.config.runOnStartup) {
-      console.log("[Scheduler] Running agents on startup...");
+      debugLog("Scheduler", "Running agents on startup...");
       const agentTypes = Array.from(this.state.jobs.keys());
       for (const agentType of agentTypes) {
         this.executeAgent(agentType);
@@ -308,16 +309,16 @@ export class AgentScheduler {
    */
   stop(): void {
     if (!this.state.isRunning) {
-      console.log("[Scheduler] Scheduler is not running");
+      debugLog("Scheduler", "Scheduler is not running");
       return;
     }
 
-    console.log("[Scheduler] Stopping scheduler...");
+    debugLog("Scheduler", "Stopping scheduler...");
 
     const jobEntries = Array.from(this.state.jobs.entries());
     for (const [agentType, job] of jobEntries) {
       job.task.stop();
-      console.log(`[Scheduler] Stopped job for ${agentType}`);
+      debugLog("Scheduler", `Stopped job for ${agentType}`);
     }
 
     this.state.isRunning = false;
@@ -339,14 +340,14 @@ export class AgentScheduler {
     }
 
     if (!jiraAutoTicket.severities.includes(alert.severity)) {
-      console.log(`[Scheduler] Skipping Jira ticket for ${alert.severity} alert (not in configured severities)`);
+      debugLog("Scheduler", `Skipping Jira ticket for ${alert.severity} alert (not in configured severities)`);
       return;
     }
 
     // Check if Jira is configured
     const jiraConfigured = await isJiraConfigured();
     if (!jiraConfigured) {
-      console.log("[Scheduler] Jira not configured - skipping ticket creation");
+      debugLog("Scheduler", "Jira not configured - skipping ticket creation");
       return;
     }
 
@@ -354,7 +355,7 @@ export class AgentScheduler {
       // Get Jira integration
       const integration = await storage.getIntegrationByType("jira");
       if (!integration) {
-        console.log("[Scheduler] No Jira integration found");
+        debugLog("Scheduler", "No Jira integration found");
         return;
       }
 
@@ -419,7 +420,7 @@ export class AgentScheduler {
       });
 
       if (result.success && result.issueKey) {
-        console.log(`[Scheduler] Created Jira ticket ${result.issueKey} for alert ${alertId}`);
+        debugLog("Scheduler", `Created Jira ticket ${result.issueKey} for alert ${alertId}`);
       } else {
         console.error(`[Scheduler] Failed to create Jira ticket: ${result.error}`);
       }
@@ -472,7 +473,7 @@ export class AgentScheduler {
    */
   updateConfig(config: Partial<SchedulerConfig>): void {
     this.state.config = { ...this.state.config, ...config };
-    console.log("[Scheduler] Configuration updated:", this.state.config);
+    debugLog("Scheduler", "Configuration updated", this.state.config);
   }
 }
 

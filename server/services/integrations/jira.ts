@@ -18,6 +18,7 @@ import type {
   InsertActionExport,
 } from "@shared/schema";
 import { storage } from "../../storage";
+import { debugLog } from "../../utils/config";
 
 // Jira API response types
 interface JiraApiResponse {
@@ -266,7 +267,7 @@ export class JiraIntegration {
       // Check if we have credentials
       if (!this.baseUrl || !this.email || !this.apiToken) {
         // Development mode - simulate success
-        console.log("[Jira] No credentials - simulating issue creation:", {
+        debugLog("Jira", "No credentials - simulating issue creation:", {
           project: request.projectKey,
           summary: request.summary.substring(0, 50) + "...",
         });
@@ -382,7 +383,7 @@ export class JiraIntegration {
     try {
       if (!this.baseUrl || !this.email || !this.apiToken) {
         // Dev mode - simulate success
-        console.log("[Jira] No credentials - simulating issue update:", {
+        debugLog("Jira", "No credentials - simulating issue update:", {
           issueKey: request.issueKey,
           fields: Object.keys(request.fields),
         });
@@ -450,7 +451,7 @@ export class JiraIntegration {
       );
 
       if (!transition) {
-        console.log(`[Jira] Transition to "${targetStatus}" not available for ${issueKey}`);
+        debugLog("Jira", `Transition to "${targetStatus}" not available for ${issueKey}`);
         return false;
       }
 

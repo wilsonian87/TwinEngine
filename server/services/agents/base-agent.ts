@@ -20,6 +20,7 @@ import type {
   AgentRunStatus,
   AgentActionStatus,
 } from "@shared/schema";
+import { debugLog, isDebug } from "../../utils/config";
 
 // Agent types supported by the system
 export const agentTypes = [
@@ -282,21 +283,21 @@ export abstract class BaseAgent<TInput extends AgentInput = AgentInput> {
    * Create a logger instance for this agent
    */
   private createLogger(): AgentLogger {
-    const prefix = `[${this.type}]`;
-
     return {
       info: (message: string, data?: unknown) => {
-        console.log(`${prefix} ${message}`, data !== undefined ? data : "");
+        debugLog(this.type, message, data);
       },
       warn: (message: string, data?: unknown) => {
-        console.warn(`${prefix} ${message}`, data !== undefined ? data : "");
+        // Warnings always shown
+        console.warn(`[${this.type}] ${message}`, data !== undefined ? data : "");
       },
       error: (message: string, data?: unknown) => {
-        console.error(`${prefix} ${message}`, data !== undefined ? data : "");
+        // Errors always shown
+        console.error(`[${this.type}] ${message}`, data !== undefined ? data : "");
       },
       debug: (message: string, data?: unknown) => {
-        if (process.env.NODE_ENV === "development") {
-          console.log(`${prefix} [DEBUG] ${message}`, data !== undefined ? data : "");
+        if (isDebug) {
+          debugLog(this.type, `[DEBUG] ${message}`, data);
         }
       },
     };
@@ -384,7 +385,7 @@ export class AgentRegistry {
 
   register(agent: BaseAgent): void {
     this.agents.set(agent.type, agent);
-    console.log(`[AgentRegistry] Registered agent: ${agent.type} v${agent.version}`);
+    debugLog("AgentRegistry", `Registered agent: ${agent.type} v${agent.version}`);
   }
 
   get(type: AgentType): BaseAgent | undefined {

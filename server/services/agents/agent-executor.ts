@@ -14,6 +14,7 @@
 import { storage } from "../../storage";
 import { competitiveStorage } from "../../storage/competitive-storage";
 import type { AgentAction, InsertAuditLog } from "@shared/schema";
+import { debugLog } from "../../utils/config";
 
 // ============================================================================
 // ACTION TYPES & CAPABILITIES
@@ -471,7 +472,7 @@ export class AgentExecutor {
 
     // Log warnings
     if (guardrailCheck.warnings.length > 0) {
-      console.log(`[AgentExecutor] Warnings for action ${action.id}:`, guardrailCheck.warnings);
+      debugLog("AgentExecutor", `Warnings for action ${action.id}:`, guardrailCheck.warnings);
     }
 
     try {

@@ -9,6 +9,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import type { NLQueryFilters, NLRecommendation, HCPProfile } from '@shared/schema';
+import { debugLog } from '../utils/config';
 import { specialties, tiers, segments, channels } from '@shared/schema';
 import {
   parseNLQueryToFilters as ruleBasedParse,
@@ -98,7 +99,7 @@ export function initializeGenAI(customConfig?: Partial<GenAIConfig>): boolean {
   try {
     anthropicClient = new Anthropic({ apiKey });
     config = { ...DEFAULT_CONFIG, ...customConfig };
-    console.log('GenAI service initialized successfully');
+    debugLog('GenAI', 'Service initialized successfully');
     return true;
   } catch (error) {
     console.error('Failed to initialize GenAI service:', error);

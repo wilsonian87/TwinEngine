@@ -18,6 +18,7 @@ import { promisify } from "util";
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import { pool } from "./db";
+import { debugLog } from "./utils/config";
 import type { User } from "@shared/schema";
 import { requireEnvVar } from "./utils/config";
 
@@ -140,9 +141,9 @@ export function setupAuth(app: Express): void {
       tableName: "user_sessions",
       createTableIfMissing: true,
     });
-    console.log("[Auth] Using PostgreSQL session store");
+    debugLog("Auth", "Using PostgreSQL session store");
   } else {
-    console.log("[Auth] Using in-memory session store (development)");
+    debugLog("Auth", "Using in-memory session store (development)");
   }
 
   app.use(session(sessionConfig));

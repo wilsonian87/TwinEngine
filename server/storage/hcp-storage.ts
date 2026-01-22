@@ -23,6 +23,7 @@ import {
 } from "@shared/schema";
 import { dbRowToHcpProfile } from "./converters";
 import { calculateSimilarityScore } from "../services/prediction-engine";
+import { debugLog } from "../utils/config";
 import {
   randomInt,
   randomFloat,
@@ -197,11 +198,11 @@ export class HcpStorage {
   async seedHcpData(count: number = 100): Promise<void> {
     const existingCount = await this.getHcpCount();
     if (existingCount > 0) {
-      console.log(`[Seed] ${existingCount} HCP profiles already exist, skipping seed`);
+      debugLog("Seed", `${existingCount} HCP profiles already exist, skipping seed`);
       return;
     }
 
-    console.log(`[Seed] Creating ${count} HCP profiles...`);
+    debugLog("Seed", `Creating ${count} HCP profiles...`);
     const profiles: (typeof hcpProfiles.$inferInsert)[] = [];
 
     for (let i = 0; i < count; i++) {
@@ -215,7 +216,7 @@ export class HcpStorage {
       await db.insert(hcpProfiles).values(batch);
     }
 
-    console.log(`[Seed] Successfully created ${count} HCP profiles`);
+    debugLog("Seed", `Successfully created ${count} HCP profiles`);
   }
 }
 

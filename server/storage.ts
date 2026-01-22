@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, ilike, or, and, gte, lte, inArray, sql, desc } from "drizzle-orm";
+import { debugLog } from "./utils/config";
 import {
   hcpProfiles,
   simulationScenarios,
@@ -631,11 +632,11 @@ export class DatabaseStorage implements IStorage {
   async seedHcpData(count: number = 100): Promise<void> {
     const existingCount = await this.getHcpCount();
     if (existingCount >= count) {
-      console.log(`Database already has ${existingCount} HCPs, skipping seed`);
+      debugLog("Storage", `Database already has ${existingCount} HCPs, skipping seed`);
       return;
     }
 
-    console.log(`Seeding database with ${count} HCP profiles...`);
+    debugLog("Storage", `Seeding database with ${count} HCP profiles...`);
     
     const hcpsToInsert = [];
     for (let i = 0; i < count; i++) {
@@ -710,7 +711,7 @@ export class DatabaseStorage implements IStorage {
       await this.createSimulation(scenario);
     }
 
-    console.log(`Database seeded with ${count} HCPs and ${scenarios.length} initial simulations`);
+    debugLog("Storage", `Database seeded with ${count} HCPs and ${scenarios.length} initial simulations`);
   }
 
   // ============ Stimuli Impact Prediction ============

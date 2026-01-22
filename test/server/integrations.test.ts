@@ -148,9 +148,6 @@ describe("Integration Services", () => {
 
         const slack = new SlackIntegration(devConfig);
 
-        // Mock console.log to capture dev mode log
-        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
         const result = await slack.sendMessage({
           integrationId: devConfig.id,
           message: { text: "Test message" },
@@ -159,14 +156,9 @@ describe("Integration Services", () => {
           channel: "#test",
         });
 
+        // Dev mode returns simulated success without calling Slack API
         expect(result.success).toBe(true);
         expect(result.messageTs).toContain("dev-");
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining("[Slack] No bot token"),
-          expect.any(Object)
-        );
-
-        consoleSpy.mockRestore();
       });
 
       it("should return error when no channel specified and no default", async () => {
@@ -460,9 +452,6 @@ describe("Integration Services", () => {
 
         const jira = new JiraIntegration(devConfig);
 
-        // Mock console.log to capture dev mode log
-        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
         const result = await jira.createIssue({
           integrationId: devConfig.id,
           projectKey: "TWIN",
@@ -473,15 +462,10 @@ describe("Integration Services", () => {
           sourceId: "test-123",
         });
 
+        // Dev mode returns simulated success without calling Jira API
         expect(result.success).toBe(true);
         expect(result.issueKey).toContain("TWIN-");
         expect(result.issueId).toContain("dev-");
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining("[Jira] No credentials"),
-          expect.any(Object)
-        );
-
-        consoleSpy.mockRestore();
       });
 
       it("should call Jira API when credentials are present", async () => {
@@ -623,22 +607,15 @@ describe("Integration Services", () => {
 
         const jira = new JiraIntegration(devConfig);
 
-        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
         const result = await jira.updateIssue({
           integrationId: devConfig.id,
           issueKey: "TWIN-123",
           fields: { summary: "Updated summary" },
         });
 
+        // Dev mode returns simulated success without calling Jira API
         expect(result.success).toBe(true);
         expect(result.issueKey).toBe("TWIN-123");
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining("[Jira] No credentials"),
-          expect.any(Object)
-        );
-
-        consoleSpy.mockRestore();
       });
 
       it("should call Jira API when credentials are present", async () => {

@@ -18,6 +18,7 @@ import type {
   InsertActionExport,
 } from "@shared/schema";
 import { storage } from "../../storage";
+import { debugLog } from "../../utils/config";
 
 // Slack API response types
 interface SlackApiResponse {
@@ -106,7 +107,7 @@ export class SlackIntegration {
       // Check if we have credentials
       if (!this.botToken) {
         // Development mode - simulate success
-        console.log("[Slack] No bot token - simulating message send:", {
+        debugLog("Slack", "No bot token - simulating message send:", {
           channel,
           text: request.message.text.substring(0, 100) + "...",
         });
