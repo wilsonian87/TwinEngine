@@ -30,7 +30,6 @@ import Landing from "@/pages/landing";
 import AgentsPage from "@/pages/agents";
 import ConstraintsPage from "@/pages/constraints";
 import AllocationLabPage from "@/pages/allocation-lab";
-import EcosystemExplorer from "@/pages/ecosystem-explorer";
 import MessageSaturationPage from "@/pages/message-saturation";
 import NBODashboard from "@/pages/NBODashboard";
 
@@ -45,7 +44,6 @@ function Router() {
           <Route path="/hcp-explorer" component={HCPExplorer} />
           <Route path="/simulations" component={Simulations} />
           <Route path="/dashboard" component={Dashboard} />
-          <Route path="/ecosystem" component={EcosystemExplorer} />
           <Route path="/audience-builder" component={AudienceBuilder} />
           <Route path="/action-queue" component={ActionQueuePage} />
           <Route path="/cohort-compare" component={CohortCompare} />

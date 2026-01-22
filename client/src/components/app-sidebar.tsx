@@ -26,7 +26,6 @@ import {
   Zap,
   Hexagon,
   Info,
-  Compass,
   Flame,
   Target,
 } from "lucide-react";
@@ -88,12 +87,6 @@ const navigationItems = [
     icon: Activity,
     description: "Analytics dashboard",
     tooltip: NOMENCLATURE_TOOLTIPS.nerveCenter,
-  },
-  {
-    title: "Ecosystem Explorer",
-    url: "/ecosystem",
-    icon: Compass,
-    description: "3D constellation visualization",
   },
   {
     title: "Message Saturation",
