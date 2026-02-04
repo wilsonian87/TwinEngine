@@ -29,6 +29,7 @@ import { format, formatDistanceToNow, parseISO } from "date-fns";
 import type { AuditLog, HCPProfile } from "@shared/schema";
 import { InviteManager } from "@/components/invite-manager";
 import { IntegrationManager } from "@/components/integration-manager";
+import { InsightRxStatus } from "@/components/insightrx-status";
 
 // Determine environment from window location or env
 function getEnvironment(): "development" | "staging" | "production" {
@@ -668,8 +669,9 @@ export default function Settings() {
             <InviteManager />
           </TabsContent>
 
-          <TabsContent value="status">
+          <TabsContent value="status" className="space-y-6">
             <SystemStatusView />
+            <InsightRxStatus />
           </TabsContent>
 
           <TabsContent value="audit">

@@ -36,3 +36,14 @@ export {
   type TicketTemplate,
   type TicketTemplateType,
 } from "./jira";
+
+// Forma Predictive Integration
+export {
+  formaPredictiveService,
+  type FormaHealthResult,
+  type FormaModelMetrics,
+  type FormaFeatureImportance,
+  type FormaPrediction,
+  type FormaBatchPredictions,
+  type FormaPipelineStatus,
+} from "./forma-predictive";

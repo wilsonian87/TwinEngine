@@ -16,6 +16,9 @@ import { KeyboardShortcutsProvider, useKeyboardShortcutsState } from "@/hooks/us
 import { ShortcutsModal } from "@/components/ui/shortcuts-modal";
 import { FirstRunGuide } from "@/components/onboarding";
 import { DevToolbar } from "@/components/dev-toolbar";
+import { OmniVoiceProvider, useOmniVoiceCtx } from "@/contexts/omnivoice-context";
+import { OmniVoiceChat } from "@/components/omnivoice-chat";
+import { useFeatureFlag, INSIGHTRX_FLAGS } from "@/hooks/use-feature-flags";
 import NotFound from "@/pages/not-found";
 import HCPExplorer from "@/pages/hcp-explorer";
 import Simulations from "@/pages/simulations";
@@ -62,6 +65,21 @@ function Router() {
   );
 }
 
+/**
+ * Omni-Voice Chat Widget (conditionally rendered based on feature flag)
+ */
+function OmniVoiceChatWidget() {
+  const { isEnabled, isLoading } = useFeatureFlag(INSIGHTRX_FLAGS.OMNIVOICE_CHAT);
+  const { context } = useOmniVoiceCtx();
+
+  // Don't render if feature is disabled or still loading
+  if (isLoading || !isEnabled) {
+    return null;
+  }
+
+  return <OmniVoiceChat context={context} />;
+}
+
 function AppLayout() {
   const sidebarStyle = {
     "--sidebar-width": "16rem",
@@ -87,6 +105,7 @@ function AppLayout() {
       </div>
       <CommandPalette />
       <FirstRunGuide />
+      <OmniVoiceChatWidget />
     </SidebarProvider>
   );
 }
@@ -114,7 +133,11 @@ function AuthenticatedApp() {
     return <Landing />;
   }
 
-  return <AppLayout />;
+  return (
+    <OmniVoiceProvider>
+      <AppLayout />
+    </OmniVoiceProvider>
+  );
 }
 
 function CommandPaletteWrapper({ children }: { children: React.ReactNode }) {
