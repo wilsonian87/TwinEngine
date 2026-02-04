@@ -309,6 +309,7 @@ export default function HCPExplorer() {
             <SavedViewsSelector
               viewType="hcp_list"
               currentFilters={filter as Record<string, unknown>}
+              filteredHcpIds={filteredHcps.map(h => h.id)}
               onApplyView={(filters) => setFilter(filters as HCPFilter)}
             />
             <Button
