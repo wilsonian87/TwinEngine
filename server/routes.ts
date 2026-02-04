@@ -19,6 +19,7 @@ import { exportRouter } from "./routes/export-routes";
 import { alertRouter } from "./routes/alert-routes";
 import { savedViewsRouter } from "./routes/saved-views-routes";
 import { analyticsRouter } from "./routes/analytics-routes";
+import { exportHubRouter } from "./routes/export-hub-routes";
 import { evaluateAlerts, evaluateRuleById, startAlertEvaluator } from "./jobs/alert-evaluator";
 import { seedKnowledgeContent } from "./storage/knowledge-storage";
 import { requestMetrics, requestId } from "./middleware/observability";
@@ -305,6 +306,10 @@ export async function registerRoutes(
   // ============ Analytics Endpoints ============
   // Cohort comparison and advanced analytics
   app.use("/api/analytics", analyticsRouter);
+
+  // ============ Export Hub Endpoints ============
+  // Unified export jobs and integrations
+  app.use("/api/exports", exportHubRouter);
 
   // Manual alert evaluation (for testing/admin)
   app.post("/api/alerts/evaluate", async (req, res) => {

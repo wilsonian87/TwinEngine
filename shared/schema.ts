@@ -6938,3 +6938,127 @@ export const savedViewResponseSchema = z.object({
 });
 
 export type SavedViewResponse = z.infer<typeof savedViewResponseSchema>;
+
+// ============ Export Hub (unified export jobs) ============
+
+export const exportTypes = [
+  "audience",
+  "hcp_list",
+  "nba_recommendations",
+  "simulation_results",
+] as const;
+
+export type ExportType = (typeof exportTypes)[number];
+
+export const exportDestinations = [
+  "csv",
+  "xlsx",
+  "veeva",
+  "webhook",
+  "sftp",
+] as const;
+
+export type ExportDestination = (typeof exportDestinations)[number];
+
+export const exportStatuses = [
+  "pending",
+  "processing",
+  "complete",
+  "failed",
+] as const;
+
+export type ExportStatus = (typeof exportStatuses)[number];
+
+export const exportJobs = pgTable("export_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  type: varchar("type", { length: 50 }).notNull(),
+  destination: varchar("destination", { length: 50 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  payload: jsonb("payload").notNull().$type<{
+    entityId?: string;
+    hcpIds?: string[];
+    filters?: Record<string, unknown>;
+    fields: string[];
+    includeNBA?: boolean;
+  }>(),
+  destinationConfig: jsonb("destination_config").$type<Record<string, unknown>>().default({}),
+  resultUrl: text("result_url"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+}, (table) => ({
+  userIdx: index("export_jobs_user_idx").on(table.userId),
+  statusIdx: index("export_jobs_status_idx").on(table.status),
+}));
+
+export const insertExportJobSchema = createInsertSchema(exportJobs).omit({
+  id: true,
+  createdAt: true,
+  startedAt: true,
+  completedAt: true,
+});
+
+export type InsertExportJob = z.infer<typeof insertExportJobSchema>;
+export type ExportJob = typeof exportJobs.$inferSelect;
+
+export const integrationCredentials = pgTable("integration_credentials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  integrationType: varchar("integration_type", { length: 50 }).notNull(),
+  credentials: jsonb("credentials").notNull().$type<Record<string, unknown>>(),
+  isValid: boolean("is_valid").notNull().default(true),
+  lastValidatedAt: timestamp("last_validated_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userTypeUnique: index("integration_credentials_user_type_idx").on(table.userId, table.integrationType),
+}));
+
+export const insertIntegrationCredentialSchema = createInsertSchema(integrationCredentials).omit({
+  id: true,
+  createdAt: true,
+  lastValidatedAt: true,
+});
+
+export type InsertIntegrationCredential = z.infer<typeof insertIntegrationCredentialSchema>;
+export type IntegrationCredential = typeof integrationCredentials.$inferSelect;
+
+// API Schemas for Export Hub
+export const createExportJobRequestSchema = z.object({
+  type: z.enum(exportTypes),
+  destination: z.enum(exportDestinations),
+  payload: z.object({
+    entityId: z.string().optional(),
+    hcpIds: z.array(z.string()).optional(),
+    filters: z.record(z.unknown()).optional(),
+    fields: z.array(z.string()),
+    includeNBA: z.boolean().optional(),
+  }),
+  destinationConfig: z.record(z.unknown()).optional(),
+});
+
+export type CreateExportJobRequest = z.infer<typeof createExportJobRequestSchema>;
+
+export const exportJobResponseSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  type: z.string(),
+  destination: z.string(),
+  status: z.string(),
+  payload: z.object({
+    entityId: z.string().optional(),
+    hcpIds: z.array(z.string()).optional(),
+    filters: z.record(z.unknown()).optional(),
+    fields: z.array(z.string()),
+    includeNBA: z.boolean().optional(),
+  }),
+  destinationConfig: z.record(z.unknown()).nullable(),
+  resultUrl: z.string().nullable(),
+  errorMessage: z.string().nullable(),
+  createdAt: z.string(),
+  startedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+});
+
+export type ExportJobResponse = z.infer<typeof exportJobResponseSchema>;
