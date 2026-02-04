@@ -8,11 +8,14 @@ import {
   hcpProfiles,
   savedAudiences,
   auditLogs,
+  webhookDestinations,
+  webhookLogs,
   type ExportJob,
   type ExportType,
   type ExportDestination,
 } from "@shared/schema";
 import { pushToVeeva, getVeevaCredentials } from "./veeva-integration";
+import { renderPayloadTemplate } from "../routes/webhook-routes";
 
 // ============================================================================
 // TYPES
@@ -646,15 +649,99 @@ async function exportToWebhook(
   data: Record<string, unknown>[]
 ): Promise<ExportResult> {
   const config = job.destinationConfig as {
+    webhookId?: string;
     url?: string;
     headers?: Record<string, string>;
   } | null;
 
-  if (!config?.url) {
-    throw new Error("Webhook URL required in destination config");
+  // Try to use saved webhook destination first
+  if (config?.webhookId) {
+    const [destination] = await db
+      .select()
+      .from(webhookDestinations)
+      .where(
+        and(
+          eq(webhookDestinations.id, config.webhookId),
+          eq(webhookDestinations.userId, job.userId)
+        )
+      );
+
+    if (!destination) {
+      throw new Error("Webhook destination not found");
+    }
+
+    if (!destination.isActive) {
+      throw new Error("Webhook destination is inactive");
+    }
+
+    // Build payload using template
+    const payload = job.payload as {
+      audienceName?: string;
+      entityId?: string;
+    };
+
+    const webhookPayload = renderPayloadTemplate(destination.payloadTemplate, {
+      hcps: data,
+      hcp_ids: data.map((h) => h.id),
+      npis: data.map((h) => h.npi),
+      audience_name: payload.audienceName || "Export",
+      export_date: new Date().toISOString(),
+      export_id: job.id,
+    });
+
+    let statusCode: number;
+    let responseBody: string | null = null;
+    let errorMessage: string | null = null;
+
+    try {
+      const response = await fetch(destination.url, {
+        method: destination.method || "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(destination.headers || {}),
+        },
+        body: JSON.stringify(webhookPayload),
+      });
+
+      statusCode = response.status;
+      responseBody = await response.text().catch(() => null);
+    } catch (err) {
+      statusCode = 0;
+      errorMessage = err instanceof Error ? err.message : "Network error";
+    }
+
+    // Log the webhook call
+    await db.insert(webhookLogs).values({
+      destinationId: destination.id,
+      exportJobId: job.id,
+      statusCode,
+      responseBody,
+      errorMessage,
+    });
+
+    // Update last used timestamp
+    await db
+      .update(webhookDestinations)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(webhookDestinations.id, destination.id));
+
+    if (statusCode < 200 || statusCode >= 300) {
+      throw new Error(`Webhook failed: ${statusCode} ${errorMessage || responseBody?.substring(0, 100) || ""}`);
+    }
+
+    return {
+      url: destination.url,
+      filename: `webhook-${job.id}`,
+      size: JSON.stringify(data).length,
+      recordCount: data.length,
+    };
   }
 
-  // Make webhook call
+  // Fallback: Use direct URL from config (legacy behavior)
+  if (!config?.url) {
+    throw new Error("Webhook URL or webhookId required in destination config");
+  }
+
   const response = await fetch(config.url, {
     method: "POST",
     headers: {
@@ -662,8 +749,10 @@ async function exportToWebhook(
       ...config.headers,
     },
     body: JSON.stringify({
+      source: "TwinEngine",
       jobId: job.id,
       type: job.type,
+      timestamp: new Date().toISOString(),
       recordCount: data.length,
       data,
     }),

@@ -7024,6 +7024,49 @@ export const insertIntegrationCredentialSchema = createInsertSchema(integrationC
 export type InsertIntegrationCredential = z.infer<typeof insertIntegrationCredentialSchema>;
 export type IntegrationCredential = typeof integrationCredentials.$inferSelect;
 
+// ============================================================================
+// WEBHOOK DESTINATIONS
+// ============================================================================
+
+export const webhookDestinations = pgTable("webhook_destinations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  url: text("url").notNull(),
+  method: varchar("method", { length: 10 }).notNull().default("POST"),
+  headers: jsonb("headers").$type<Record<string, string>>().default({}),
+  payloadTemplate: text("payload_template"),
+  isActive: boolean("is_active").notNull().default(true),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("webhook_destinations_user_id_idx").on(table.userId),
+}));
+
+export const insertWebhookDestinationSchema = createInsertSchema(webhookDestinations).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+});
+
+export type InsertWebhookDestination = z.infer<typeof insertWebhookDestinationSchema>;
+export type WebhookDestination = typeof webhookDestinations.$inferSelect;
+
+export const webhookLogs = pgTable("webhook_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  destinationId: varchar("destination_id").notNull().references(() => webhookDestinations.id),
+  exportJobId: varchar("export_job_id").references(() => exportJobs.id),
+  statusCode: integer("status_code"),
+  responseBody: text("response_body"),
+  errorMessage: text("error_message"),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+}, (table) => ({
+  destinationIdIdx: index("webhook_logs_destination_id_idx").on(table.destinationId),
+  exportJobIdIdx: index("webhook_logs_export_job_id_idx").on(table.exportJobId),
+}));
+
+export type WebhookLog = typeof webhookLogs.$inferSelect;
+
 // API Schemas for Export Hub
 export const createExportJobRequestSchema = z.object({
   type: z.enum(exportTypes),

@@ -9,6 +9,7 @@ import {
   FileText,
   Loader2,
   Upload,
+  Webhook,
 } from "lucide-react";
 import {
   Dialog,
@@ -22,6 +23,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -56,6 +64,13 @@ interface VeevaStatus {
   connected: boolean;
   instanceUrl?: string;
   isValid?: boolean;
+}
+
+interface WebhookDestination {
+  id: string;
+  name: string;
+  url: string;
+  isActive: boolean;
 }
 
 // ============================================================================
@@ -105,10 +120,11 @@ export function ExportModal({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [format, setFormat] = useState<"csv" | "xlsx" | "veeva">("csv");
+  const [format, setFormat] = useState<"csv" | "xlsx" | "veeva" | "webhook">("csv");
   const [fields, setFields] = useState<string[]>(DEFAULT_FIELDS);
   const [includeNBA, setIncludeNBA] = useState(false);
   const [pendingJobId, setPendingJobId] = useState<string | null>(null);
+  const [selectedWebhookId, setSelectedWebhookId] = useState<string>("");
 
   // Query Veeva connection status
   const { data: veevaStatus } = useQuery<VeevaStatus>({
@@ -121,6 +137,19 @@ export function ExportModal({
     enabled: open,
   });
 
+  // Query available webhooks
+  const { data: webhooksData } = useQuery<{ webhooks: WebhookDestination[] }>({
+    queryKey: ["/api/webhooks"],
+    queryFn: async () => {
+      const res = await fetch("/api/webhooks");
+      if (!res.ok) return { webhooks: [] };
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const activeWebhooks = webhooksData?.webhooks?.filter((w) => w.isActive) || [];
+
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
@@ -128,6 +157,7 @@ export function ExportModal({
       setFields(DEFAULT_FIELDS);
       setIncludeNBA(false);
       setPendingJobId(null);
+      setSelectedWebhookId("");
     }
   }, [open]);
 
@@ -142,10 +172,17 @@ export function ExportModal({
         payload.includeNBA = true;
       }
 
+      // Add destination config for webhook
+      const destinationConfig: Record<string, unknown> = {};
+      if (format === "webhook" && selectedWebhookId) {
+        destinationConfig.webhookId = selectedWebhookId;
+      }
+
       const res = await apiRequest("POST", "/api/exports", {
         type: entityType,
         destination: format,
         payload,
+        ...(Object.keys(destinationConfig).length > 0 && { destinationConfig }),
       });
       return res.json() as Promise<ExportJob>;
     },
@@ -181,7 +218,7 @@ export function ExportModal({
     },
   });
 
-  // Auto-download when complete (or show success for Veeva)
+  // Auto-download when complete (or show success for Veeva/Webhook)
   useEffect(() => {
     if (jobStatus?.status === "complete" && pendingJobId) {
       if (format === "veeva") {
@@ -190,6 +227,13 @@ export function ExportModal({
           title: "Pushed to Veeva",
           description: "NBA recommendations have been sent to Veeva CRM.",
         });
+      } else if (format === "webhook") {
+        // Webhook push complete
+        toast({
+          title: "Sent to Webhook",
+          description: "Data has been sent to the configured webhook endpoint.",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
       } else {
         // Trigger file download
         window.location.href = `/api/exports/${pendingJobId}/download`;
@@ -236,6 +280,14 @@ export function ExportModal({
       });
       return;
     }
+    if (format === "webhook" && !selectedWebhookId) {
+      toast({
+        title: "No webhook selected",
+        description: "Please select a webhook destination.",
+        variant: "destructive",
+      });
+      return;
+    }
     createExport.mutate();
   };
 
@@ -273,7 +325,7 @@ export function ExportModal({
             <Label>Export Destination</Label>
             <RadioGroup
               value={format}
-              onValueChange={(v) => setFormat(v as "csv" | "xlsx" | "veeva")}
+              onValueChange={(v) => setFormat(v as "csv" | "xlsx" | "veeva" | "webhook")}
               className="grid gap-2"
             >
               <div className="flex items-center space-x-2">
@@ -317,8 +369,61 @@ export function ExportModal({
                   )}
                 </Label>
               </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem
+                  value="webhook"
+                  id="webhook"
+                  disabled={activeWebhooks.length === 0}
+                />
+                <Label
+                  htmlFor="webhook"
+                  className={`flex items-center gap-2 cursor-pointer ${
+                    activeWebhooks.length === 0 ? "opacity-50" : ""
+                  }`}
+                >
+                  <Webhook className="h-4 w-4" />
+                  Webhook
+                  {activeWebhooks.length > 0 ? (
+                    <Badge variant="secondary" className="text-xs">
+                      {activeWebhooks.length} configured
+                    </Badge>
+                  ) : (
+                    <a
+                      href="/settings/webhooks"
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Configure <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </Label>
+              </div>
             </RadioGroup>
           </div>
+
+          {/* Webhook Selector */}
+          {format === "webhook" && activeWebhooks.length > 0 && (
+            <div className="space-y-2">
+              <Label>Select Webhook</Label>
+              <Select value={selectedWebhookId} onValueChange={setSelectedWebhookId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a webhook destination..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeWebhooks.map((webhook) => (
+                    <SelectItem key={webhook.id} value={webhook.id}>
+                      <div className="flex flex-col">
+                        <span>{webhook.name}</span>
+                        <span className="text-xs text-muted-foreground truncate max-w-[250px]">
+                          {webhook.url}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Field Selection */}
           <div className="space-y-3">
@@ -415,17 +520,22 @@ export function ExportModal({
           </Button>
           <Button
             onClick={handleExport}
-            disabled={isProcessing || fields.length === 0}
+            disabled={isProcessing || fields.length === 0 || (format === "webhook" && !selectedWebhookId)}
           >
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {format === "veeva" ? "Pushing..." : "Exporting..."}
+                {format === "veeva" || format === "webhook" ? "Sending..." : "Exporting..."}
               </>
             ) : format === "veeva" ? (
               <>
                 <Upload className="h-4 w-4 mr-2" />
                 Push to Veeva
+              </>
+            ) : format === "webhook" ? (
+              <>
+                <Webhook className="h-4 w-4 mr-2" />
+                Send to Webhook
               </>
             ) : (
               <>
