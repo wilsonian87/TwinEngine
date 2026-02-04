@@ -73,7 +73,8 @@ interface StreamEvent {
 // CONFIGURATION
 // ============================================================================
 
-const OMNIVOICE_API_URL = import.meta.env.VITE_OMNIVOICE_API_URL || "http://localhost:8080";
+// Use the TwinEngine backend for OmniVoice API
+const OMNIVOICE_API_URL = "/api/omnivoice";
 
 // ============================================================================
 // API FUNCTIONS

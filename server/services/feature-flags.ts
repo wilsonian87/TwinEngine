@@ -273,9 +273,9 @@ export async function seedInsightRxFlags(): Promise<void> {
     {
       flagKey: "omnivoice.chat_widget",
       name: "Omni-Voice Chat Widget",
-      description: "Enable the Omni-Voice chat widget in the UI (Phase 2)",
-      enabled: false,
-      rolloutPercentage: 0,
+      description: "Enable the Omni-Voice chat widget in the UI",
+      enabled: true,
+      rolloutPercentage: 100,
     },
   ];
 

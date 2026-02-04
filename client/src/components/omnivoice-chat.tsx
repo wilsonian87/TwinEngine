@@ -75,7 +75,7 @@ function ChatMessage({ message }: { message: OmniVoiceMessage }) {
       <div
         className={cn(
           "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
-          isUser ? "bg-primary text-primary-foreground" : "bg-blue-600 text-white"
+          isUser ? "bg-primary text-primary-foreground" : "bg-primary text-white"
         )}
       >
         {isUser ? (
@@ -258,7 +258,7 @@ export function OmniVoiceChat({
             onClick={() => setIsOpen(true)}
             className={cn(
               "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg",
-              "bg-blue-600 hover:bg-blue-700 text-white",
+              "bg-primary hover:bg-primary/90 text-white",
               className
             )}
           >
@@ -284,17 +284,17 @@ export function OmniVoiceChat({
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-blue-600 text-white">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-primary text-white">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5" />
           <div>
             <h3 className="font-semibold text-sm">Omni-Voice</h3>
-            <p className="text-xs text-blue-100">Field Sales Advisor</p>
+            <p className="text-xs text-primary-foreground/80">Field Sales Advisor</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
           {healthLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin text-blue-200" />
+            <Loader2 className="h-4 w-4 animate-spin text-primary-foreground/70" />
           ) : isReady ? (
             <Tooltip>
               <TooltipTrigger>
@@ -320,7 +320,7 @@ export function OmniVoiceChat({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-white hover:bg-blue-500"
+            className="h-8 w-8 text-white hover:bg-primary/80"
             onClick={() => setIsExpanded(!isExpanded)}
           >
             {isExpanded ? (
@@ -333,7 +333,7 @@ export function OmniVoiceChat({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-white hover:bg-blue-500"
+            className="h-8 w-8 text-white hover:bg-primary/80"
             onClick={() => setIsOpen(false)}
           >
             <X className="h-4 w-4" />
@@ -343,7 +343,7 @@ export function OmniVoiceChat({
 
       {/* Context indicator */}
       {context && Object.keys(context).length > 0 && (
-        <div className="px-3 py-1.5 bg-blue-50 border-b text-xs text-blue-700 flex items-center gap-2">
+        <div className="px-3 py-1.5 bg-primary/5 border-b text-xs text-primary flex items-center gap-2">
           <Info className="h-3 w-3" />
           <span>
             Context: {context.page || ""}
@@ -402,7 +402,7 @@ export function OmniVoiceChat({
               onClick={handleSend}
               disabled={!input.trim() || isStreaming || !isReady}
               size="icon"
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-primary hover:bg-primary/90"
             >
               {isStreaming ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -25,6 +25,7 @@ import { webhookRouter } from "./routes/webhook-routes";
 import { approvalRouter } from "./routes/approval-routes";
 import adminAuditRouter from "./routes/admin-audit-routes";
 import { dashboardRouter } from "./routes/dashboard-routes";
+import { omnivoiceRouter } from "./routes/omnivoice-routes";
 import { seedApprovalPolicies } from "./services/approval-service";
 import { evaluateAlerts, evaluateRuleById, startAlertEvaluator } from "./jobs/alert-evaluator";
 import { seedKnowledgeContent } from "./storage/knowledge-storage";
@@ -342,6 +343,9 @@ export async function registerRoutes(
 
   // Dashboard (operational)
   app.use("/api/dashboard", dashboardRouter);
+
+  // Omni-Voice chat agent
+  app.use("/api/omnivoice", omnivoiceRouter);
 
   // Manual alert evaluation (for testing/admin)
   app.post("/api/alerts/evaluate", async (req, res) => {
