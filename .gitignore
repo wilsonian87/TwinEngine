@@ -11,4 +11,4 @@ vite.config.ts.*
 # Replit artifacts
 .config/
 .local/
-.replit
+.replit.cache/
