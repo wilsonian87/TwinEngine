@@ -17,6 +17,7 @@ import { validationRouter } from "./routes/validation-routes";
 import { observabilityRouter } from "./routes/observability-routes";
 import { exportRouter } from "./routes/export-routes";
 import { alertRouter } from "./routes/alert-routes";
+import { savedViewsRouter } from "./routes/saved-views-routes";
 import { evaluateAlerts, evaluateRuleById, startAlertEvaluator } from "./jobs/alert-evaluator";
 import { seedKnowledgeContent } from "./storage/knowledge-storage";
 import { requestMetrics, requestId } from "./middleware/observability";
@@ -295,6 +296,10 @@ export async function registerRoutes(
   // ============ Alert System Endpoints ============
   // Alert rules and events management
   app.use("/api/alerts", alertRouter);
+
+  // ============ Saved Views Endpoints ============
+  // User-saved filter configurations and bookmarks
+  app.use("/api/views", savedViewsRouter);
 
   // Manual alert evaluation (for testing/admin)
   app.post("/api/alerts/evaluate", async (req, res) => {

@@ -21,6 +21,7 @@ import { HCPProfileCard } from "@/components/hcp-profile-card";
 import { HCPFilterSidebar } from "@/components/hcp-filter-sidebar";
 import { HCPDetailPanel } from "@/components/hcp-detail-panel";
 import { ViewCustomizer, useViewSettings } from "@/components/view-customizer";
+import { SavedViewsSelector } from "@/components/filters/SavedViewsSelector";
 import { KeyboardNavHint } from "@/components/ui/focus-indicator";
 import { PostActionMenu } from "@/components/ui/post-action-menu";
 import { ContextualActionBar } from "@/components/ui/contextual-action-bar";
@@ -271,6 +272,11 @@ export default function HCPExplorer() {
               <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
               Select All ({filteredHcps.length})
             </Button>
+            <SavedViewsSelector
+              viewType="hcp_list"
+              currentFilters={filter as Record<string, unknown>}
+              onApplyView={(filters) => setFilter(filters as HCPFilter)}
+            />
             <Button
               variant="ghost"
               size="icon"

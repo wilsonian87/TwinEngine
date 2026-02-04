@@ -6863,3 +6863,78 @@ export const alertEventResponseSchema = z.object({
 });
 
 export type AlertEventResponse = z.infer<typeof alertEventResponseSchema>;
+
+// ============ Saved Views (bookmarks/filters) ============
+
+export const viewTypes = [
+  "hcp_list",
+  "audiences",
+  "simulations",
+  "dashboard",
+  "alerts",
+] as const;
+
+export type ViewType = (typeof viewTypes)[number];
+
+export const savedViews = pgTable("saved_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  viewType: varchar("view_type", { length: 50 }).notNull(),
+  filters: jsonb("filters").$type<Record<string, unknown>>().default({}),
+  columns: jsonb("columns").$type<string[]>(),
+  sort: jsonb("sort").$type<{ field: string; direction: "asc" | "desc" }>(),
+  isDefault: boolean("is_default").notNull().default(false),
+  shared: boolean("shared").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userTypeIdx: index("saved_views_user_type_idx").on(table.userId, table.viewType),
+}));
+
+export const insertSavedViewSchema = createInsertSchema(savedViews).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSavedView = z.infer<typeof insertSavedViewSchema>;
+export type SavedView = typeof savedViews.$inferSelect;
+
+// API Schemas for Saved Views
+export const createSavedViewRequestSchema = z.object({
+  name: z.string().min(1).max(255),
+  viewType: z.enum(viewTypes),
+  filters: z.record(z.unknown()).optional(),
+  columns: z.array(z.string()).optional(),
+  sort: z.object({
+    field: z.string(),
+    direction: z.enum(["asc", "desc"]),
+  }).optional(),
+  isDefault: z.boolean().optional(),
+  shared: z.boolean().optional(),
+});
+
+export type CreateSavedViewRequest = z.infer<typeof createSavedViewRequestSchema>;
+
+export const updateSavedViewRequestSchema = createSavedViewRequestSchema.partial().omit({ viewType: true });
+export type UpdateSavedViewRequest = z.infer<typeof updateSavedViewRequestSchema>;
+
+export const savedViewResponseSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  name: z.string(),
+  viewType: z.string(),
+  filters: z.record(z.unknown()),
+  columns: z.array(z.string()).nullable(),
+  sort: z.object({
+    field: z.string(),
+    direction: z.enum(["asc", "desc"]),
+  }).nullable(),
+  isDefault: z.boolean(),
+  shared: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type SavedViewResponse = z.infer<typeof savedViewResponseSchema>;
