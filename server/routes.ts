@@ -16,6 +16,8 @@ import { knowledgeRouter } from "./routes/knowledge-routes";
 import { validationRouter } from "./routes/validation-routes";
 import { observabilityRouter } from "./routes/observability-routes";
 import { exportRouter } from "./routes/export-routes";
+import { alertRouter } from "./routes/alert-routes";
+import { evaluateAlerts, evaluateRuleById, startAlertEvaluator } from "./jobs/alert-evaluator";
 import { seedKnowledgeContent } from "./storage/knowledge-storage";
 import { requestMetrics, requestId } from "./middleware/observability";
 import { logAudit } from "./services/audit-service";
@@ -289,6 +291,33 @@ export async function registerRoutes(
   // ============ PDF Export Endpoints ============
   // PDF generation for simulations, audiences, HCPs, and comparisons
   app.use("/api/exports", exportRouter);
+
+  // ============ Alert System Endpoints ============
+  // Alert rules and events management
+  app.use("/api/alerts", alertRouter);
+
+  // Manual alert evaluation (for testing/admin)
+  app.post("/api/alerts/evaluate", async (req, res) => {
+    try {
+      const { ruleId } = req.body;
+
+      if (ruleId) {
+        // Evaluate specific rule
+        const result = await evaluateRuleById(ruleId);
+        if (!result) {
+          return res.status(404).json({ error: "Rule not found" });
+        }
+        res.json(result);
+      } else {
+        // Evaluate all rules
+        const stats = await evaluateAlerts();
+        res.json(stats);
+      }
+    } catch (error) {
+      console.error("Error evaluating alerts:", error);
+      res.status(500).json({ error: "Failed to evaluate alerts" });
+    }
+  });
 
   // ============ Authentication Endpoints ============
 

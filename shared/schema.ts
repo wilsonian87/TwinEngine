@@ -6709,3 +6709,157 @@ export const insertRegulatorySyncLogSchema = createInsertSchema(regulatorySyncLo
 
 export type InsertRegulatorySyncLog = z.infer<typeof insertRegulatorySyncLogSchema>;
 export type RegulatorySyncLog = typeof regulatorySyncLog.$inferSelect;
+
+// ============================================================================
+// ALERTING SYSTEM
+// ============================================================================
+
+// Alert metric types
+export const alertMetrics = [
+  "engagement_score",
+  "rx_volume",
+  "market_share",
+  "churn_risk",
+  "conversion_likelihood",
+  "cpi",
+  "msi",
+  "response_rate",
+] as const;
+
+export type AlertMetric = (typeof alertMetrics)[number];
+
+// Alert operators
+export const alertOperators = [">", "<", ">=", "<=", "="] as const;
+export type AlertOperator = (typeof alertOperators)[number];
+
+// Alert frequencies
+export const alertFrequencies = ["realtime", "daily", "weekly"] as const;
+export type AlertFrequency = (typeof alertFrequencies)[number];
+
+// Alert notification channels
+export const alertChannels = ["in_app", "email", "slack"] as const;
+export type AlertChannel = (typeof alertChannels)[number];
+
+// Alert Rules Table
+export const alertRules = pgTable("alert_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  metric: varchar("metric", { length: 100 }).notNull(),
+  operator: varchar("operator", { length: 10 }).notNull(),
+  threshold: real("threshold").notNull(),
+  scope: jsonb("scope").$type<{
+    tiers?: string[];
+    specialties?: string[];
+    segments?: string[];
+    states?: string[];
+    audienceIds?: string[];
+  }>().default({}),
+  channels: jsonb("channels").$type<AlertChannel[]>().default(["in_app"]),
+  frequency: varchar("frequency", { length: 20 }).notNull().default("daily"),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  lastEvaluatedAt: timestamp("last_evaluated_at"),
+}, (table) => ({
+  userIdIdx: index("alert_rules_user_id_idx").on(table.userId),
+  enabledIdx: index("alert_rules_enabled_idx").on(table.enabled),
+}));
+
+export const insertAlertRuleSchema = createInsertSchema(alertRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastTriggeredAt: true,
+  lastEvaluatedAt: true,
+});
+
+export type InsertAlertRule = z.infer<typeof insertAlertRuleSchema>;
+export type AlertRule = typeof alertRules.$inferSelect;
+
+// Alert Events Table (triggered alerts)
+export const alertEvents = pgTable("alert_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: varchar("rule_id").notNull().references(() => alertRules.id, { onDelete: "cascade" }),
+  triggeredAt: timestamp("triggered_at").notNull().defaultNow(),
+  hcpCount: integer("hcp_count").notNull().default(0),
+  hcpIds: jsonb("hcp_ids").$type<string[]>().default([]),
+  metricValues: jsonb("metric_values").$type<Record<string, number>>().default({}),
+  acknowledged: boolean("acknowledged").notNull().default(false),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedBy: varchar("acknowledged_by").references(() => users.id),
+}, (table) => ({
+  ruleIdIdx: index("alert_events_rule_id_idx").on(table.ruleId),
+  acknowledgedIdx: index("alert_events_acknowledged_idx").on(table.acknowledged),
+  triggeredAtIdx: index("alert_events_triggered_at_idx").on(table.triggeredAt),
+}));
+
+export const insertAlertEventSchema = createInsertSchema(alertEvents).omit({
+  id: true,
+  triggeredAt: true,
+  acknowledgedAt: true,
+});
+
+export type InsertAlertEvent = z.infer<typeof insertAlertEventSchema>;
+export type AlertEvent = typeof alertEvents.$inferSelect;
+
+// API Schemas for Alerting
+export const createAlertRuleRequestSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+  metric: z.enum(alertMetrics),
+  operator: z.enum(alertOperators),
+  threshold: z.number(),
+  scope: z.object({
+    tiers: z.array(z.string()).optional(),
+    specialties: z.array(z.string()).optional(),
+    segments: z.array(z.string()).optional(),
+    states: z.array(z.string()).optional(),
+    audienceIds: z.array(z.string()).optional(),
+  }).optional(),
+  channels: z.array(z.enum(alertChannels)).optional(),
+  frequency: z.enum(alertFrequencies).optional(),
+  enabled: z.boolean().optional(),
+});
+
+export type CreateAlertRuleRequest = z.infer<typeof createAlertRuleRequestSchema>;
+
+export const updateAlertRuleRequestSchema = createAlertRuleRequestSchema.partial();
+export type UpdateAlertRuleRequest = z.infer<typeof updateAlertRuleRequestSchema>;
+
+export const alertRuleResponseSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  metric: z.string(),
+  operator: z.string(),
+  threshold: z.number(),
+  scope: z.record(z.unknown()).nullable(),
+  channels: z.array(z.string()).nullable(),
+  frequency: z.string(),
+  enabled: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  lastTriggeredAt: z.string().nullable(),
+  lastEvaluatedAt: z.string().nullable(),
+});
+
+export type AlertRuleResponse = z.infer<typeof alertRuleResponseSchema>;
+
+export const alertEventResponseSchema = z.object({
+  id: z.string(),
+  ruleId: z.string(),
+  ruleName: z.string().optional(),
+  triggeredAt: z.string(),
+  hcpCount: z.number(),
+  hcpIds: z.array(z.string()),
+  metricValues: z.record(z.number()),
+  acknowledged: z.boolean(),
+  acknowledgedAt: z.string().nullable(),
+  acknowledgedBy: z.string().nullable(),
+});
+
+export type AlertEventResponse = z.infer<typeof alertEventResponseSchema>;
