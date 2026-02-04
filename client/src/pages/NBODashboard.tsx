@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FilteredEmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { LoadingSkeleton } from "@/components/ui/states";
 import {
   Target,
   TrendingUp,
@@ -65,7 +67,7 @@ export default function NBODashboard() {
   const [urgencyFilter, setUrgencyFilter] = useState<string>("all");
 
   // Fetch priority queue
-  const { data: priorityData, isLoading: priorityLoading, refetch: refetchPriority } = useQuery<{
+  const { data: priorityData, isLoading: priorityLoading, isError: priorityError, error: priorityErrorObj, refetch: refetchPriority } = useQuery<{
     recommendations: NBORecommendation[];
     totalAnalyzed: number;
     returned: number;
@@ -260,20 +262,20 @@ export default function NBODashboard() {
         </div>
 
         <TabsContent value="priority" className="mt-6">
-          {priorityLoading ? (
-            <div className="grid gap-4">
-              {[1, 2, 3].map((i) => (
-                <Card key={i}>
-                  <CardHeader>
-                    <Skeleton className="h-6 w-48" />
-                    <Skeleton className="h-4 w-32 mt-2" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-16 w-full" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          {priorityError ? (
+            <Card>
+              <CardContent className="py-8">
+                <ErrorState
+                  title="Unable to load recommendations."
+                  message={priorityErrorObj instanceof Error ? priorityErrorObj.message : "Failed to fetch priority queue"}
+                  type="server"
+                  retry={() => refetchPriority()}
+                  size="md"
+                />
+              </CardContent>
+            </Card>
+          ) : priorityLoading ? (
+            <LoadingSkeleton variant="card" count={3} />
           ) : filteredRecommendations.length === 0 ? (
             <Card>
               <CardContent>

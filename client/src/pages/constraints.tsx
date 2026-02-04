@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { ErrorState } from "@/components/ui/error-state";
 import {
   AlertTriangle,
   Calendar,
@@ -144,7 +145,7 @@ export default function ConstraintsPage() {
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false);
 
   // Fetch constraint summary
-  const { data: summary, isLoading: summaryLoading } = useQuery<ConstraintSummary>({
+  const { data: summary, isLoading: summaryLoading, isError: summaryError, error: summaryErrorObj, refetch: refetchSummary } = useQuery<ConstraintSummary>({
     queryKey: ["/api/constraints/summary"],
   });
 
@@ -231,6 +232,20 @@ export default function ConstraintsPage() {
         return <Activity className="w-4 h-4 text-gray-600" />;
     }
   };
+
+  if (summaryError) {
+    return (
+      <div className="container mx-auto py-6">
+        <ErrorState
+          title="Unable to load constraints."
+          message={summaryErrorObj instanceof Error ? summaryErrorObj.message : "Failed to fetch constraint summary"}
+          type="server"
+          retry={() => refetchSummary()}
+          size="lg"
+        />
+      </div>
+    );
+  }
 
   if (summaryLoading) {
     return (

@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { LoadingSkeleton } from "@/components/ui/states";
 import {
   Table,
   TableBody,
@@ -184,12 +186,12 @@ export default function AllocationLabPage() {
   const [newPlanDescription, setNewPlanDescription] = useState("");
 
   // Fetch problems
-  const { data: problems = [], isLoading: problemsLoading } = useQuery<OptimizationProblem[]>({
+  const { data: problems = [], isLoading: problemsLoading, isError: problemsError, error: problemsErrorObj, refetch: refetchProblems } = useQuery<OptimizationProblem[]>({
     queryKey: ["/api/optimization/problems"],
   });
 
   // Fetch execution plans
-  const { data: plans = [], isLoading: plansLoading } = useQuery<ExecutionPlan[]>({
+  const { data: plans = [], isLoading: plansLoading, isError: plansError, error: plansErrorObj, refetch: refetchPlans } = useQuery<ExecutionPlan[]>({
     queryKey: ["/api/execution-plans"],
   });
 
@@ -434,10 +436,16 @@ export default function AllocationLabPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {problemsLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
+                {problemsError ? (
+                  <ErrorState
+                    title="Unable to load optimization problems."
+                    message={problemsErrorObj instanceof Error ? problemsErrorObj.message : "Failed to fetch problems"}
+                    type="server"
+                    retry={() => refetchProblems()}
+                    size="sm"
+                  />
+                ) : problemsLoading ? (
+                  <LoadingSkeleton variant="table" count={5} columns={6} />
                 ) : problems.length === 0 ? (
                   <EmptyState
                     title="No optimization problems yet."
@@ -688,10 +696,16 @@ export default function AllocationLabPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {plansLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
+                {plansError ? (
+                  <ErrorState
+                    title="Unable to load execution plans."
+                    message={plansErrorObj instanceof Error ? plansErrorObj.message : "Failed to fetch execution plans"}
+                    type="server"
+                    retry={() => refetchPlans()}
+                    size="sm"
+                  />
+                ) : plansLoading ? (
+                  <LoadingSkeleton variant="table" count={5} columns={7} />
                 ) : plans.length === 0 ? (
                   <EmptyState
                     title="No execution plans yet."

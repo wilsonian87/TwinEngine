@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState, EMPTY_STATE_COPY } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { LoadingSkeleton } from "@/components/ui/states";
 import {
   Table,
   TableBody,
@@ -102,7 +104,7 @@ export default function AgentsPage() {
   const [showRunDialog, setShowRunDialog] = useState(false);
 
   // Fetch agents
-  const { data: agents = [], isLoading: agentsLoading } = useQuery<Agent[]>({
+  const { data: agents = [], isLoading: agentsLoading, isError: agentsError, error: agentsErrorObj, refetch: refetchAgents } = useQuery<Agent[]>({
     queryKey: ["/api/agents"],
     queryFn: async () => {
       const response = await fetch("/api/agents");
@@ -363,10 +365,20 @@ export default function AgentsPage() {
 
           {/* Agents Tab */}
           <TabsContent value="agents" className="space-y-4">
-            {agentsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
+            {agentsError ? (
+              <Card>
+                <CardContent className="py-6">
+                  <ErrorState
+                    title="Unable to load agents."
+                    message={agentsErrorObj instanceof Error ? agentsErrorObj.message : "Failed to fetch agents"}
+                    type="server"
+                    retry={() => refetchAgents()}
+                    size="sm"
+                  />
+                </CardContent>
+              </Card>
+            ) : agentsLoading ? (
+              <LoadingSkeleton variant="card" count={3} />
             ) : agents.length === 0 ? (
               <Card>
                 <CardContent>
