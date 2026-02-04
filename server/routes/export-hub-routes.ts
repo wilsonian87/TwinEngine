@@ -7,6 +7,8 @@ import {
   saveIntegrationCredentials,
   getIntegrationCredentials,
   listIntegrations,
+  getStoredFile,
+  FIELD_DEFINITIONS,
 } from "../services/export-hub-service";
 import { createExportJobRequestSchema } from "@shared/schema";
 
@@ -164,20 +166,13 @@ exportHubRouter.get("/:id/download", async (req, res) => {
       return res.status(404).json({ error: "Export result not available" });
     }
 
-    // Handle data URL (base64 encoded content)
-    if (job.resultUrl.startsWith("data:")) {
-      const [header, base64] = job.resultUrl.split(",");
-      const mimeMatch = header.match(/data:([^;]+)/);
-      const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
-      const buffer = Buffer.from(base64, "base64");
-
-      const extension = job.destination === "xlsx" ? "xlsx" : "csv";
-      const filename = `export-${job.type}-${job.id.slice(0, 8)}.${extension}`;
-
-      res.setHeader("Content-Type", mimeType);
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      res.setHeader("Content-Length", buffer.length);
-      return res.send(buffer);
+    // Check for stored file (CSV/XLSX)
+    const storedFile = getStoredFile(id);
+    if (storedFile) {
+      res.setHeader("Content-Type", storedFile.contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${storedFile.filename}"`);
+      res.setHeader("Content-Length", storedFile.buffer.length);
+      return res.send(storedFile.buffer);
     }
 
     // For external URLs (Veeva, SFTP), return redirect info
@@ -189,6 +184,25 @@ exportHubRouter.get("/:id/download", async (req, res) => {
   } catch (error) {
     console.error("Error downloading export:", error);
     res.status(500).json({ error: "Failed to download export" });
+  }
+});
+
+/**
+ * Get available export fields
+ * GET /api/exports/fields
+ */
+exportHubRouter.get("/fields/list", async (req, res) => {
+  try {
+    const fields = Object.entries(FIELD_DEFINITIONS).map(([key, def]) => ({
+      key,
+      label: def.label,
+      sensitive: def.sensitive,
+    }));
+
+    res.json({ fields });
+  } catch (error) {
+    console.error("Error getting export fields:", error);
+    res.status(500).json({ error: "Failed to get export fields" });
   }
 });
 

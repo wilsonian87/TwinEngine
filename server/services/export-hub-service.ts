@@ -1,10 +1,13 @@
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, inArray } from "drizzle-orm";
+import { stringify } from "csv-stringify/sync";
+import ExcelJS from "exceljs";
 import { db } from "../db";
 import {
   exportJobs,
   integrationCredentials,
   hcpProfiles,
   savedAudiences,
+  auditLogs,
   type ExportJob,
   type ExportType,
   type ExportDestination,
@@ -36,6 +39,40 @@ export interface ExportResult {
 
 // Simple in-memory job queue (in production, use Redis/BullMQ)
 const jobQueue: Map<string, NodeJS.Timeout> = new Map();
+
+// In-memory file storage (in production, use S3/cloud storage)
+const fileStorage: Map<string, { buffer: Buffer; contentType: string; filename: string }> = new Map();
+
+// ============================================================================
+// FIELD DEFINITIONS
+// ============================================================================
+
+export const FIELD_DEFINITIONS: Record<string, { label: string; sensitive: boolean }> = {
+  id: { label: "ID", sensitive: false },
+  npi: { label: "NPI", sensitive: true },
+  firstName: { label: "First Name", sensitive: false },
+  lastName: { label: "Last Name", sensitive: false },
+  specialty: { label: "Specialty", sensitive: false },
+  tier: { label: "Tier", sensitive: false },
+  segment: { label: "Segment", sensitive: false },
+  organization: { label: "Organization", sensitive: false },
+  city: { label: "City", sensitive: false },
+  state: { label: "State", sensitive: false },
+  overallEngagementScore: { label: "Engagement Score", sensitive: false },
+  channelPreference: { label: "Channel Preference", sensitive: false },
+  monthlyRxVolume: { label: "Monthly Rx Volume", sensitive: false },
+  yearlyRxVolume: { label: "Yearly Rx Volume", sensitive: false },
+  marketSharePct: { label: "Market Share %", sensitive: false },
+  conversionLikelihood: { label: "Conversion Likelihood", sensitive: false },
+  churnRisk: { label: "Churn Risk", sensitive: false },
+  nbaAction: { label: "NBA Recommendation", sensitive: false },
+  nbaRationale: { label: "NBA Rationale", sensitive: false },
+  nbaConfidence: { label: "NBA Confidence", sensitive: false },
+};
+
+function formatFieldLabel(field: string): string {
+  return FIELD_DEFINITIONS[field]?.label || field;
+}
 
 // ============================================================================
 // JOB MANAGEMENT
@@ -334,7 +371,7 @@ function filterFields(
 // ============================================================================
 
 /**
- * Export to CSV format
+ * Export to CSV format using csv-stringify
  */
 async function exportToCSV(
   job: ExportJob,
@@ -344,46 +381,195 @@ async function exportToCSV(
     throw new Error("No data to export");
   }
 
-  // Generate CSV content
-  const headers = Object.keys(data[0]);
-  const rows = data.map((row) =>
-    headers.map((h) => {
-      const val = row[h];
-      if (val === null || val === undefined) return "";
-      if (typeof val === "string" && val.includes(",")) return `"${val}"`;
-      return String(val);
-    }).join(",")
-  );
-  const csv = [headers.join(","), ...rows].join("\n");
+  const payload = job.payload as { fields: string[]; includeNBA?: boolean };
+  const fields = payload.fields || Object.keys(data[0]);
 
-  // In production, would upload to S3/cloud storage
-  // For now, store as data URL (base64)
-  const base64 = Buffer.from(csv).toString("base64");
-  const filename = `export-${job.type}-${Date.now()}.csv`;
+  // Generate CSV with proper headers
+  const columns = fields.map((f) => ({
+    key: f,
+    header: formatFieldLabel(f),
+  }));
+
+  const csvContent = stringify(data, {
+    header: true,
+    columns,
+  });
+
+  const buffer = Buffer.from(csvContent);
+  const filename = `export-${job.type}-${job.id.slice(0, 8)}.csv`;
+
+  // Store file for download
+  fileStorage.set(job.id, {
+    buffer,
+    contentType: "text/csv",
+    filename,
+  });
+
+  // Log to audit trail
+  await logExportAudit(job, data.length, fields);
 
   return {
-    url: `data:text/csv;base64,${base64}`,
+    url: `/api/exports/${job.id}/download`,
     filename,
-    size: csv.length,
+    size: buffer.length,
     recordCount: data.length,
   };
 }
 
 /**
- * Export to XLSX format (simplified - in production use xlsx library)
+ * Export to XLSX format using ExcelJS
  */
 async function exportToXLSX(
   job: ExportJob,
   data: Record<string, unknown>[]
 ): Promise<ExportResult> {
-  // For MVP, generate CSV with xlsx extension hint
-  // In production, would use xlsx/exceljs library
-  const csvResult = await exportToCSV(job, data);
-  return {
-    ...csvResult,
-    filename: csvResult.filename.replace(".csv", ".xlsx"),
-    url: csvResult.url.replace("text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+  if (data.length === 0) {
+    throw new Error("No data to export");
+  }
+
+  const payload = job.payload as { fields: string[]; includeNBA?: boolean };
+  const fields = payload.fields || Object.keys(data[0]);
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "OmniVor TwinEngine";
+  workbook.created = new Date();
+
+  const worksheet = workbook.addWorksheet("Export");
+
+  // Configure columns with proper headers and widths
+  worksheet.columns = fields.map((f) => ({
+    header: formatFieldLabel(f),
+    key: f,
+    width: getColumnWidth(f),
+  }));
+
+  // Add data rows
+  data.forEach((row) => {
+    const rowData: Record<string, unknown> = {};
+    fields.forEach((f) => {
+      rowData[f] = row[f];
+    });
+    worksheet.addRow(rowData);
+  });
+
+  // Style the header row
+  const headerRow = worksheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  headerRow.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF6B21A8" }, // Purple brand color
   };
+  headerRow.alignment = { vertical: "middle", horizontal: "center" };
+  headerRow.height = 24;
+
+  // Add alternating row colors for readability
+  for (let i = 2; i <= data.length + 1; i++) {
+    const row = worksheet.getRow(i);
+    if (i % 2 === 0) {
+      row.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF5F5F5" },
+      };
+    }
+  }
+
+  // Freeze the header row
+  worksheet.views = [{ state: "frozen", ySplit: 1 }];
+
+  // Auto-filter on all columns
+  worksheet.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: fields.length },
+  };
+
+  // Generate buffer
+  const buffer = (await workbook.xlsx.writeBuffer()) as Buffer;
+  const filename = `export-${job.type}-${job.id.slice(0, 8)}.xlsx`;
+
+  // Store file for download
+  fileStorage.set(job.id, {
+    buffer,
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    filename,
+  });
+
+  // Log to audit trail
+  await logExportAudit(job, data.length, fields);
+
+  return {
+    url: `/api/exports/${job.id}/download`,
+    filename,
+    size: buffer.length,
+    recordCount: data.length,
+  };
+}
+
+/**
+ * Get appropriate column width based on field type
+ */
+function getColumnWidth(field: string): number {
+  const widths: Record<string, number> = {
+    id: 36,
+    npi: 12,
+    firstName: 15,
+    lastName: 15,
+    specialty: 18,
+    organization: 30,
+    city: 15,
+    state: 8,
+    tier: 10,
+    segment: 20,
+    overallEngagementScore: 18,
+    channelPreference: 18,
+    monthlyRxVolume: 16,
+    yearlyRxVolume: 16,
+    marketSharePct: 14,
+    conversionLikelihood: 20,
+    churnRisk: 12,
+    nbaAction: 25,
+    nbaRationale: 40,
+    nbaConfidence: 14,
+  };
+  return widths[field] || 15;
+}
+
+/**
+ * Log export to audit trail
+ */
+async function logExportAudit(
+  job: ExportJob,
+  recordCount: number,
+  fields: string[]
+): Promise<void> {
+  try {
+    const sensitiveFields = fields.filter((f) => FIELD_DEFINITIONS[f]?.sensitive);
+
+    await db.insert(auditLogs).values({
+      userId: job.userId,
+      action: "EXPORT",
+      entityType: job.type,
+      entityId: job.id,
+      details: {
+        destination: job.destination,
+        recordCount,
+        fields,
+        hasSensitiveData: sensitiveFields.length > 0,
+        sensitiveFields,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to log export audit:", error);
+    // Don't fail the export if audit logging fails
+  }
+}
+
+/**
+ * Get stored file for download
+ */
+export function getStoredFile(jobId: string): { buffer: Buffer; contentType: string; filename: string } | null {
+  return fileStorage.get(jobId) || null;
 }
 
 /**

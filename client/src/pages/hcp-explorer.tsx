@@ -25,6 +25,7 @@ import { SavedViewsSelector } from "@/components/filters/SavedViewsSelector";
 import { KeyboardNavHint } from "@/components/ui/focus-indicator";
 import { PostActionMenu } from "@/components/ui/post-action-menu";
 import { ContextualActionBar } from "@/components/ui/contextual-action-bar";
+import { ExportModal } from "@/components/export/ExportModal";
 import { useToast } from "@/hooks/use-toast";
 import { useKeyboardNavigation } from "@/hooks/use-command-palette";
 import type { HCPProfile, HCPFilter } from "@shared/schema";
@@ -41,6 +42,7 @@ export default function HCPExplorer() {
   const [showPostActionMenu, setShowPostActionMenu] = useState(false);
   const [savedAudienceInfo, setSavedAudienceInfo] = useState<{ id: string; name: string; count: number } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const ITEMS_PER_PAGE = 50;
 
   const [, navigate] = useLocation();
@@ -502,8 +504,8 @@ export default function HCPExplorer() {
         selectionLabel="HCP"
         actions={[
           {
-            label: "Export CSV",
-            onClick: exportToCsv,
+            label: "Export",
+            onClick: () => setExportModalOpen(true),
             variant: "secondary",
             icon: <Download className="h-4 w-4" />,
           },
@@ -515,6 +517,15 @@ export default function HCPExplorer() {
           },
         ]}
         onClear={clearSelection}
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        entityType="hcp_list"
+        hcpIds={Array.from(selectedIds)}
+        defaultName={`${selectedIds.size} Selected HCPs`}
       />
     </div>
   );
