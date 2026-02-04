@@ -19,6 +19,7 @@ import { DevToolbar } from "@/components/dev-toolbar";
 import { OmniVoiceProvider, useOmniVoiceCtx } from "@/contexts/omnivoice-context";
 import { OmniVoiceChat } from "@/components/omnivoice-chat";
 import { useFeatureFlag, INSIGHTRX_FLAGS } from "@/hooks/use-feature-flags";
+import { AlertBell } from "@/components/alerts/AlertBell";
 import NotFound from "@/pages/not-found";
 import HCPExplorer from "@/pages/hcp-explorer";
 import Simulations from "@/pages/simulations";
@@ -99,6 +100,7 @@ function AppLayout() {
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center gap-2">
               <CommandPaletteTrigger />
+              <AlertBell />
               <ThemeToggle />
             </div>
           </header>
