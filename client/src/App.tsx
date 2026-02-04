@@ -41,6 +41,7 @@ import AlertsPage from "@/pages/alerts";
 import IntegrationsPage from "@/pages/settings/IntegrationsPage";
 import WebhooksPage from "@/pages/settings/WebhooksPage";
 import ApprovalsPage from "@/pages/ApprovalsPage";
+import AuditLogPage from "@/pages/admin/AuditLogPage";
 
 function Router() {
   const [location] = useLocation();
@@ -63,6 +64,7 @@ function Router() {
           <Route path="/settings/integrations" component={IntegrationsPage} />
           <Route path="/settings/webhooks" component={WebhooksPage} />
           <Route path="/approvals" component={ApprovalsPage} />
+          <Route path="/admin/audit-logs" component={AuditLogPage} />
           <Route path="/agents" component={AgentsPage} />
           <Route path="/constraints" component={ConstraintsPage} />
           <Route path="/allocation-lab" component={AllocationLabPage} />

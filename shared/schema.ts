@@ -207,20 +207,36 @@ export type InsertSimulationResult = z.infer<typeof insertSimulationResultSchema
 export type SimulationResultDB = typeof simulationResults.$inferSelect;
 
 // Audit Logs Table (for governance)
+export const auditActions = [
+  "LOGIN", "LOGOUT",
+  "EXPORT", "EXPORT_DOWNLOAD",
+  "INTEGRATION_PUSH",
+  "APPROVAL_REQUEST", "APPROVAL_DECISION",
+  "SETTINGS_CHANGE",
+  "HCP_VIEW", "HCP_BULK_VIEW",
+  "SIMULATION_RUN",
+  "AUDIENCE_CREATE", "AUDIENCE_UPDATE", "AUDIENCE_DELETE",
+  "WEBHOOK_SEND",
+  "veeva_push",
+] as const;
+export type AuditAction = (typeof auditActions)[number];
+
 export const auditLogs = pgTable("audit_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  action: varchar("action", { length: 50 }).notNull(),
+  action: varchar("action", { length: 100 }).notNull(),
   entityType: varchar("entity_type", { length: 50 }).notNull(),
   entityId: varchar("entity_id", { length: 100 }),
   details: jsonb("details").$type<Record<string, unknown>>(),
   userId: varchar("user_id", { length: 100 }),
   ipAddress: varchar("ip_address", { length: 50 }),
+  userAgent: text("user_agent"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   entityTypeIdx: index("audit_entity_type_idx").on(table.entityType),
   entityIdIdx: index("audit_entity_id_idx").on(table.entityId),
   createdAtIdx: index("audit_created_at_idx").on(table.createdAt),
   userIdIdx: index("audit_user_id_idx").on(table.userId),
+  actionIdx: index("audit_action_idx").on(table.action),
 }));
 
 export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({

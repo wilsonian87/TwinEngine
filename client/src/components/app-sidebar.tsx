@@ -28,6 +28,8 @@ import {
   Flame,
   Target,
   Bell,
+  Shield,
+  CheckSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -145,6 +147,18 @@ const systemItems = [
     url: "/model-evaluation",
     icon: BarChart3,
     description: "Prediction accuracy tracking",
+  },
+  {
+    title: "Approvals",
+    url: "/approvals",
+    icon: CheckSquare,
+    description: "Review pending approval requests",
+  },
+  {
+    title: "Audit Logs",
+    url: "/admin/audit-logs",
+    icon: Shield,
+    description: "System audit trail (Admin)",
   },
 ];
 
