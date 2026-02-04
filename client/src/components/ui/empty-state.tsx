@@ -284,46 +284,6 @@ export const EMPTY_STATE_COPY = {
     icon: 'users',
     actionLabel: 'Go to Audience Builder',
   },
-  // Legacy names for backwards compatibility
-  signalIndex: {
-    title: 'No signals yet.',
-    description: 'Connect your data sources and let OmniVor feed.',
-    icon: 'database',
-    actionLabel: 'Connect Channels',
-  },
-  signalIndexSearch: {
-    title: 'No signals match.',
-    description: 'Try adjusting your filters or search terms.',
-    icon: 'search',
-  },
-  cohortLab: {
-    title: 'No audiences captured.',
-    description: 'Build your first audience using natural language queries.',
-    icon: 'users',
-    actionLabel: 'Create Audience',
-  },
-  cohortLabSaved: {
-    title: 'No saved audiences.',
-    description: 'Audiences you save will appear here for quick access.',
-    icon: 'users',
-    actionLabel: 'Build New Audience',
-  },
-  scenarioLab: {
-    title: 'No scenarios projected.',
-    description: 'Select an audience and define your engagement strategy.',
-    icon: 'flask',
-    actionLabel: 'New Scenario',
-  },
-  catalystQueue: {
-    title: 'Queue empty.',
-    description: 'All recommended actions have been processed.',
-    icon: 'zap',
-  },
-  nerveCenterAlerts: {
-    title: 'No active alerts.',
-    description: 'All systems operating within normal parameters.',
-    icon: 'activity',
-  },
   agentRuns: {
     title: 'No agent runs.',
     description: 'Autonomous agents will log their activity here.',
@@ -346,15 +306,15 @@ interface PresetEmptyStateProps {
 }
 
 /**
- * Signal Index empty state
+ * HCP Explorer empty state
  */
-export function SignalIndexEmptyState({ onAction, className }: PresetEmptyStateProps) {
+export function HcpExplorerEmptyState({ onAction, className }: PresetEmptyStateProps) {
   return (
     <EmptyState
-      title={EMPTY_STATE_COPY.signalIndex.title}
-      description={EMPTY_STATE_COPY.signalIndex.description}
-      icon={EMPTY_STATE_COPY.signalIndex.icon}
-      action={onAction ? { label: EMPTY_STATE_COPY.signalIndex.actionLabel!, onClick: onAction } : undefined}
+      title={EMPTY_STATE_COPY.hcpExplorer.title}
+      description={EMPTY_STATE_COPY.hcpExplorer.description}
+      icon={EMPTY_STATE_COPY.hcpExplorer.icon}
+      action={onAction ? { label: EMPTY_STATE_COPY.hcpExplorer.actionLabel!, onClick: onAction } : undefined}
       className={className}
     />
   );
@@ -366,9 +326,9 @@ export function SignalIndexEmptyState({ onAction, className }: PresetEmptyStateP
 export function SearchEmptyState({ className }: { className?: string }) {
   return (
     <EmptyState
-      title={EMPTY_STATE_COPY.signalIndexSearch.title}
-      description={EMPTY_STATE_COPY.signalIndexSearch.description}
-      icon={EMPTY_STATE_COPY.signalIndexSearch.icon}
+      title={EMPTY_STATE_COPY.hcpExplorerSearch.title}
+      description={EMPTY_STATE_COPY.hcpExplorerSearch.description}
+      icon={EMPTY_STATE_COPY.hcpExplorerSearch.icon}
       variant="search"
       showAnimation={false}
       className={className}
@@ -377,30 +337,30 @@ export function SearchEmptyState({ className }: { className?: string }) {
 }
 
 /**
- * Cohort Lab empty state
+ * Audience Builder empty state
  */
-export function CohortLabEmptyState({ onAction, className }: PresetEmptyStateProps) {
+export function AudienceBuilderEmptyState({ onAction, className }: PresetEmptyStateProps) {
   return (
     <EmptyState
-      title={EMPTY_STATE_COPY.cohortLab.title}
-      description={EMPTY_STATE_COPY.cohortLab.description}
-      icon={EMPTY_STATE_COPY.cohortLab.icon}
-      action={onAction ? { label: EMPTY_STATE_COPY.cohortLab.actionLabel!, onClick: onAction } : undefined}
+      title={EMPTY_STATE_COPY.audienceBuilder.title}
+      description={EMPTY_STATE_COPY.audienceBuilder.description}
+      icon={EMPTY_STATE_COPY.audienceBuilder.icon}
+      action={onAction ? { label: EMPTY_STATE_COPY.audienceBuilder.actionLabel!, onClick: onAction } : undefined}
       className={className}
     />
   );
 }
 
 /**
- * Scenario Lab empty state
+ * Simulation Studio empty state
  */
-export function ScenarioLabEmptyState({ onAction, className }: PresetEmptyStateProps) {
+export function SimulationStudioEmptyState({ onAction, className }: PresetEmptyStateProps) {
   return (
     <EmptyState
-      title={EMPTY_STATE_COPY.scenarioLab.title}
-      description={EMPTY_STATE_COPY.scenarioLab.description}
-      icon={EMPTY_STATE_COPY.scenarioLab.icon}
-      action={onAction ? { label: EMPTY_STATE_COPY.scenarioLab.actionLabel!, onClick: onAction } : undefined}
+      title={EMPTY_STATE_COPY.simulationStudio.title}
+      description={EMPTY_STATE_COPY.simulationStudio.description}
+      icon={EMPTY_STATE_COPY.simulationStudio.icon}
+      action={onAction ? { label: EMPTY_STATE_COPY.simulationStudio.actionLabel!, onClick: onAction } : undefined}
       className={className}
     />
   );

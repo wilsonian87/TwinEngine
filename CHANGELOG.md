@@ -2,6 +2,98 @@
 
 All notable changes to TwinEngine are documented in this file.
 
+## [1.14.0] - 2026-01-31
+
+### Phase 0: Regulatory Calendar Data Foundation
+
+Adds regulatory event tracking to TwinEngine, enabling the platform to ingest and surface FDA approvals, clinical trial readouts, advisory committee meetings, and patent/exclusivity expirations filtered to the Respiratory therapeutic area.
+
+**Status:** Complete — backend only (no UI yet).
+
+### Added
+
+#### Database Schema
+- `regulatory_events` table — core event store with indexes on drugName, eventDate, eventType, therapeuticArea
+- `regulatory_event_annotations` table — user annotations (notes, flags, action items) linked to events
+- `regulatory_event_impacts` table — impact assessments per event (market access, competitive, formulary, etc.)
+- `regulatory_sync_log` table — tracks sync run metadata per source
+
+#### Adapters (4 Free Public APIs)
+- **openFDA adapter** — Drugs@FDA endpoint; maps submissions to approval/label_update events for respiratory drugs
+- **ClinicalTrials.gov v2 adapter** — Phase 3 respiratory trials; maps to phase3_readout events with pagination support
+- **Federal Register adapter** — FDA advisory committee notices; maps to adcom_meeting events
+- **Orange Book adapter** — ZIP bulk download with native zlib decompression + TSV parsing; maps to patent_expiry/exclusivity_expiry events
+
+All adapters include mock data fallback for dev/offline mode.
+
+#### Regulatory Sync Agent
+- `RegulatorySyncAgent` extending `BaseAgent` — orchestrates all 4 adapters sequentially
+- Upserts events with dedup by (drugName + eventType + eventDate)
+- Creates per-source sync logs with found/created/updated/skipped metrics
+
+#### REST API (8 endpoints, auth-gated)
+- `GET /api/regulatory-events` — list with filters (drugName, eventType, status, source, date range)
+- `GET /api/regulatory-events/upcoming` — convenience endpoint (next N days)
+- `GET /api/regulatory-events/sync/status` — latest sync log per source
+- `POST /api/regulatory-events/sync` — trigger manual sync (runs all or specific sources)
+- `GET /api/regulatory-events/:id` — single event with annotations + impacts
+- `POST /api/regulatory-events/:id/annotations` — create annotation
+- `PUT /api/regulatory-events/annotations/:id` — update annotation
+- `DELETE /api/regulatory-events/annotations/:id` — delete annotation
+
+### Technical Details
+- 7 new files created, 5 existing files modified
+- No new npm dependencies — uses native `fetch`, `zlib`
+- Respiratory TA hardcoded in adapter queries (configurable later)
+- TypeScript compiles clean, production build succeeds
+
+---
+
+## [1.13.1] - 2026-02-03
+
+### Phase 13: Final Pass - Module Name Consistency & Empty State Enhancements
+
+Completes the Phase 13 visual overhaul with a comprehensive module name consistency pass across all brand-related files and enhanced empty states with forward-action CTAs.
+
+**Status:** Complete.
+
+### Changed
+
+#### Module Name Consistency Pass
+- Updated NOMENCLATURE_TOOLTIPS in `feature-tooltip.tsx` to use new descriptive names
+- Updated GUIDE_STEPS in `first-run-guide.tsx` with new module names
+- Updated `brand-copy.ts` labels and modules object keys
+- Updated `brand-config.ts` modules object from branded to descriptive names
+- Updated landing page capability hints in `landing.tsx`
+- Updated JSDoc example in `BrandContext.tsx`
+- Renamed EMPTY_STATE_COPY keys and preset components in `empty-state.tsx`
+- Updated white-label example modules in `white-label.ts`
+- Removed obsolete `formerName` properties from feature tooltips
+
+#### Empty State Enhancements
+- Added "Go to Audience Builder" button to Action Queue empty state
+- Button navigates to `/audience-builder` for seamless workflow progression
+
+### Technical Details
+
+#### Files Modified (8 files)
+- `client/src/components/ui/feature-tooltip.tsx`
+- `client/src/components/ui/first-run-guide.tsx`
+- `client/src/lib/brand-copy.ts`
+- `client/src/lib/brand-config.ts`
+- `client/src/pages/landing.tsx`
+- `client/src/components/brand/BrandContext.tsx`
+- `client/src/components/ui/empty-state.tsx`
+- `client/src/lib/white-label.ts`
+- `client/src/pages/action-queue.tsx`
+
+#### Verification
+- TypeScript: ✅ Passes
+- Tests: ✅ 774/774 passing
+- Build: ✅ Succeeds (1.67MB client, 1.7MB server)
+
+---
+
 ## [1.13.0] - 2026-01-22
 
 ### Phase 13: Integration & Design System Overhaul - Complete

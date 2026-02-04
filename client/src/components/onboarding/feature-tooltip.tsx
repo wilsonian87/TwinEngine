@@ -228,40 +228,34 @@ export function FeatureHighlight({
  * Predefined feature tooltip content for OmniVor nomenclature.
  */
 export const NOMENCLATURE_TOOLTIPS = {
-  signalIndex: {
-    id: 'signal-index',
-    title: 'Signal Index',
-    formerName: 'HCP Explorer',
+  hcpExplorer: {
+    id: 'hcp-explorer',
+    title: 'HCP Explorer',
     description: 'Browse and search your complete HCP ecosystem. Each profile represents engagement signals across channels.',
   },
-  cohortLab: {
-    id: 'cohort-lab',
-    title: 'Cohort Lab',
-    formerName: 'Audience Builder',
+  audienceBuilder: {
+    id: 'audience-builder',
+    title: 'Audience Builder',
     description: 'Build, refine, and manage HCP audiences using natural language queries or filters.',
   },
-  scenarioLab: {
-    id: 'scenario-lab',
-    title: 'Scenario Lab',
-    formerName: 'Simulations',
+  simulationStudio: {
+    id: 'simulation-studio',
+    title: 'Simulation Studio',
     description: 'Project engagement outcomes for different channel strategies and timing scenarios.',
   },
-  nerveCenter: {
-    id: 'nerve-center',
-    title: 'Nerve Center',
-    formerName: 'Dashboard',
-    description: 'Your mission control for monitoring signals, patterns, and platform health.',
+  dashboard: {
+    id: 'dashboard',
+    title: 'Dashboard',
+    description: 'Your mission control for monitoring metrics, patterns, and platform health.',
   },
-  channelDiagnostic: {
-    id: 'channel-diagnostic',
-    title: 'Channel Diagnostic',
-    formerName: 'Channel Health',
+  channelHealth: {
+    id: 'channel-health',
+    title: 'Channel Health',
     description: 'Diagnose channel performance and identify optimization opportunities.',
   },
-  allocationLab: {
-    id: 'allocation-lab',
-    title: 'Allocation Lab',
-    formerName: 'Portfolio Optimizer',
+  portfolioOptimizer: {
+    id: 'portfolio-optimizer',
+    title: 'Portfolio Optimizer',
     description: 'Optimize resource allocation across HCPs and channels using constraint-aware algorithms.',
   },
 } as const;

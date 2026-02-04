@@ -1,9 +1,9 @@
 # STATUS.md
 
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-02-03
 **Project:** TwinEngine - HCP Digital Twin Platform (OmniVor)
-**Current Phase:** 13 In Progress - Integration & Design System Overhaul
-**Overall Status:** Phase 13 Complete - Integration & Design System Overhaul
+**Current Phase:** Phase 13 Complete (Final Pass) + Phase 0 Complete
+**Overall Status:** Phase 13 Visual Overhaul finalized with module name consistency pass; Phase 0 (Regulatory) backend complete
 
 ---
 
@@ -52,10 +52,46 @@
 | **13.3** | **Analyze Integration** | **Complete** | 100% |
 | **13.4** | **Activate Integration** | **Complete** | 100% |
 | **13.5** | **Polish & QA** | **Complete** | 100% |
+| **Phase 0** | **Regulatory Calendar Data Foundation** | **Complete** | 100% |
 
 ---
 
-## Phase 13: Integration & Design System Overhaul - In Progress
+## Phase 0: Regulatory Calendar Data Foundation - Complete
+
+### Overview
+
+Phase 0 adds regulatory event tracking infrastructure — 4 new DB tables, a storage module, 4 free-API adapters (openFDA, ClinicalTrials.gov, Federal Register, Orange Book), a sync agent, and 8 REST endpoints. All filtered to Respiratory TA. No new npm dependencies.
+
+### Deliverables
+- **Schema:** 4 tables (regulatory_events, regulatory_event_annotations, regulatory_event_impacts, regulatory_sync_log)
+- **Storage:** RegulatoryStorage class with full CRUD, upsert dedup, upcoming events query
+- **Adapters:** openFDA, ClinicalTrials.gov v2, Federal Register, Orange Book (ZIP/TSV)
+- **Agent:** RegulatorySyncAgent (extends BaseAgent, registered in agent registry)
+- **API:** 8 auth-gated endpoints under /api/regulatory-events/*
+
+### Files Created
+| File | Purpose |
+|------|---------|
+| `server/storage/regulatory-storage.ts` | Storage CRUD |
+| `server/services/regulatory/openfda-adapter.ts` | openFDA adapter |
+| `server/services/regulatory/clinicaltrials-adapter.ts` | ClinicalTrials.gov v2 adapter |
+| `server/services/regulatory/federal-register-adapter.ts` | Federal Register adapter |
+| `server/services/regulatory/orange-book-adapter.ts` | Orange Book TSV adapter |
+| `server/services/regulatory/regulatory-sync-agent.ts` | Sync orchestrator agent |
+| `server/services/regulatory/index.ts` | Barrel exports |
+
+### Files Modified
+| File | Change |
+|------|--------|
+| `shared/schema.ts` | 4 tables + enums + Zod schemas + types |
+| `server/storage/index.ts` | Re-export regulatory storage |
+| `server/services/agents/base-agent.ts` | Added "regulatory_sync" to agentTypes |
+| `server/services/agents/index.ts` | Registered RegulatorySyncAgent |
+| `server/routes.ts` | 8 regulatory event routes |
+
+---
+
+## Phase 13: Integration & Design System Overhaul - Complete
 
 ### Overview
 
@@ -99,10 +135,16 @@ Phase 13 transforms disconnected modules into a cohesive platform with intuitive
 - `client/src/index.css`
 - `client/src/components/theme-provider.tsx`
 
+**Final Pass (2026-02-03):**
+- Module name consistency across all brand-related files
+- Files updated: `feature-tooltip.tsx`, `first-run-guide.tsx`, `brand-copy.ts`, `brand-config.ts`, `landing.tsx`, `BrandContext.tsx`, `empty-state.tsx`, `white-label.ts`
+- Removed obsolete `formerName` properties from tooltips
+- Updated all EMPTY_STATE_COPY keys and preset components to new names
+
 **Verification:**
 - TypeScript: ✅ Passes
-- Tests: ✅ 795/795 passing
-- Build: ✅ Succeeds
+- Tests: ✅ 774/774 passing
+- Build: ✅ Succeeds (1.67MB client, 1.7MB server)
 
 #### Phase 13.1: Navigation Architecture ✓
 
@@ -247,7 +289,7 @@ Phase 13 transforms disconnected modules into a cohesive platform with intuitive
 
 #### Phase 13.5: Polish & QA ✓
 
-**Completed:** 2026-01-22
+**Completed:** 2026-01-22 (Final pass: 2026-02-03)
 
 **M13.5.1: Empty States with Forward Actions**
 - Updated EMPTY_STATE_COPY with new module names (HCP Explorer, Audience Builder, Simulation Studio, Action Queue)
@@ -255,15 +297,20 @@ Phase 13 transforms disconnected modules into a cohesive platform with intuitive
 - Added "Create Your First Simulation" CTA on empty history tab
 - Empty states guide users to logical next steps
 
-**M13.5.2: Build Verification**
+**M13.5.2: Action Queue Empty State Enhancement (2026-02-03)**
+- Added "Go to Audience Builder" button to action-queue.tsx empty state
+- Button uses navigate("/audience-builder") for seamless navigation
+- Test ID: `button-go-to-audience-builder`
+
+**M13.5.3: Build Verification**
 - TypeScript: ✅ Passes
-- Tests: ✅ 795/795 passing
-- Build: ✅ Succeeds (3.1s)
-- Bundle size: 1,635 KB JS, 116 KB CSS
+- Tests: ✅ 774/774 passing
+- Build: ✅ Succeeds (1.67MB client, 1.7MB server)
 
 **Files Modified:**
 - `client/src/components/ui/empty-state.tsx` - Updated copy presets
 - `client/src/pages/simulations.tsx` - Forward action on empty history
+- `client/src/pages/action-queue.tsx` - Forward action button in empty state
 
 ---
 

@@ -352,16 +352,16 @@ export const EXAMPLE_CLIENT_CONFIG: WhiteLabelConfig = {
     foreground: "#f8fafc",
   },
   modules: {
-    signalIndex: {
+    hcpExplorer: {
       label: "HCP Directory",
       description: "Explore healthcare professional profiles",
     },
-    cohortLab: {
+    audienceBuilder: {
       label: "Audience Builder",
     },
   },
   features: {
-    hideModules: ["agentOrchestrator"],
+    hideModules: ["agentManager"],
     enableAI: true,
     supportUrl: "https://support.acme.com",
   },

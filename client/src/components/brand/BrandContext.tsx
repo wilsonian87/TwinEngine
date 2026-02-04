@@ -175,7 +175,7 @@ export function useTagline() {
  * Get a module's display name
  *
  * @example
- * const moduleName = useModuleName('signalIndex'); // "Signal Index"
+ * const moduleName = useModuleName('hcpExplorer'); // "HCP Explorer"
  */
 export function useModuleName(key: ModuleKey): string {
   const { getModuleName } = useBrand();

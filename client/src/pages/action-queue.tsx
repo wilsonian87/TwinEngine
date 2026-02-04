@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { SavedAudience, HCPProfile } from "@shared/schema";
 import type { HCPDrawerAction } from "@/components/hcp-profile-drawer";
 
@@ -126,6 +127,15 @@ export default function ActionQueuePage() {
             <p className="mt-2 text-xs">
               You can choose "All HCPs" or a saved audience from the Audience Builder.
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => navigate("/audience-builder")}
+              data-testid="button-go-to-audience-builder"
+            >
+              Go to Audience Builder
+            </Button>
           </div>
         )}
       </div>

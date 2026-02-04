@@ -307,22 +307,22 @@ export default function Landing() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
               <CapabilityHint
                 icon={<Search className="h-5 w-5" />}
-                label="Signal Index"
+                label="HCP Explorer"
                 description="HCP exploration"
               />
               <CapabilityHint
                 icon={<Users className="h-5 w-5" />}
-                label="Cohort Lab"
+                label="Audience Builder"
                 description="Audience building"
               />
               <CapabilityHint
                 icon={<FlaskConical className="h-5 w-5" />}
-                label="Scenario Lab"
+                label="Simulation Studio"
                 description="Campaign simulation"
               />
               <CapabilityHint
                 icon={<Zap className="h-5 w-5" />}
-                label="Catalyst Queue"
+                label="Action Queue"
                 description="Next best actions"
               />
             </div>

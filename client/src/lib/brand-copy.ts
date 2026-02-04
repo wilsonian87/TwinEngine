@@ -23,7 +23,7 @@ export const BRAND_COPY = {
     default: "No signals yet.",
     hcps: "No HCPs match your criteria.",
     simulations: "No scenarios run yet.",
-    audiences: "No cohorts defined.",
+    audiences: "No audiences defined.",
     results: "No signals match.",
     history: "No query history.",
   },
@@ -42,7 +42,7 @@ export const BRAND_COPY = {
     saved: "Captured successfully.",
     exported: "Data extracted.",
     simulation: "Scenario complete.",
-    audience: "Cohort captured.",
+    audience: "Audience saved.",
   },
 
   // Actions (button/CTA labels)
@@ -76,10 +76,10 @@ export const BRAND_COPY = {
     audiences: "Cohorts",
     simulation: "Scenario",
     simulations: "Scenarios",
-    dashboard: "Nerve Center",
-    explorer: "Signal Index",
-    builder: "Cohort Lab",
-    queue: "Catalyst Queue",
+    dashboard: "Dashboard",
+    explorer: "HCP Explorer",
+    builder: "Audience Builder",
+    queue: "Action Queue",
   },
 
   // Tooltips and hints
@@ -107,11 +107,11 @@ export const BRAND_COPY = {
 
   // Module descriptions
   modules: {
-    signalIndex: "Explore and analyze HCP engagement signals",
-    cohortLab: "Build and explore HCP cohorts using natural language",
-    scenarioLab: "Build and run what-if scenarios to optimize engagement",
-    catalystQueue: "Review and action pending recommendations",
-    nerveCenter: "Strategic intelligence dashboard",
+    hcpExplorer: "Explore and analyze HCP engagement signals",
+    audienceBuilder: "Build and explore HCP audiences using natural language",
+    simulationStudio: "Build and run what-if scenarios to optimize engagement",
+    actionQueue: "Review and action pending recommendations",
+    dashboard: "Strategic intelligence dashboard",
   },
 } as const;
 

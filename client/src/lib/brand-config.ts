@@ -36,65 +36,65 @@ export const BRAND_CONFIG = {
     subtitle: "HCP Engagement Analytics",
   },
 
-  // Module naming - brand nomenclature
+  // Module naming - Phase 13: descriptive, white-label ready
   modules: {
-    nerveCenter: {
-      id: "nerve-center",
-      label: "Nerve Center",
+    dashboard: {
+      id: "dashboard",
+      label: "Dashboard",
       description: "Analytics & metrics dashboard",
       icon: "activity" as const,
     },
-    signalIndex: {
-      id: "signal-index",
-      label: "Signal Index",
+    hcpExplorer: {
+      id: "hcp-explorer",
+      label: "HCP Explorer",
       description: "HCP profile exploration",
       icon: "search" as const,
     },
-    cohortLab: {
-      id: "cohort-lab",
-      label: "Cohort Lab",
+    audienceBuilder: {
+      id: "audience-builder",
+      label: "Audience Builder",
       description: "AI-powered audience building",
       icon: "users" as const,
     },
-    scenarioLab: {
-      id: "scenario-lab",
-      label: "Scenario Lab",
+    simulationStudio: {
+      id: "simulation-studio",
+      label: "Simulation Studio",
       description: "Campaign simulation",
       icon: "flask-conical" as const,
     },
-    signalDiagnostic: {
-      id: "signal-diagnostic",
-      label: "Signal Diagnostic",
+    channelHealth: {
+      id: "channel-health",
+      label: "Channel Health",
       description: "Channel health analysis",
       icon: "stethoscope" as const,
     },
-    catalystQueue: {
-      id: "catalyst-queue",
-      label: "Catalyst Queue",
+    actionQueue: {
+      id: "action-queue",
+      label: "Action Queue",
       description: "Next best actions",
       icon: "zap" as const,
     },
-    cohortCompare: {
-      id: "cohort-compare",
-      label: "Cohort Compare",
+    audienceComparison: {
+      id: "audience-comparison",
+      label: "Audience Comparison",
       description: "Side-by-side audience analysis",
       icon: "git-compare" as const,
     },
-    constraintSurface: {
-      id: "constraint-surface",
-      label: "Constraint Surface",
+    constraints: {
+      id: "constraints",
+      label: "Constraints",
       description: "Capacity, budget & compliance",
       icon: "shield" as const,
     },
-    allocationLab: {
-      id: "allocation-lab",
-      label: "Allocation Lab",
+    portfolioOptimizer: {
+      id: "portfolio-optimizer",
+      label: "Portfolio Optimizer",
       description: "Portfolio optimization",
       icon: "beaker" as const,
     },
-    agentOrchestrator: {
-      id: "agent-orchestrator",
-      label: "Agent Orchestrator",
+    agentManager: {
+      id: "agent-manager",
+      label: "Agent Manager",
       description: "Autonomous agents & alerts",
       icon: "bot" as const,
     },
