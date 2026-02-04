@@ -126,12 +126,38 @@ export default function HCPExplorer() {
       result = result.filter((hcp) => hcp.overallEngagementScore <= filter.maxEngagementScore!);
     }
 
-    if (filter.channelPreference) {
-      result = result.filter((hcp) => hcp.channelPreference === filter.channelPreference);
+    if (filter.channelPreferences?.length) {
+      result = result.filter((hcp) => filter.channelPreferences!.includes(hcp.channelPreference));
     }
 
+    // Apply sorting from view settings
+    const sortMultiplier = viewSettings.sortDirection === "asc" ? 1 : -1;
+    result = [...result].sort((a, b) => {
+      let comparison = 0;
+      switch (viewSettings.sortField) {
+        case "engagement":
+          comparison = a.overallEngagementScore - b.overallEngagementScore;
+          break;
+        case "name":
+          comparison = `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`);
+          break;
+        case "rxVolume":
+          comparison = a.monthlyRxVolume - b.monthlyRxVolume;
+          break;
+        case "marketShare":
+          comparison = a.marketSharePct - b.marketSharePct;
+          break;
+        case "conversion":
+          comparison = (a.conversionLikelihood || 0) - (b.conversionLikelihood || 0);
+          break;
+        default:
+          comparison = 0;
+      }
+      return comparison * sortMultiplier;
+    });
+
     return result;
-  }, [hcps, filter]);
+  }, [hcps, filter, viewSettings.sortField, viewSettings.sortDirection]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -208,9 +234,15 @@ export default function HCPExplorer() {
     setLastClickedId(hcp.id);
   }, [filteredHcps, lastClickedId]);
 
-  const selectAll = useCallback(() => {
-    setSelectedIds(new Set(filteredHcps.map((h) => h.id)));
-  }, [filteredHcps]);
+  const allSelected = filteredHcps.length > 0 && selectedIds.size === filteredHcps.length;
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredHcps.map((h) => h.id)));
+    }
+  }, [filteredHcps, allSelected]);
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -265,14 +297,14 @@ export default function HCPExplorer() {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant={allSelected ? "secondary" : "outline"}
               size="sm"
-              onClick={selectAll}
+              onClick={toggleSelectAll}
               className="text-xs"
               data-testid="button-select-all"
             >
               <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
-              Select All ({filteredHcps.length})
+              {allSelected ? "Deselect All" : `Select All (${filteredHcps.length})`}
             </Button>
             <SavedViewsSelector
               viewType="hcp_list"

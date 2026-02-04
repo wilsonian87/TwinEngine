@@ -13,24 +13,36 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { HCPFilter, Channel } from "@shared/schema";
 import { specialties, tiers, segments, channels } from "@shared/schema";
 
-// US States for location filtering
+// US States and territories for location filtering
 const usStates = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
   "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
   "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
-  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "PR", "RI", "SC",
   "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
 ] as const;
+
+const stateNames: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", PR: "Puerto Rico", RI: "Rhode Island",
+  SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah",
+  VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin",
+  WY: "Wyoming"
+};
 
 const channelLabels: Record<Channel, string> = {
   email: "Email",
@@ -66,7 +78,7 @@ export function HCPFilterSidebar({
     filter.tiers?.length ?? 0,
     filter.segments?.length ?? 0,
     filter.states?.length ?? 0,
-    filter.channelPreference ? 1 : 0,
+    filter.channelPreferences?.length ?? 0,
     filter.minEngagementScore !== undefined || filter.maxEngagementScore !== undefined ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
@@ -100,6 +112,14 @@ export function HCPFilterSidebar({
       ? [...current, state]
       : current.filter((s) => s !== state);
     onFilterChange({ ...filter, states: updated.length > 0 ? updated : undefined });
+  };
+
+  const handleChannelChange = (channel: Channel, checked: boolean) => {
+    const current = filter.channelPreferences ?? [];
+    const updated = checked
+      ? [...current, channel]
+      : current.filter((c) => c !== channel);
+    onFilterChange({ ...filter, channelPreferences: updated.length > 0 ? updated : undefined });
   };
 
   const handleEngagementModeToggle = (isMax: boolean) => {
@@ -274,37 +294,71 @@ export function HCPFilterSidebar({
               )}
             </CollapsibleTrigger>
             <CollapsibleContent className="px-3 py-2">
-              <div className="grid grid-cols-5 gap-1 max-h-40 overflow-y-auto">
-                {usStates.map((state) => (
-                  <div key={state} className="flex items-center">
-                    <Checkbox
-                      id={`state-${state}`}
-                      checked={filter.states?.includes(state) ?? false}
-                      onCheckedChange={(checked) =>
-                        handleStateChange(state, checked as boolean)
-                      }
-                      className="h-3.5 w-3.5"
-                      data-testid={`checkbox-state-${state.toLowerCase()}`}
-                    />
-                    <Label
-                      htmlFor={`state-${state}`}
-                      className="ml-1 text-xs font-normal cursor-pointer"
-                    >
-                      {state}
-                    </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between h-9 text-sm font-normal"
+                    data-testid="button-location-picker"
+                  >
+                    {(filter.states?.length ?? 0) > 0 ? (
+                      <span className="truncate">
+                        {filter.states!.length === 1
+                          ? stateNames[filter.states![0]] || filter.states![0]
+                          : `${filter.states!.length} states selected`}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">Select locations...</span>
+                    )}
+                    <ChevronDown className="h-4 w-4 ml-2 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="start">
+                  <div className="p-2 border-b">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {filter.states?.length ?? 0} selected
+                      </span>
+                      {(filter.states?.length ?? 0) > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs px-2"
+                          onClick={() => onFilterChange({ ...filter, states: undefined })}
+                        >
+                          Clear all
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                ))}
-              </div>
-              {(filter.states?.length ?? 0) > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2 h-6 text-xs w-full"
-                  onClick={() => onFilterChange({ ...filter, states: undefined })}
-                >
-                  Clear states
-                </Button>
-              )}
+                  <ScrollArea className="h-64">
+                    <div className="p-2 space-y-1">
+                      {usStates.map((state) => (
+                        <div
+                          key={state}
+                          className="flex items-center space-x-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer"
+                          onClick={() => handleStateChange(state, !filter.states?.includes(state))}
+                        >
+                          <Checkbox
+                            id={`state-${state}`}
+                            checked={filter.states?.includes(state) ?? false}
+                            onCheckedChange={(checked) =>
+                              handleStateChange(state, checked as boolean)
+                            }
+                            data-testid={`checkbox-state-${state.toLowerCase()}`}
+                          />
+                          <Label
+                            htmlFor={`state-${state}`}
+                            className="text-sm font-normal cursor-pointer flex-1"
+                          >
+                            {stateNames[state]} ({state})
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
             </CollapsibleContent>
           </Collapsible>
 
@@ -373,27 +427,69 @@ export function HCPFilterSidebar({
                 <Label className="text-xs text-muted-foreground">
                   Channel Preference
                 </Label>
-                <Select
-                  value={filter.channelPreference ?? "all"}
-                  onValueChange={(value) =>
-                    onFilterChange({
-                      ...filter,
-                      channelPreference: value === "all" ? undefined : (value as Channel),
-                    })
-                  }
-                >
-                  <SelectTrigger className="w-full" data-testid="select-channel-preference">
-                    <SelectValue placeholder="All channels" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All channels</SelectItem>
-                    {channels.map((channel) => (
-                      <SelectItem key={channel} value={channel}>
-                        {channelLabels[channel]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between h-9 text-sm font-normal"
+                      data-testid="button-channel-picker"
+                    >
+                      {(filter.channelPreferences?.length ?? 0) > 0 ? (
+                        <span className="truncate">
+                          {filter.channelPreferences!.length === 1
+                            ? channelLabels[filter.channelPreferences![0]]
+                            : `${filter.channelPreferences!.length} channels selected`}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">All channels</span>
+                      )}
+                      <ChevronDown className="h-4 w-4 ml-2 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-0" align="start">
+                    <div className="p-2 border-b">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {filter.channelPreferences?.length ?? 0} selected
+                        </span>
+                        {(filter.channelPreferences?.length ?? 0) > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs px-2"
+                            onClick={() => onFilterChange({ ...filter, channelPreferences: undefined })}
+                          >
+                            Clear all
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-2 space-y-1">
+                      {channels.map((channel) => (
+                        <div
+                          key={channel}
+                          className="flex items-center space-x-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer"
+                          onClick={() => handleChannelChange(channel, !filter.channelPreferences?.includes(channel))}
+                        >
+                          <Checkbox
+                            id={`channel-${channel}`}
+                            checked={filter.channelPreferences?.includes(channel) ?? false}
+                            onCheckedChange={(checked) =>
+                              handleChannelChange(channel, checked as boolean)
+                            }
+                            data-testid={`checkbox-channel-${channel}`}
+                          />
+                          <Label
+                            htmlFor={`channel-${channel}`}
+                            className="text-sm font-normal cursor-pointer flex-1"
+                          >
+                            {channelLabels[channel]}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </CollapsibleContent>
           </Collapsible>

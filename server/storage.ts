@@ -420,8 +420,8 @@ export class DatabaseStorage implements IStorage {
       conditions.push(lte(hcpProfiles.overallEngagementScore, filter.maxEngagementScore));
     }
 
-    if (filter.channelPreference) {
-      conditions.push(eq(hcpProfiles.channelPreference, filter.channelPreference));
+    if (filter.channelPreferences?.length) {
+      conditions.push(inArray(hcpProfiles.channelPreference, filter.channelPreferences));
     }
 
     if (filter.states?.length) {

@@ -154,7 +154,7 @@ export function convertToHcpFilter(nlFilters: NLQueryFilters): HCPFilter {
   if (nlFilters.specialties) filter.specialties = nlFilters.specialties;
   if (nlFilters.engagementRange?.min) filter.minEngagementScore = nlFilters.engagementRange.min;
   if (nlFilters.engagementRange?.max) filter.maxEngagementScore = nlFilters.engagementRange.max;
-  if (nlFilters.channels && nlFilters.channels.length > 0) filter.channelPreference = nlFilters.channels[0];
+  if (nlFilters.channels && nlFilters.channels.length > 0) filter.channelPreferences = nlFilters.channels;
 
   return filter;
 }

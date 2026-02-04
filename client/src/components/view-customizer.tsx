@@ -100,13 +100,8 @@ export function ViewCustomizer({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-80 p-4"
+        className="w-80 p-4 bg-background border-border"
         align="end"
-        style={{
-          background: "rgba(10, 10, 11, 0.95)",
-          backdropFilter: "blur(12px)",
-          borderColor: "rgba(107, 33, 168, 0.2)",
-        }}
       >
         <div className="space-y-5">
           {/* Header */}
@@ -132,14 +127,14 @@ export function ViewCustomizer({
             >
               <ToggleGroupItem
                 value="grid"
-                className="gap-2 data-[state=on]:bg-purple-500/20 data-[state=on]:text-purple-400"
+                className="gap-2 data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
               >
                 <LayoutGrid className="h-4 w-4" />
                 Grid
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="list"
-                className="gap-2 data-[state=on]:bg-purple-500/20 data-[state=on]:text-purple-400"
+                className="gap-2 data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
               >
                 <List className="h-4 w-4" />
                 List
@@ -162,7 +157,7 @@ export function ViewCustomizer({
                 <ToggleGroupItem
                   key={density}
                   value={density}
-                  className="text-xs data-[state=on]:bg-purple-500/20 data-[state=on]:text-purple-400"
+                  className="text-xs data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
                 >
                   {densityLabels[density]}
                 </ToggleGroupItem>
@@ -224,14 +219,14 @@ export function ViewCustomizer({
               >
                 <ToggleGroupItem
                   value="desc"
-                  className="h-9 w-9 p-0 data-[state=on]:bg-purple-500/20 data-[state=on]:text-purple-400"
+                  className="h-9 w-9 p-0 data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
                   title="Descending"
                 >
                   <Rows3 className="h-4 w-4 rotate-180" />
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="asc"
-                  className="h-9 w-9 p-0 data-[state=on]:bg-purple-500/20 data-[state=on]:text-purple-400"
+                  className="h-9 w-9 p-0 data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
                   title="Ascending"
                 >
                   <Rows3 className="h-4 w-4" />
@@ -244,8 +239,7 @@ export function ViewCustomizer({
           <Button
             variant="ghost"
             size="sm"
-            className="w-full text-xs"
-            style={{ color: "var(--data-gray, #71717a)" }}
+            className="w-full text-xs text-muted-foreground hover:text-foreground"
             onClick={() => onSettingsChange({
               mode: "grid",
               density: "comfortable",

@@ -283,7 +283,7 @@ export const hcpFilterSchema = z.object({
   segments: z.array(z.enum(segments)).optional(),
   minEngagementScore: z.number().optional(),
   maxEngagementScore: z.number().optional(),
-  channelPreference: z.enum(channels).optional(),
+  channelPreferences: z.array(z.enum(channels)).optional(),
   states: z.array(z.string()).optional(),
 });
 
