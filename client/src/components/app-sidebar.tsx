@@ -8,6 +8,7 @@
  */
 
 import { useLocation, Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   Users,
   UserPlus,
@@ -26,6 +27,7 @@ import {
   Info,
   Flame,
   Target,
+  Bell,
 } from "lucide-react";
 import {
   Sidebar,
@@ -120,10 +122,17 @@ const activateItems = [
 // SYSTEM - Configuration and advanced features
 const systemItems = [
   {
+    title: "Alerts",
+    url: "/alerts",
+    icon: Bell,
+    description: "Configure threshold alerts",
+    hasBadge: true,
+  },
+  {
     title: "Agent Manager",
     url: "/agents",
     icon: Bot,
-    description: "Autonomous agents and alerts",
+    description: "Autonomous agents and automation",
   },
   {
     title: "Constraints",
@@ -157,6 +166,13 @@ const labsItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+
+  // Fetch unacknowledged alert count for badge
+  const { data: alertCountData } = useQuery<{ count: number }>({
+    queryKey: ["/api/alerts/events/count"],
+    refetchInterval: 60000, // Refresh every minute
+  });
+  const unacknowledgedAlertCount = alertCountData?.count || 0;
 
   return (
     <Sidebar>
@@ -284,6 +300,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {systemItems.map((item) => {
                 const isActive = location === item.url;
+                const showBadge = (item as { hasBadge?: boolean }).hasBadge && unacknowledgedAlertCount > 0;
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
@@ -297,7 +314,12 @@ export function AppSidebar() {
                         data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}
                       >
                         <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
+                        <span className="flex-1">{item.title}</span>
+                        {showBadge && (
+                          <Badge variant="destructive" className="h-5 px-1.5 text-xs ml-auto">
+                            {unacknowledgedAlertCount > 99 ? "99+" : unacknowledgedAlertCount}
+                          </Badge>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
