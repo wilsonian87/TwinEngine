@@ -24,6 +24,7 @@ import { veevaRouter } from "./routes/veeva-routes";
 import { webhookRouter } from "./routes/webhook-routes";
 import { approvalRouter } from "./routes/approval-routes";
 import adminAuditRouter from "./routes/admin-audit-routes";
+import { dashboardRouter } from "./routes/dashboard-routes";
 import { seedApprovalPolicies } from "./services/approval-service";
 import { evaluateAlerts, evaluateRuleById, startAlertEvaluator } from "./jobs/alert-evaluator";
 import { seedKnowledgeContent } from "./storage/knowledge-storage";
@@ -338,6 +339,9 @@ export async function registerRoutes(
 
   // Admin audit logs
   app.use("/api/admin/audit-logs", adminAuditRouter);
+
+  // Dashboard (operational)
+  app.use("/api/dashboard", dashboardRouter);
 
   // Manual alert evaluation (for testing/admin)
   app.post("/api/alerts/evaluate", async (req, res) => {

@@ -1,339 +1,575 @@
 /**
- * Nerve Center (Dashboard) Page
+ * Operational Dashboard
  *
- * Mission control for OmniVor - personalized welcome,
- * animated metrics, pattern highlights, and quick actions.
- *
- * @see ROADMAP-PHASE9-INTERACTION-EXPERIENCE.md Phase 9E
+ * Mission control for TwinEngine - system health, key metrics,
+ * alerts, pending actions, and quick navigation.
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { useLocation } from 'wouter';
-import { RefreshCw, Download, Calendar, Users, Activity, FlaskConical, Target, Stethoscope } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { MetricCardSkeleton, ChartSkeleton } from '@/components/ui/skeleton';
-import { ErrorState } from '@/components/ui/error-state';
-import { EmptyState } from '@/components/ui/empty-state';
+import { useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
+import { formatDistanceToNow } from "date-fns";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  WelcomeMessage,
-  MetricCard,
-  MetricsGrid,
-  PatternHighlights,
-  QuickActions,
-  type PatternHighlight,
-} from '@/components/dashboard';
-import { DashboardMetricsDisplay } from '@/components/dashboard-metrics';
-import type { DashboardMetrics } from '@shared/schema';
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle,
+  Clock,
+  Users,
+  Activity,
+  TrendingUp,
+  TrendingDown,
+  Bell,
+  Download,
+  FlaskConical,
+  RefreshCw,
+  Target,
+  FileText,
+  Shield,
+  ExternalLink,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ============================================================================
-// MOCK DATA
+// TYPES
 // ============================================================================
 
-// Mock patterns for demo (in production, fetch from API)
-const mockPatterns: PatternHighlight[] = [
-  {
-    id: '1',
-    title: 'Engagement spike in Cardiology segment',
-    description: 'Email response rates increased 23% among cardiologists in the Northeast region over the past week.',
-    severity: 'opportunity',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-    relatedHcpCount: 142,
-    category: 'engagement',
-    modulePath: '/audience-builder',
-  },
-  {
-    id: '2',
-    title: 'Rep visit effectiveness declining',
-    description: 'In-person visits showing 15% lower conversion compared to digital channels for Tier 2 HCPs.',
-    severity: 'warning',
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-    relatedHcpCount: 89,
-    category: 'channel',
-    modulePath: '/feature-store',
-  },
-  {
-    id: '3',
-    title: 'New high-value audience identified',
-    description: 'ML model identified 67 HCPs with high propensity scores who haven\'t been engaged recently.',
-    severity: 'insight',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-    relatedHcpCount: 67,
-    category: 'audience',
-    modulePath: '/audience-builder',
-  },
-  {
-    id: '4',
-    title: 'Conference attendee follow-up window',
-    description: 'Optimal 48-hour follow-up window closing for 234 HCPs who attended the Virtual Summit.',
-    severity: 'opportunity',
-    timestamp: new Date(Date.now() - 36 * 60 * 60 * 1000), // 1.5 days ago
-    relatedHcpCount: 234,
-    category: 'trend',
-    modulePath: '/action-queue',
-  },
-];
+interface SystemHealth {
+  healthy: boolean;
+  status: "operational" | "degraded" | "down";
+  dataLastUpdated: string;
+  checks: {
+    database: boolean;
+    hcpData: boolean;
+    exports: boolean;
+  };
+}
+
+interface OperationalMetrics {
+  totalHcps: number;
+  activeHcps: number;
+  atRiskHcps: number;
+  atRiskTrend: number;
+  pendingNbas: number;
+  avgEngagementScore: number;
+  totalSimulations: number;
+}
+
+interface AlertSummary {
+  critical: number;
+  warning: number;
+  info: number;
+  total: number;
+}
+
+interface RecentActivity {
+  id: string;
+  type: string;
+  description: string;
+  timestamp: string;
+  entityId?: string;
+}
+
+interface DashboardData {
+  health: SystemHealth;
+  metrics: OperationalMetrics;
+  alerts: AlertSummary;
+  recentActivity: RecentActivity[];
+  pendingApprovals: number;
+}
 
 // ============================================================================
-// COMPONENT
+// HOOKS
+// ============================================================================
+
+function useDashboard() {
+  return useQuery<DashboardData>({
+    queryKey: ["/api/dashboard"],
+    refetchInterval: 60000, // Refresh every minute
+  });
+}
+
+// ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
+
+function SystemHealthBar({
+  health,
+  isLoading,
+}: {
+  health?: SystemHealth;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return <Skeleton className="h-12 w-full rounded-lg" />;
+  }
+
+  if (!health) return null;
+
+  const isHealthy = health.healthy;
+  const dataAge = health.dataLastUpdated
+    ? formatDistanceToNow(new Date(health.dataLastUpdated), { addSuffix: true })
+    : "unknown";
+
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between px-4 py-3 rounded-lg",
+        isHealthy
+          ? "bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800"
+          : "bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        {isHealthy ? (
+          <CheckCircle className="h-5 w-5" />
+        ) : (
+          <AlertCircle className="h-5 w-5" />
+        )}
+        <span className="font-medium">
+          {isHealthy
+            ? "All Systems Operational"
+            : `System ${health.status === "degraded" ? "Degraded" : "Issues Detected"}`}
+        </span>
+      </div>
+      <div className="text-sm opacity-80">Data freshness: {dataAge}</div>
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  format = "number",
+  subtext,
+  trend,
+  variant = "default",
+  icon: Icon,
+  onClick,
+}: {
+  label: string;
+  value?: number;
+  format?: "number" | "percent";
+  subtext?: string;
+  trend?: number;
+  variant?: "default" | "warning" | "danger";
+  icon?: React.ComponentType<{ className?: string }>;
+  onClick?: () => void;
+}) {
+  const formattedValue =
+    value !== undefined
+      ? format === "percent"
+        ? `${value}%`
+        : value.toLocaleString()
+      : "-";
+
+  return (
+    <Card
+      className={cn(
+        "transition-all",
+        variant === "warning" && "border-amber-300 dark:border-amber-700",
+        variant === "danger" && "border-red-300 dark:border-red-700",
+        onClick && "cursor-pointer hover:shadow-md"
+      )}
+      onClick={onClick}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between">
+          <div className="text-sm text-muted-foreground uppercase tracking-wide">
+            {label}
+          </div>
+          {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+        </div>
+        <div className="text-3xl font-bold mt-1">{formattedValue}</div>
+        {subtext && (
+          <div className="text-sm text-muted-foreground">{subtext}</div>
+        )}
+        {trend !== undefined && trend !== 0 && (
+          <div
+            className={cn(
+              "text-sm flex items-center gap-1 mt-1",
+              trend > 0 ? "text-red-600" : "text-green-600"
+            )}
+          >
+            {trend > 0 ? (
+              <TrendingUp className="h-4 w-4" />
+            ) : (
+              <TrendingDown className="h-4 w-4" />
+            )}
+            {Math.abs(trend)}% vs last week
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AlertBadge({
+  severity,
+  count,
+}: {
+  severity: "critical" | "warning" | "info";
+  count: number;
+}) {
+  if (count === 0) return null;
+
+  const config = {
+    critical: {
+      bg: "bg-red-100 dark:bg-red-950",
+      text: "text-red-800 dark:text-red-200",
+      icon: AlertCircle,
+    },
+    warning: {
+      bg: "bg-amber-100 dark:bg-amber-950",
+      text: "text-amber-800 dark:text-amber-200",
+      icon: AlertTriangle,
+    },
+    info: {
+      bg: "bg-blue-100 dark:bg-blue-950",
+      text: "text-blue-800 dark:text-blue-200",
+      icon: Bell,
+    },
+  };
+
+  const { bg, text, icon: AlertIcon } = config[severity];
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 px-3 py-2 rounded-lg",
+        bg,
+        text
+      )}
+    >
+      <AlertIcon className="h-4 w-4" />
+      <span className="font-medium">{count}</span>
+      <span className="text-sm capitalize">{severity}</span>
+    </div>
+  );
+}
+
+function ActivityIcon({ type }: { type: string }) {
+  const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    export: Download,
+    simulation: FlaskConical,
+    audience: Users,
+    approval: Shield,
+    hcp_view: Users,
+    settings: FileText,
+  };
+
+  const Icon = iconMap[type] || Activity;
+  return <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+}
+
+function QuickActionCard({
+  icon: Icon,
+  label,
+  to,
+  badge,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  to: string;
+  badge?: number;
+}) {
+  return (
+    <Link href={to}>
+      <Card className="p-4 hover:shadow-md transition-all cursor-pointer group">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+            <Icon className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <div className="font-medium">{label}</div>
+          </div>
+          {badge !== undefined && badge > 0 && (
+            <Badge variant="secondary">{badge}</Badge>
+          )}
+          <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </Card>
+    </Link>
+  );
+}
+
+// ============================================================================
+// MAIN COMPONENT
 // ============================================================================
 
 export default function Dashboard() {
   const [, navigate] = useLocation();
-
-  const {
-    data: metrics,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    isRefetching,
-  } = useQuery<DashboardMetrics>({
-    queryKey: ['/api/dashboard/metrics'],
-  });
-
-  // Calculate derived metrics
-  const signalCount = metrics ? metrics.totalHcps * 47 : 0; // Simulated signal count
-  const patternCount = mockPatterns.length;
-
-  // Handle pattern click
-  const handlePatternClick = (pattern: PatternHighlight) => {
-    if (pattern.modulePath) {
-      navigate(pattern.modulePath);
-    }
-  };
+  const { data, isLoading, isError, refetch, isRefetching } = useDashboard();
 
   return (
     <div className="h-full overflow-auto">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur-sm px-6 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h1
-              className="text-lg font-semibold text-foreground"
-              data-testid="text-page-title"
-            >
+            <h1 className="text-lg font-semibold" data-testid="text-page-title">
               Dashboard
             </h1>
             <p className="text-sm text-muted-foreground">
-              Strategic intelligence at a glance
+              Operational overview and quick actions
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Select defaultValue="30d">
-              <SelectTrigger
-                className="w-36"
-                data-testid="select-time-range"
-              >
-                <Calendar className="mr-2 h-4 w-4" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-                <SelectItem value="12m">Last 12 months</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => refetch()}
-              disabled={isRefetching}
-              data-testid="button-refresh"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`}
-              />
-            </Button>
-            <Button variant="outline" data-testid="button-export">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isRefetching}
+          >
+            <RefreshCw
+              className={cn("h-4 w-4 mr-2", isRefetching && "animate-spin")}
+            />
+            Refresh
+          </Button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-6 space-y-8">
+      <div className="p-6 space-y-6">
         {isError ? (
-          <ErrorState
-            title="Unable to load Nerve Center."
-            message={
-              error instanceof Error
-                ? error.message
-                : 'Failed to load dashboard metrics.'
-            }
-            type="server"
-            retry={() => refetch()}
-            size="lg"
-          />
-        ) : isLoading ? (
-          <DashboardSkeleton />
-        ) : metrics ? (
+          <Card className="p-8 text-center">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="font-semibold mb-2">Unable to load dashboard</h3>
+            <p className="text-muted-foreground mb-4">
+              There was an error loading the dashboard data.
+            </p>
+            <Button onClick={() => refetch()}>Try Again</Button>
+          </Card>
+        ) : (
           <>
-            {/* Welcome Message */}
-            <WelcomeMessage
-              signalCount={signalCount}
-              patternCount={patternCount}
-              className="mb-8"
-            />
+            {/* System Health Bar */}
+            <SystemHealthBar health={data?.health} isLoading={isLoading} />
+
+            {/* Key Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <Card key={i} className="p-4">
+                    <Skeleton className="h-4 w-24 mb-2" />
+                    <Skeleton className="h-8 w-16" />
+                  </Card>
+                ))
+              ) : (
+                <>
+                  <MetricCard
+                    label="Total HCPs"
+                    value={data?.metrics.totalHcps}
+                    icon={Users}
+                    onClick={() => navigate("/")}
+                  />
+                  <MetricCard
+                    label="Active (Engagement > 50)"
+                    value={data?.metrics.activeHcps}
+                    subtext={
+                      data?.metrics.totalHcps
+                        ? `${Math.round((data.metrics.activeHcps / data.metrics.totalHcps) * 100)}%`
+                        : undefined
+                    }
+                    icon={Activity}
+                    onClick={() => navigate("/?minEngagement=50")}
+                  />
+                  <MetricCard
+                    label="At Risk (Churn > 70)"
+                    value={data?.metrics.atRiskHcps}
+                    trend={data?.metrics.atRiskTrend}
+                    variant={
+                      data?.metrics.atRiskHcps && data.metrics.atRiskHcps > 100
+                        ? "warning"
+                        : "default"
+                    }
+                    icon={AlertTriangle}
+                    onClick={() => navigate("/?minChurnRisk=70")}
+                  />
+                  <MetricCard
+                    label="Pending NBAs"
+                    value={data?.metrics.pendingNbas}
+                    icon={Target}
+                    onClick={() => navigate("/next-best-orbit")}
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Alerts Summary */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Alert Summary</CardTitle>
+                  <Link
+                    href="/alerts"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    View All
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex gap-4">
+                    <Skeleton className="h-10 w-32" />
+                    <Skeleton className="h-10 w-32" />
+                    <Skeleton className="h-10 w-32" />
+                  </div>
+                ) : (
+                  <div className="flex gap-4 flex-wrap">
+                    <AlertBadge
+                      severity="critical"
+                      count={data?.alerts.critical || 0}
+                    />
+                    <AlertBadge
+                      severity="warning"
+                      count={data?.alerts.warning || 0}
+                    />
+                    <AlertBadge severity="info" count={data?.alerts.info || 0} />
+                    {data?.alerts.total === 0 && (
+                      <div className="text-muted-foreground flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        No active alerts
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Two Column Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Recent Activity */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Your Recent Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <Skeleton className="h-4 w-4 rounded" />
+                          <Skeleton className="h-4 flex-1" />
+                          <Skeleton className="h-4 w-16" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : data?.recentActivity.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No recent activity</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {data?.recentActivity.map((activity) => (
+                        <div
+                          key={activity.id}
+                          className="flex items-center gap-3 text-sm"
+                        >
+                          <ActivityIcon type={activity.type} />
+                          <span className="flex-1 truncate">
+                            {activity.description}
+                          </span>
+                          <span className="text-muted-foreground text-xs whitespace-nowrap">
+                            {formatDistanceToNow(new Date(activity.timestamp), {
+                              addSuffix: true,
+                            })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Pending Approvals */}
+              {!isLoading && data?.pendingApprovals && data.pendingApprovals > 0 ? (
+                <Card className="border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-amber-600" />
+                      Pending Approvals ({data.pendingApprovals})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      You have requests waiting for your review
+                    </p>
+                    <Button asChild>
+                      <Link href="/approvals">Review Now</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Performance</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Avg Engagement Score
+                        </span>
+                        <span className="text-lg font-semibold">
+                          {isLoading ? (
+                            <Skeleton className="h-6 w-12" />
+                          ) : (
+                            `${data?.metrics.avgEngagementScore || 0}%`
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Total Simulations
+                        </span>
+                        <span className="text-lg font-semibold">
+                          {isLoading ? (
+                            <Skeleton className="h-6 w-12" />
+                          ) : (
+                            data?.metrics.totalSimulations?.toLocaleString() || 0
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
 
             {/* Quick Actions */}
-            <QuickActions onNavigate={navigate} className="mb-8" />
-
-            {/* Metrics Grid - Phase 13.3: Click to drill-down */}
-            <MetricsGrid columns={6} className="mb-8">
-              <MetricCard
-                label="Total HCPs"
-                value={metrics.totalHcps}
-                trend={14}
-                trendLabel="vs last month"
-                icon={Users}
-                tooltip="Click to explore all HCP profiles"
-                sparklineData={[45, 52, 48, 61, 55, 67, 72]}
-                onClick={() => navigate('/')}
-                delay={0}
-              />
-              <MetricCard
-                label="Active Audiences"
-                value={23}
-                secondaryMetric="3 need action"
-                icon={Users}
-                tooltip="Click to manage saved audiences"
-                onClick={() => navigate('/audience-builder')}
-                delay={0.05}
-              />
-              <MetricCard
-                label="Simulations"
-                value={metrics.totalSimulations}
-                secondaryMetric="2 pending"
-                icon={FlaskConical}
-                tooltip="Click to view simulation history"
-                onClick={() => navigate('/simulations')}
-                delay={0.1}
-              />
-              <MetricCard
-                label="Avg Engagement"
-                value={Math.round(metrics.avgEngagementScore)}
-                suffix="%"
-                trend={5}
-                trendLabel="vs last month"
-                icon={Activity}
-                tooltip="Click to view high-engagement HCPs"
-                sparklineData={[58, 62, 60, 65, 63, 68, Math.round(metrics.avgEngagementScore)]}
-                onClick={() => navigate('/?sort=engagement&order=desc')}
-                delay={0.15}
-              />
-              <MetricCard
-                label="Channel Health"
-                value={72}
-                suffix="%"
-                trend={-3}
-                trendLabel="2 channels low"
-                icon={Stethoscope}
-                tooltip="Click to view channel diagnostics"
-                sparklineData={[78, 75, 72, 74, 71, 73, 72]}
-                onClick={() => navigate('/feature-store')}
-                delay={0.2}
-              />
-              <MetricCard
-                label="Actions Queued"
-                value={156}
-                secondaryMetric="24 high-priority"
-                icon={Target}
-                tooltip="Click to review action recommendations"
-                onClick={() => navigate('/action-queue')}
-                delay={0.25}
-              />
-            </MetricsGrid>
-
-            {/* Two-Column Layout: Charts + Patterns */}
-            <div className="grid gap-6 lg:grid-cols-3">
-              {/* Charts Section (2 columns) */}
-              <div className="lg:col-span-2">
-                <DashboardMetricsDisplay metrics={metrics} />
-              </div>
-
-              {/* Pattern Highlights (1 column) */}
-              <div className="lg:col-span-1">
-                <PatternHighlights
-                  patterns={mockPatterns}
-                  onPatternClick={handlePatternClick}
-                  maxPatterns={4}
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                Quick Actions
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <QuickActionCard
+                  icon={Users}
+                  label="Build Audience"
+                  to="/audience-builder"
+                />
+                <QuickActionCard
+                  icon={FlaskConical}
+                  label="Run Simulation"
+                  to="/simulations"
+                />
+                <QuickActionCard
+                  icon={Bell}
+                  label="View Alerts"
+                  to="/alerts"
+                  badge={data?.alerts.total}
+                />
+                <QuickActionCard
+                  icon={Download}
+                  label="Export Data"
+                  to="/settings/webhooks"
                 />
               </div>
             </div>
           </>
-        ) : (
-          <EmptyState
-            title="No intelligence data."
-            description="Connect your data sources and let OmniVor start processing signals."
-            icon="activity"
-            action={{
-              label: 'Connect Channels',
-              onClick: () => navigate('/feature-store'),
-            }}
-          />
         )}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// LOADING SKELETON
-// ============================================================================
-
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-8">
-      {/* Welcome skeleton */}
-      <div className="space-y-2">
-        <div className="h-8 w-64 rounded bg-muted animate-pulse" />
-        <div className="h-5 w-96 rounded bg-muted animate-pulse" />
-      </div>
-
-      {/* Quick actions skeleton */}
-      <div className="flex gap-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-9 w-28 rounded-lg bg-muted animate-pulse"
-            style={{ animationDelay: `${i * 0.1}s` }}
-          />
-        ))}
-      </div>
-
-      {/* Metrics grid skeleton */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <MetricCardSkeleton key={i} />
-        ))}
-      </div>
-
-      {/* Charts skeleton */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 grid gap-6 md:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <ChartSkeleton key={i} />
-          ))}
-        </div>
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-24 rounded-lg bg-muted animate-pulse"
-              style={{ animationDelay: `${i * 0.1}s` }}
-            />
-          ))}
-        </div>
       </div>
     </div>
   );
