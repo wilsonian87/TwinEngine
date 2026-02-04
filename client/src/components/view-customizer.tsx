@@ -110,18 +110,18 @@ export function ViewCustomizer({
       >
         <div className="space-y-5">
           {/* Header */}
-          <div className="border-b pb-3" style={{ borderColor: "var(--border-gray, #27272a)" }}>
-            <h4 className="font-semibold text-sm" style={{ color: "var(--signal-white, #fafafa)" }}>
+          <div className="border-b border-border pb-3">
+            <h4 className="font-semibold text-sm text-foreground">
               View Settings
             </h4>
-            <p className="text-xs mt-0.5" style={{ color: "var(--muted-gray, #52525b)" }}>
+            <p className="text-xs mt-0.5 text-muted-foreground">
               Customize how signals are displayed
             </p>
           </div>
 
           {/* View Mode */}
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Layout
             </Label>
             <ToggleGroup
@@ -149,7 +149,7 @@ export function ViewCustomizer({
 
           {/* Density */}
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Density
             </Label>
             <ToggleGroup
@@ -174,13 +174,10 @@ export function ViewCustomizer({
           {settings.mode === "grid" && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Columns
                 </Label>
-                <span
-                  className="text-xs font-mono font-medium"
-                  style={{ color: "var(--catalyst-gold, #d97706)" }}
-                >
+                <span className="text-xs font-mono font-medium text-accent">
                   {settings.gridColumns}
                 </span>
               </div>
@@ -192,7 +189,7 @@ export function ViewCustomizer({
                 step={1}
                 className="w-full"
               />
-              <div className="flex justify-between text-xs" style={{ color: "var(--muted-gray, #52525b)" }}>
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>2</span>
                 <span>5</span>
               </div>
@@ -201,7 +198,7 @@ export function ViewCustomizer({
 
           {/* Sort */}
           <div className="space-y-2">
-            <Label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Sort By
             </Label>
             <div className="flex gap-2">

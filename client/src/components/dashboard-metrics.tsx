@@ -57,7 +57,7 @@ function MetricCard({ title, value, subtitle, trend, icon: Icon, tooltip }: Metr
     <SignalCard variant="default" glowOnHover className="p-4">
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {title}
           </span>
           {tooltip && (

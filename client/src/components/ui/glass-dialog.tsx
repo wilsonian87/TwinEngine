@@ -72,9 +72,8 @@ const GlassDialogContent = React.forwardRef<
           "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
           "disabled:pointer-events-none"
         )}
-        style={{ color: "var(--signal-white, #fafafa)" }}
       >
-        <X className="h-4 w-4" />
+        <X className="h-4 w-4 text-foreground" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
@@ -100,10 +99,9 @@ const GlassDialogFooter = ({
   <div
     className={cn(
       "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-6 pt-4",
-      "border-t",
+      "border-t border-border",
       className
     )}
-    style={{ borderColor: "var(--border-gray, #27272a)" }}
     {...props}
   />
 );
@@ -116,10 +114,9 @@ const GlassDialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      "text-xl font-semibold leading-none tracking-tight",
+      "text-xl font-semibold leading-none tracking-tight text-foreground",
       className
     )}
-    style={{ color: "var(--signal-white, #fafafa)" }}
     {...props}
   />
 ));
@@ -131,8 +128,7 @@ const GlassDialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("text-sm mt-2", className)}
-    style={{ color: "var(--muted-gray, #52525b)" }}
+    className={cn("text-sm mt-2 text-muted-foreground", className)}
     {...props}
   />
 ));

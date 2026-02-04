@@ -166,16 +166,12 @@ export function AppSidebar() {
           <LogoIcon size="md" />
           <div className="flex flex-col">
             <span
-              className="text-sm font-bold tracking-wide"
-              style={{ color: "var(--signal-white, #fafafa)" }}
+              className="text-sm font-bold tracking-wide text-foreground"
               data-testid="text-app-title"
             >
               {BRAND_CONFIG.product.name}
             </span>
-            <span
-              className="text-xs"
-              style={{ color: "var(--muted-gray, #52525b)" }}
-            >
+            <span className="text-xs text-muted-foreground">
               {BRAND_CONFIG.product.subtitle}
             </span>
           </div>
@@ -185,10 +181,7 @@ export function AppSidebar() {
       <SidebarContent>
         {/* EXPLORE - Finding and organizing HCPs */}
         <SidebarGroup>
-          <SidebarGroupLabel
-            className="text-xs font-semibold uppercase tracking-wider px-4"
-            style={{ color: "var(--muted-gray, #52525b)" }}
-          >
+          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider px-4 text-muted-foreground">
             Explore
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -220,10 +213,7 @@ export function AppSidebar() {
 
         {/* ANALYZE - Understanding what's happening */}
         <SidebarGroup>
-          <SidebarGroupLabel
-            className="text-xs font-semibold uppercase tracking-wider px-4"
-            style={{ color: "var(--muted-gray, #52525b)" }}
-          >
+          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider px-4 text-muted-foreground">
             Analyze
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -255,10 +245,7 @@ export function AppSidebar() {
 
         {/* ACTIVATE - Taking action on insights */}
         <SidebarGroup>
-          <SidebarGroupLabel
-            className="text-xs font-semibold uppercase tracking-wider px-4"
-            style={{ color: "var(--muted-gray, #52525b)" }}
-          >
+          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider px-4 text-muted-foreground">
             Activate
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -290,10 +277,7 @@ export function AppSidebar() {
 
         {/* SYSTEM - Configuration and advanced features */}
         <SidebarGroup>
-          <SidebarGroupLabel
-            className="text-xs font-semibold uppercase tracking-wider px-4"
-            style={{ color: "var(--muted-gray, #52525b)" }}
-          >
+          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider px-4 text-muted-foreground">
             System
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -326,8 +310,7 @@ export function AppSidebar() {
         {/* OmniVor Labs Section */}
         <SidebarGroup>
           <SidebarGroupLabel
-            className="text-xs font-semibold uppercase tracking-wider px-4 flex items-center gap-2"
-            style={{ color: "var(--consumption-purple, #6b21a8)" }}
+            className="text-xs font-semibold uppercase tracking-wider px-4 flex items-center gap-2 text-primary"
           >
             <Hexagon className="h-3 w-3" />
             OmniVor Labs
@@ -368,29 +351,19 @@ export function AppSidebar() {
               className="h-4 w-4"
               style={{ color: "var(--catalyst-gold, #d97706)" }}
             />
-            <span
-              className="text-xs"
-              style={{ color: "var(--muted-gray, #52525b)" }}
-            >
+            <span className="text-xs text-muted-foreground">
               Signal Status
             </span>
           </div>
           <Badge
             variant="outline"
-            className="text-xs"
-            style={{
-              borderColor: "var(--consumption-purple, #6b21a8)",
-              color: "var(--process-violet, #a855f7)",
-            }}
+            className="text-xs border-primary text-primary"
             data-testid="badge-model-status"
           >
             Active
           </Badge>
         </div>
-        <div
-          className="mt-2 text-xs"
-          style={{ color: "var(--muted-gray, #52525b)" }}
-        >
+        <div className="mt-2 text-xs text-muted-foreground">
           {BRAND_CONFIG.company.copyright}
         </div>
       </SidebarFooter>

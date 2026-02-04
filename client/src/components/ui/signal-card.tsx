@@ -208,10 +208,7 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
     >
       <div className="space-y-2">
         {/* Label */}
-        <p
-          className="text-xs font-semibold uppercase tracking-wider"
-          style={{ color: "var(--muted-gray, #52525b)" }}
-        >
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {label}
         </p>
 
