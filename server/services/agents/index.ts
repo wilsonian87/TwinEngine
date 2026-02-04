@@ -109,6 +109,13 @@ export {
   type PromptLoadOptions,
 } from "./prompt-manager";
 
+// Regulatory Sync Agent (Phase 0)
+export {
+  RegulatorySyncAgent,
+  regulatorySyncAgent,
+  type RegulatorySyncInput,
+} from "../regulatory/regulatory-sync-agent";
+
 // Prompt Analytics (Phase 12D.4)
 export {
   PromptAnalytics,
@@ -125,6 +132,7 @@ import { channelHealthMonitor } from "./channel-health-monitor";
 import { insightSynthesizer } from "./insight-synthesizer";
 import { orchestrator } from "./orchestrator";
 import { optimizationAgent } from "./optimization-agent";
+import { regulatorySyncAgent } from "../regulatory/regulatory-sync-agent";
 
 /**
  * Initialize all agents and register them
@@ -143,6 +151,9 @@ export function initializeAgents(): AgentRegistry {
 
   // Register Optimization Agent
   registry.register(optimizationAgent);
+
+  // Register Regulatory Sync Agent
+  registry.register(regulatorySyncAgent);
 
   return registry;
 }

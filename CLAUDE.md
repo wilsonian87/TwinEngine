@@ -106,6 +106,7 @@ The project is organized into three main directories with shared types:
   - `prediction-engine.ts` - Stimuli impact prediction, simulation engine, counterfactual analysis
   - `nl-query-parser.ts` - Rule-based NL query parsing and intent detection
   - `genai-service.ts` - Claude-powered NL query parsing with rate limiting and fallback
+  - `regulatory/` - Regulatory calendar adapters (openFDA, ClinicalTrials.gov, Federal Register, Orange Book) + sync agent
 - **client/src/App.tsx** - Root component with routing, providers (Query, Theme, Tooltip), and layout.
 
 ## API Domains
@@ -120,6 +121,8 @@ The API is organized by domain:
 - `/api/nl-query` - Natural language query processing (Claude-powered with rule-based fallback)
 - `/api/model-evaluation` - Model accuracy tracking
 - `/api/audit-logs` - Governance/compliance logging
+
+- `/api/regulatory-events` - Regulatory calendar events (list, upcoming, sync, CRUD, annotations)
 
 All API endpoints except `/api/auth/*` require authentication.
 

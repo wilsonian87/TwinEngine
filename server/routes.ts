@@ -8,6 +8,16 @@ import { hashPassword } from "./auth";
 import { requireEnvVar, debugLog } from "./utils/config";
 import { safeParseLimitOffset, safeParseLimit } from "./utils/validation";
 import { authRateLimiter } from "./middleware/rate-limit";
+import { jwtAuth } from "./middleware/jwt-auth";
+import { tokenRouter } from "./routes/token-routes";
+import { featureFlagRouter } from "./routes/feature-flag-routes";
+import { seedInsightRxFlags } from "./services/feature-flags";
+import { knowledgeRouter } from "./routes/knowledge-routes";
+import { validationRouter } from "./routes/validation-routes";
+import { observabilityRouter } from "./routes/observability-routes";
+import { seedKnowledgeContent } from "./storage/knowledge-storage";
+import { requestMetrics, requestId } from "./middleware/observability";
+import { logAudit } from "./services/audit-service";
 import { classifyChannelHealth, classifyCohortChannelHealth, getHealthSummary } from "./services/channel-health";
 import { generateNBA, generateNBAs, prioritizeNBAs, getNBASummary, generateCompetitiveAwareNBA, generateCompetitiveAwareNBAs, prioritizeCompetitiveAwareNBAs, getCompetitiveAwareNBASummary } from "./services/nba-engine";
 import {
@@ -91,6 +101,7 @@ import {
   getJiraIntegration,
   isJiraConfigured,
   defaultTicketTemplates,
+  formaPredictiveService,
 } from "./services/integrations";
 import {
   initializeAgents,
@@ -216,6 +227,63 @@ export async function registerRoutes(
       console.error("[STARTUP] Error seeding database:", error);
     }
   }
+
+  // ============ Observability Middleware ============
+  // Request ID and metrics collection
+  app.use(requestId);
+  app.use(requestMetrics);
+
+  // Log system startup
+  logAudit({
+    action: "system.startup",
+    entityType: "system",
+    details: {
+      nodeVersion: process.version,
+      env: process.env.NODE_ENV,
+    },
+  }).catch((err) => console.error("[Audit] Failed to log startup:", err));
+
+  // ============ JWT Authentication Middleware ============
+  // Apply JWT auth middleware globally (works alongside session auth)
+  app.use(jwtAuth);
+
+  // ============ Token Management Endpoints ============
+  // JWT token issuance, refresh, and API key management
+  app.use("/api/auth", tokenRouter);
+
+  // ============ Feature Flag Endpoints ============
+  // Feature flag evaluation and admin management
+  app.use("/api/feature-flags", featureFlagRouter);
+
+  // Seed InsightRx feature flags
+  try {
+    await seedInsightRxFlags();
+    debugLog("STARTUP", "InsightRx feature flags seeded");
+  } catch (error) {
+    console.error("[STARTUP] Error seeding feature flags:", error);
+  }
+
+  // ============ Knowledge Base Endpoints ============
+  // Knowledge content CRUD and semantic search
+  app.use("/api/knowledge", knowledgeRouter);
+
+  // Seed knowledge content in development
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      await seedKnowledgeContent();
+      debugLog("STARTUP", "Knowledge base seeded");
+    } catch (error) {
+      console.error("[STARTUP] Error seeding knowledge base:", error);
+    }
+  }
+
+  // ============ Validation Endpoints ============
+  // Content validation with @twinengine/insightrx
+  app.use("/api/validation", validationRouter);
+
+  // ============ Observability Endpoints ============
+  // Audit logs, metrics, and health checks
+  app.use("/api/observability", observabilityRouter);
 
   // ============ Authentication Endpoints ============
 
@@ -1851,6 +1919,51 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error checking Jira status:", error);
       res.status(500).json({ error: "Failed to check Jira status" });
+    }
+  });
+
+  // ============ Forma Predictive Endpoints ============
+
+  app.get("/api/integrations/forma/health", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const result = await formaPredictiveService.healthCheck();
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking Forma health:", error);
+      res.status(500).json({ error: "Failed to check Forma Predictive health" });
+    }
+  });
+
+  app.get("/api/integrations/forma/metrics", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const result = await formaPredictiveService.getModelMetrics();
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching Forma metrics:", error);
+      res.status(500).json({ error: "Failed to fetch Forma Predictive metrics" });
+    }
+  });
+
+  app.get("/api/integrations/forma/status", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const health = await formaPredictiveService.healthCheck();
+      const connection = formaPredictiveService.getConnectionStatus();
+      res.json({ ...connection, health: health.status });
+    } catch (error) {
+      console.error("Error checking Forma status:", error);
+      res.status(500).json({ error: "Failed to check Forma Predictive status" });
     }
   });
 
@@ -7037,6 +7150,186 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error measuring pending outcomes:", error);
       res.status(500).json({ error: "Failed to measure pending outcomes" });
+    }
+  });
+
+  // ==========================================================================
+  // PHASE 0: REGULATORY CALENDAR ENDPOINTS
+  // ==========================================================================
+
+  const { regulatoryStorage: regStorage } = await import("./storage/regulatory-storage");
+  const { regulatorySyncAgent: regSyncAgent } = await import("./services/regulatory/regulatory-sync-agent");
+
+  // List regulatory events with filters
+  app.get("/api/regulatory-events", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const filter = {
+        drugName: req.query.drugName as string | undefined,
+        eventType: req.query.eventType as string | undefined,
+        therapeuticArea: req.query.therapeuticArea as string | undefined,
+        status: req.query.status as string | undefined,
+        source: req.query.source as string | undefined,
+        startDate: req.query.startDate as string | undefined,
+        endDate: req.query.endDate as string | undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
+        offset: req.query.offset ? parseInt(req.query.offset as string) : undefined,
+      };
+      const events = await regStorage.listEvents(filter);
+      res.json(events);
+    } catch (error) {
+      console.error("Error listing regulatory events:", error);
+      res.status(500).json({ error: "Failed to list regulatory events" });
+    }
+  });
+
+  // Get upcoming regulatory events
+  app.get("/api/regulatory-events/upcoming", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const days = req.query.days ? parseInt(req.query.days as string) : 90;
+      const events = await regStorage.getUpcomingEvents(days);
+      res.json(events);
+    } catch (error) {
+      console.error("Error getting upcoming regulatory events:", error);
+      res.status(500).json({ error: "Failed to get upcoming events" });
+    }
+  });
+
+  // Get latest sync status
+  app.get("/api/regulatory-events/sync/status", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const source = req.query.source as string | undefined;
+      const log = await regStorage.getLatestSyncLog(source);
+      const allLogs = await regStorage.listSyncLogs(10);
+      res.json({ latest: log ?? null, recent: allLogs });
+    } catch (error) {
+      console.error("Error getting sync status:", error);
+      res.status(500).json({ error: "Failed to get sync status" });
+    }
+  });
+
+  // Trigger manual sync
+  app.post("/api/regulatory-events/sync", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const sources = req.body?.sources;
+      const result = await regSyncAgent.run(
+        { sources },
+        (req.user as any)?.username ?? "system",
+        "on_demand"
+      );
+      res.json({
+        runId: result.runId,
+        status: result.status,
+        summary: result.output.summary,
+        metrics: result.output.metrics,
+        duration: result.duration,
+      });
+    } catch (error) {
+      console.error("Error triggering regulatory sync:", error);
+      res.status(500).json({ error: "Failed to trigger sync" });
+    }
+  });
+
+  // Get single regulatory event with relations
+  app.get("/api/regulatory-events/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const result = await regStorage.getEventWithRelations(req.params.id);
+      if (!result) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting regulatory event:", error);
+      res.status(500).json({ error: "Failed to get event" });
+    }
+  });
+
+  // Create annotation for an event
+  app.post("/api/regulatory-events/:id/annotations", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const event = await regStorage.getEvent(req.params.id);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      const annotation = await regStorage.createAnnotation({
+        eventId: req.params.id,
+        userId: (req.user as any)?.username ?? null,
+        annotationType: req.body.annotationType ?? "note",
+        title: req.body.title,
+        content: req.body.content ?? null,
+        priority: req.body.priority ?? "medium",
+        metadata: req.body.metadata ?? null,
+      });
+      res.status(201).json(annotation);
+    } catch (error) {
+      console.error("Error creating annotation:", error);
+      res.status(500).json({ error: "Failed to create annotation" });
+    }
+  });
+
+  // Update annotation
+  app.put("/api/regulatory-events/annotations/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const annotation = await regStorage.updateAnnotation(req.params.id, {
+        title: req.body.title,
+        content: req.body.content,
+        priority: req.body.priority,
+        annotationType: req.body.annotationType,
+        metadata: req.body.metadata,
+      });
+      if (!annotation) {
+        return res.status(404).json({ error: "Annotation not found" });
+      }
+      res.json(annotation);
+    } catch (error) {
+      console.error("Error updating annotation:", error);
+      res.status(500).json({ error: "Failed to update annotation" });
+    }
+  });
+
+  // Delete annotation
+  app.delete("/api/regulatory-events/annotations/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
+      const deleted = await regStorage.deleteAnnotation(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Annotation not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting annotation:", error);
+      res.status(500).json({ error: "Failed to delete annotation" });
     }
   });
 

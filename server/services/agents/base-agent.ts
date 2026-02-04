@@ -28,6 +28,7 @@ export const agentTypes = [
   "insight_synthesizer",
   "engagement_optimizer",
   "alert_manager",
+  "regulatory_sync",
 ] as const;
 
 export type AgentType = (typeof agentTypes)[number];

@@ -83,6 +83,7 @@ export { UserStorage, userStorage } from "./user-storage";
 export { AudienceStorage, audienceStorage } from "./audience-storage";
 export { CompetitiveStorage, competitiveStorage, calculateCPIComponents, determineCPIDirection, cpiToRiskLevel } from "./competitive-storage";
 export { messageSaturationStorage, calculateMsiComponents, calculateMsi, msiToRiskLevel, determineMsiDirection } from "./message-saturation-storage";
+export { RegulatoryStorage, regulatoryStorage, type RegulatoryEventFilter } from "./regulatory-storage";
 
 // Re-export the main storage instance from the original file for backward compatibility
 // This will be updated once the full migration is complete

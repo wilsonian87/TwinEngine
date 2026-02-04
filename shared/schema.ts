@@ -6115,3 +6115,597 @@ export const resolvedAlertThresholdsSchema = z.object({
 });
 
 export type ResolvedAlertThresholds = z.infer<typeof resolvedAlertThresholdsSchema>;
+
+// ============================================================================
+// INSIGHTRX INTEGRATION SCHEMA ADDITIONS
+// ============================================================================
+
+// Token types for tiered authentication
+export const tokenTypes = ["user", "service", "api_key"] as const;
+export type TokenType = (typeof tokenTypes)[number];
+
+// Auth scopes for fine-grained access control
+export const authScopes = [
+  "content:read",
+  "content:write",
+  "insightrx:validate",
+  "insightrx:knowledge",
+  "omnivoice:query",
+  "admin:*",
+] as const;
+export type AuthScope = (typeof authScopes)[number];
+
+// ============================================================================
+// API TOKENS (JWT/Service Token/API Key Storage)
+// ============================================================================
+
+export const apiTokens = pgTable("api_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id", { length: 36 }).references(() => users.id),
+  name: varchar("name", { length: 100 }).notNull(),
+
+  // Token hash (SHA-256 of actual token - we never store raw tokens)
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+
+  // Token metadata
+  tokenType: varchar("token_type", { length: 20 }).notNull(), // 'user' | 'service' | 'api_key'
+  scopes: jsonb("scopes").$type<AuthScope[]>().notNull(),
+
+  // Usage tracking
+  lastUsedAt: timestamp("last_used_at"),
+  usageCount: integer("usage_count").default(0),
+
+  // Lifecycle
+  expiresAt: timestamp("expires_at"),
+  revokedAt: timestamp("revoked_at"),
+  revokedReason: varchar("revoked_reason", { length: 200 }),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  tokenHashIdx: index("api_tokens_hash_idx").on(table.tokenHash),
+  userIdIdx: index("api_tokens_user_idx").on(table.userId),
+  tokenTypeIdx: index("api_tokens_type_idx").on(table.tokenType),
+}));
+
+export const insertApiTokenSchema = createInsertSchema(apiTokens).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+  usageCount: true,
+});
+
+export type InsertApiToken = z.infer<typeof insertApiTokenSchema>;
+export type ApiTokenDB = typeof apiTokens.$inferSelect;
+
+// API Token (API response type - excludes sensitive data)
+export const apiTokenSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  tokenType: z.enum(tokenTypes),
+  scopes: z.array(z.enum(authScopes)),
+  lastUsedAt: z.string().nullable(),
+  usageCount: z.number(),
+  expiresAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type ApiToken = z.infer<typeof apiTokenSchema>;
+
+// JWT Payload structure
+export const jwtPayloadSchema = z.object({
+  sub: z.string(), // User ID
+  roles: z.array(z.string()).optional(),
+  scopes: z.array(z.enum(authScopes)),
+  aud: z.array(z.string()), // Audiences: ['twinengine', 'insightrx', 'omnivoice']
+  typ: z.enum(tokenTypes),
+  iat: z.number(),
+  exp: z.number(),
+  jti: z.string().optional(), // Token ID for revocation tracking
+});
+
+export type JWTPayload = z.infer<typeof jwtPayloadSchema>;
+
+// Token creation request
+export const createApiTokenRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+  tokenType: z.enum(tokenTypes),
+  scopes: z.array(z.enum(authScopes)),
+  expiresInDays: z.number().min(1).max(365).optional(),
+});
+
+export type CreateApiTokenRequest = z.infer<typeof createApiTokenRequestSchema>;
+
+// ============================================================================
+// FEATURE FLAGS
+// ============================================================================
+
+export const featureFlags = pgTable("feature_flags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  flagKey: varchar("flag_key", { length: 100 }).notNull().unique(),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+
+  // Status
+  enabled: boolean("enabled").default(false),
+
+  // Rollout configuration
+  rolloutPercentage: integer("rollout_percentage").default(0), // 0-100
+
+  // Targeting
+  targetUsers: jsonb("target_users").$type<string[]>(), // Specific user IDs
+  targetRoles: jsonb("target_roles").$type<string[]>(), // Role-based targeting
+
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  flagKeyIdx: index("feature_flags_key_idx").on(table.flagKey),
+}));
+
+export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFeatureFlag = z.infer<typeof insertFeatureFlagSchema>;
+export type FeatureFlagDB = typeof featureFlags.$inferSelect;
+
+// Feature Flag (API type)
+export const featureFlagSchema = z.object({
+  id: z.string(),
+  flagKey: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  enabled: z.boolean(),
+  rolloutPercentage: z.number().min(0).max(100),
+  targetUsers: z.array(z.string()).nullable(),
+  targetRoles: z.array(z.string()).nullable(),
+  metadata: z.record(z.unknown()).nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type FeatureFlag = z.infer<typeof featureFlagSchema>;
+
+// Feature flag evaluation context
+export const featureFlagContextSchema = z.object({
+  userId: z.string().optional(),
+  roles: z.array(z.string()).optional(),
+  attributes: z.record(z.unknown()).optional(),
+});
+
+export type FeatureFlagContext = z.infer<typeof featureFlagContextSchema>;
+
+// ============================================================================
+// KNOWLEDGE CONTENT (InsightRx Knowledge Base)
+// ============================================================================
+
+// Content types for knowledge base
+export const knowledgeContentTypes = [
+  "research",
+  "guideline",
+  "campaign",
+  "benchmark",
+  "market_research",
+  "field_promotion",
+  "market_access",
+  "digital_media",
+  "advertising",
+  "regulatory",
+] as const;
+
+export type KnowledgeContentType = (typeof knowledgeContentTypes)[number];
+
+export const knowledgeContent = pgTable("knowledge_content", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Content
+  title: varchar("title", { length: 500 }).notNull(),
+  content: text("content").notNull(),
+  contentType: varchar("content_type", { length: 50 }).notNull(),
+
+  // Source attribution
+  source: varchar("source", { length: 200 }),
+  sourceUrl: varchar("source_url", { length: 500 }),
+
+  // Context (from InsightRx domain model)
+  audienceContext: jsonb("audience_context").$type<KnowledgeAudienceContext>(),
+  marketContext: jsonb("market_context").$type<KnowledgeMarketContext>(),
+  channelContext: jsonb("channel_context").$type<KnowledgeChannelContext>(),
+
+  // Metadata
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  tags: jsonb("tags").$type<string[]>(),
+
+  // Vector embedding for semantic search (384 dimensions for all-MiniLM-L6-v2)
+  // Note: Requires pgvector extension. If not available, this column will be null.
+  // Run: CREATE EXTENSION IF NOT EXISTS vector;
+  // The column will store as a string representation until vector type is added
+  embedding: text("embedding"), // Will be cast to vector(384) at query time
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  contentTypeIdx: index("knowledge_content_type_idx").on(table.contentType),
+  createdAtIdx: index("knowledge_created_at_idx").on(table.createdAt),
+}));
+
+// Supporting types for knowledge context
+export const knowledgeAudienceContextSchema = z.object({
+  audience: z.enum(["HCP", "Consumer", "Payer", "Field", "Caregiver"]).optional(),
+  specialty: z.string().optional(),
+  experienceLevel: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+});
+
+export type KnowledgeAudienceContext = z.infer<typeof knowledgeAudienceContextSchema>;
+
+export const knowledgeMarketContextSchema = z.object({
+  therapeuticArea: z.string().optional(),
+  brand: z.string().optional(),
+  competitors: z.array(z.string()).optional(),
+  marketStage: z.enum(["pre-clinical", "clinical", "launch", "post-launch"]).optional(),
+});
+
+export type KnowledgeMarketContext = z.infer<typeof knowledgeMarketContextSchema>;
+
+export const knowledgeChannelContextSchema = z.object({
+  primaryChannel: z.string().optional(),
+  format: z.string().optional(),
+  deliveryMode: z.enum(["push", "pull", "hybrid"]).optional(),
+});
+
+export type KnowledgeChannelContext = z.infer<typeof knowledgeChannelContextSchema>;
+
+export const insertKnowledgeContentSchema = createInsertSchema(knowledgeContent).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertKnowledgeContent = z.infer<typeof insertKnowledgeContentSchema>;
+export type KnowledgeContentDB = typeof knowledgeContent.$inferSelect;
+
+// Knowledge Content (API type)
+export const knowledgeContentSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  content: z.string(),
+  contentType: z.enum(knowledgeContentTypes),
+  source: z.string().nullable(),
+  sourceUrl: z.string().nullable(),
+  audienceContext: knowledgeAudienceContextSchema.nullable(),
+  marketContext: knowledgeMarketContextSchema.nullable(),
+  channelContext: knowledgeChannelContextSchema.nullable(),
+  metadata: z.record(z.unknown()).nullable(),
+  tags: z.array(z.string()).nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type KnowledgeContent = z.infer<typeof knowledgeContentSchema>;
+
+// Knowledge search request
+export const knowledgeSearchRequestSchema = z.object({
+  query: z.string().min(1).max(500),
+  filters: z.object({
+    contentType: z.enum(knowledgeContentTypes).optional(),
+    therapeuticArea: z.string().optional(),
+    audience: z.string().optional(),
+    specialty: z.string().optional(),
+  }).optional(),
+  limit: z.number().min(1).max(50).default(10),
+});
+
+export type KnowledgeSearchRequest = z.infer<typeof knowledgeSearchRequestSchema>;
+
+// Knowledge search result
+export const knowledgeSearchResultSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  content: z.string(),
+  contentType: z.string(),
+  source: z.string().nullable(),
+  similarity: z.number().min(0).max(1),
+});
+
+export type KnowledgeSearchResult = z.infer<typeof knowledgeSearchResultSchema>;
+
+// ============================================================================
+// CONTENT VALIDATION (InsightRx Validation Results)
+// ============================================================================
+
+// Validation statuses
+export const validationStatuses = ["approved", "needs_review", "rejected", "pending"] as const;
+export type ValidationStatus = (typeof validationStatuses)[number];
+
+// Rule categories
+export const ruleCategories = ["compliance", "completeness", "consistency", "quality"] as const;
+export type RuleCategory = (typeof ruleCategories)[number];
+
+// Rule severities
+export const ruleSeverities = ["error", "warning", "info"] as const;
+export type RuleSeverity = (typeof ruleSeverities)[number];
+
+export const contentValidation = pgTable("content_validation", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Reference to the content being validated
+  contentId: varchar("content_id", { length: 36 }).notNull(),
+  contentType: varchar("content_type", { length: 50 }).notNull(), // 'campaign', 'messaging_theme', etc.
+
+  // Cache key for invalidation
+  contentHash: varchar("content_hash", { length: 64 }).notNull(), // SHA-256 of content
+
+  // Validation result
+  validationStatus: varchar("validation_status", { length: 20 }).notNull(),
+  complianceScore: integer("compliance_score"), // 0-100
+
+  // Detailed results
+  validationResults: jsonb("validation_results").$type<ValidationResult>(),
+
+  // Version tracking for cache invalidation
+  rulesVersion: varchar("rules_version", { length: 20 }),
+
+  // Review workflow
+  reviewedBy: varchar("reviewed_by", { length: 36 }),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  contentIdx: index("content_validation_content_idx").on(table.contentId, table.contentType),
+  statusIdx: index("content_validation_status_idx").on(table.validationStatus),
+  hashIdx: index("content_validation_hash_idx").on(table.contentHash),
+}));
+
+// Validation result structure
+export const ruleResultSchema = z.object({
+  ruleId: z.string(),
+  ruleName: z.string(),
+  category: z.enum(ruleCategories),
+  passed: z.boolean(),
+  severity: z.enum(ruleSeverities),
+  message: z.string(),
+  location: z.object({
+    start: z.number(),
+    end: z.number(),
+  }).optional(),
+});
+
+export type RuleResult = z.infer<typeof ruleResultSchema>;
+
+export const validationResultSchema = z.object({
+  status: z.enum(validationStatuses),
+  score: z.number().min(0).max(100),
+  ruleResults: z.array(ruleResultSchema),
+  summary: z.string(),
+  suggestedFixes: z.array(z.string()).optional(),
+});
+
+export type ValidationResult = z.infer<typeof validationResultSchema>;
+
+export const insertContentValidationSchema = createInsertSchema(contentValidation).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertContentValidation = z.infer<typeof insertContentValidationSchema>;
+export type ContentValidationDB = typeof contentValidation.$inferSelect;
+
+// Content Validation (API type)
+export const contentValidationSchema = z.object({
+  id: z.string(),
+  contentId: z.string(),
+  contentType: z.string(),
+  validationStatus: z.enum(validationStatuses),
+  complianceScore: z.number().nullable(),
+  validationResults: validationResultSchema.nullable(),
+  rulesVersion: z.string().nullable(),
+  reviewedBy: z.string().nullable(),
+  reviewedAt: z.string().nullable(),
+  reviewNotes: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type ContentValidation = z.infer<typeof contentValidationSchema>;
+
+// Validation request
+export const validateContentRequestSchema = z.object({
+  content: z.string().min(1),
+  contentType: z.enum(["campaign", "messaging_theme", "email", "landing_page"]),
+  audienceContext: knowledgeAudienceContextSchema.optional(),
+  channelContext: knowledgeChannelContextSchema.optional(),
+  marketContext: knowledgeMarketContextSchema.optional(),
+});
+
+export type ValidateContentRequest = z.infer<typeof validateContentRequestSchema>;
+
+// ============================================================================
+// PHASE 0: REGULATORY CALENDAR DATA FOUNDATION
+// ============================================================================
+
+// Regulatory event types
+export const regulatoryEventTypes = [
+  "approval",
+  "label_update",
+  "patent_expiry",
+  "exclusivity_expiry",
+  "adcom_meeting",
+  "phase3_readout",
+  "crl",
+  "pdufa_date",
+  "citizen_petition",
+  "rems_update",
+] as const;
+
+export type RegulatoryEventType = (typeof regulatoryEventTypes)[number];
+
+// Regulatory event statuses
+export const regulatoryEventStatuses = [
+  "upcoming",
+  "active",
+  "completed",
+  "cancelled",
+  "delayed",
+] as const;
+
+export type RegulatoryEventStatus = (typeof regulatoryEventStatuses)[number];
+
+// Regulatory data sources
+export const regulatoryDataSources = [
+  "openfda",
+  "clinicaltrials",
+  "federal_register",
+  "orange_book",
+  "manual",
+] as const;
+
+export type RegulatoryDataSource = (typeof regulatoryDataSources)[number];
+
+// Annotation types
+export const regulatoryAnnotationTypes = [
+  "note",
+  "flag",
+  "action_item",
+  "risk_assessment",
+] as const;
+
+export type RegulatoryAnnotationType = (typeof regulatoryAnnotationTypes)[number];
+
+// Impact types
+export const regulatoryImpactTypes = [
+  "market_access",
+  "competitive",
+  "formulary",
+  "prescribing_behavior",
+  "patient_access",
+] as const;
+
+export type RegulatoryImpactType = (typeof regulatoryImpactTypes)[number];
+
+// Impact severity
+export const regulatoryImpactSeverities = [
+  "low",
+  "medium",
+  "high",
+  "critical",
+] as const;
+
+export type RegulatoryImpactSeverity = (typeof regulatoryImpactSeverities)[number];
+
+// Sync statuses
+export const regulatorySyncStatuses = [
+  "running",
+  "completed",
+  "failed",
+  "partial",
+] as const;
+
+export type RegulatorySyncStatus = (typeof regulatorySyncStatuses)[number];
+
+// --- Regulatory Events Table ---
+export const regulatoryEvents = pgTable("regulatory_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventType: varchar("event_type", { length: 50 }).notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description"),
+  drugName: varchar("drug_name", { length: 200 }).notNull(),
+  brandName: varchar("brand_name", { length: 200 }),
+  companyName: varchar("company_name", { length: 200 }),
+  therapeuticArea: varchar("therapeutic_area", { length: 100 }),
+  eventDate: timestamp("event_date").notNull(),
+  eventEndDate: timestamp("event_end_date"),
+  status: varchar("status", { length: 30 }).notNull().default("upcoming"),
+  source: varchar("source", { length: 50 }).notNull(),
+  sourceId: varchar("source_id", { length: 200 }),
+  sourceUrl: varchar("source_url", { length: 1000 }),
+  applicationNumber: varchar("application_number", { length: 50 }),
+  nctId: varchar("nct_id", { length: 50 }),
+  patentNumber: varchar("patent_number", { length: 50 }),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  drugNameIdx: index("reg_events_drug_name_idx").on(table.drugName),
+  eventDateIdx: index("reg_events_event_date_idx").on(table.eventDate),
+  eventTypeIdx: index("reg_events_event_type_idx").on(table.eventType),
+  therapeuticAreaIdx: index("reg_events_therapeutic_area_idx").on(table.therapeuticArea),
+}));
+
+export const insertRegulatoryEventSchema = createInsertSchema(regulatoryEvents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertRegulatoryEvent = z.infer<typeof insertRegulatoryEventSchema>;
+export type RegulatoryEvent = typeof regulatoryEvents.$inferSelect;
+
+// --- Regulatory Event Annotations Table ---
+export const regulatoryEventAnnotations = pgTable("regulatory_event_annotations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").references(() => regulatoryEvents.id),
+  userId: varchar("user_id", { length: 200 }),
+  annotationType: varchar("annotation_type", { length: 50 }).notNull(),
+  title: varchar("title", { length: 300 }).notNull(),
+  content: text("content"),
+  priority: varchar("priority", { length: 20 }).default("medium"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertRegulatoryEventAnnotationSchema = createInsertSchema(regulatoryEventAnnotations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertRegulatoryEventAnnotation = z.infer<typeof insertRegulatoryEventAnnotationSchema>;
+export type RegulatoryEventAnnotation = typeof regulatoryEventAnnotations.$inferSelect;
+
+// --- Regulatory Event Impacts Table ---
+export const regulatoryEventImpacts = pgTable("regulatory_event_impacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => regulatoryEvents.id),
+  affectedSpecialty: varchar("affected_specialty", { length: 100 }),
+  impactType: varchar("impact_type", { length: 50 }).notNull(),
+  severity: varchar("severity", { length: 20 }).notNull(),
+  description: text("description"),
+  recommendedAction: text("recommended_action"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertRegulatoryEventImpactSchema = createInsertSchema(regulatoryEventImpacts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertRegulatoryEventImpact = z.infer<typeof insertRegulatoryEventImpactSchema>;
+export type RegulatoryEventImpact = typeof regulatoryEventImpacts.$inferSelect;
+
+// --- Regulatory Sync Log Table ---
+export const regulatorySyncLog = pgTable("regulatory_sync_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  source: varchar("source", { length: 50 }).notNull(),
+  status: varchar("status", { length: 30 }).notNull(),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+  eventsFound: integer("events_found").default(0),
+  eventsCreated: integer("events_created").default(0),
+  eventsUpdated: integer("events_updated").default(0),
+  eventsSkipped: integer("events_skipped").default(0),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+});
+
+export const insertRegulatorySyncLogSchema = createInsertSchema(regulatorySyncLog).omit({
+  id: true,
+});
+
+export type InsertRegulatorySyncLog = z.infer<typeof insertRegulatorySyncLogSchema>;
+export type RegulatorySyncLog = typeof regulatorySyncLog.$inferSelect;
