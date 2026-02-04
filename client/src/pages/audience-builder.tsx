@@ -134,16 +134,18 @@ export default function AudienceBuilder() {
                         {audiences.map((audience) => (
                           <div
                             key={audience.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                            className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
                               selectedForCompare.has(audience.id)
                                 ? "border-primary bg-primary/5"
                                 : "hover:bg-muted/50"
                             }`}
+                            onClick={() => navigate(`/action-queue?audience=${audience.id}`)}
                             data-testid={`audience-item-${audience.id}`}
                           >
                             <Checkbox
                               checked={selectedForCompare.has(audience.id)}
                               onCheckedChange={() => toggleCompareSelection(audience.id)}
+                              onClick={(e) => e.stopPropagation()}
                               className="h-4 w-4"
                               data-testid={`checkbox-audience-${audience.id}`}
                             />

@@ -155,7 +155,11 @@ function AuditLogViewer() {
                 const colorClass = actionColors[log.action] || actionColors.view;
                 
                 return (
-                  <TableRow key={log.id} data-testid={`row-audit-log-${log.id}`}>
+                  <TableRow
+                    key={log.id}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    data-testid={`row-audit-log-${log.id}`}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className={`p-1.5 rounded ${colorClass}`}>

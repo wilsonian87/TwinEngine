@@ -502,7 +502,10 @@ export default function AgentsPage() {
                     </TableHeader>
                     <TableBody>
                       {alerts.map((alert) => (
-                        <TableRow key={alert.id}>
+                        <TableRow
+                          key={alert.id}
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        >
                           <TableCell>{getSeverityBadge(alert.severity)}</TableCell>
                           <TableCell>
                             <div>
@@ -691,7 +694,10 @@ function AgentRunHistory() {
             </TableHeader>
             <TableBody>
               {runs.map((run) => (
-                <TableRow key={run.id}>
+                <TableRow
+                  key={run.id}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                >
                   <TableCell>
                     <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
                       {run.agentType}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,7 @@ const actionColors: Record<string, string> = {
 };
 
 export default function NBODashboard() {
+  const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("priority");
   const [limit, setLimit] = useState(20);
@@ -286,6 +288,7 @@ export default function NBODashboard() {
                   recommendation={rec}
                   onAccept={handleAccept}
                   onDismiss={handleDismiss}
+                  onHcpClick={(hcpId) => navigate(`/?hcp=${hcpId}`)}
                 />
               ))}
             </div>

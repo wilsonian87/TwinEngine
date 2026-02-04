@@ -30,6 +30,7 @@ interface NBORecommendationCardProps {
   recommendation: NBORecommendation;
   onAccept?: (recommendation: NBORecommendation) => void;
   onDismiss?: (recommendation: NBORecommendation) => void;
+  onHcpClick?: (hcpId: string) => void;
   showDetails?: boolean;
 }
 
@@ -104,6 +105,7 @@ export function NBORecommendationCard({
   recommendation,
   onAccept,
   onDismiss,
+  onHcpClick,
   showDetails = false,
 }: NBORecommendationCardProps) {
   const [expanded, setExpanded] = useState(showDetails);
@@ -121,7 +123,12 @@ export function NBORecommendationCard({
               <ActionIcon className="h-5 w-5" />
             </div>
             <div>
-              <CardTitle className="text-lg">{recommendation.hcpName}</CardTitle>
+              <CardTitle
+                className={`text-lg ${onHcpClick ? 'cursor-pointer hover:text-primary transition-colors' : ''}`}
+                onClick={() => onHcpClick?.(recommendation.hcpId)}
+              >
+                {recommendation.hcpName}
+              </CardTitle>
               <CardDescription className="flex items-center gap-2 mt-1">
                 <span className="font-medium">{actionConfig.label}</span>
                 <span className="text-gray-400">via</span>

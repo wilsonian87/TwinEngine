@@ -752,8 +752,13 @@ export function ActionQueue({ hcpIds, audienceName, onHcpClick }: ActionQueuePro
               filteredNbas.map((nba) => {
                 const ChannelIcon = channelIcons[nba.recommendedChannel] || Mail;
                 return (
-                  <TableRow key={nba.hcpId} data-state={selectedIds.has(nba.hcpId) ? "selected" : undefined}>
-                    <TableCell>
+                  <TableRow
+                    key={nba.hcpId}
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    data-state={selectedIds.has(nba.hcpId) ? "selected" : undefined}
+                    onClick={() => onHcpClick?.(nba.hcpId)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <Checkbox
                         checked={selectedIds.has(nba.hcpId)}
                         onCheckedChange={() => toggleSelection(nba.hcpId)}

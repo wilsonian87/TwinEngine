@@ -462,7 +462,11 @@ export default function AllocationLabPage() {
                     </TableHeader>
                     <TableBody>
                       {problems.map((problem) => (
-                        <TableRow key={problem.id}>
+                        <TableRow
+                          key={problem.id}
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => setSelectedProblem(problem)}
+                        >
                           <TableCell className="font-medium">{problem.name}</TableCell>
                           <TableCell>{problem.objectiveMetric.replace(/_/g, " ")}</TableCell>
                           <TableCell>{formatCurrency(problem.budgetLimit)}</TableCell>
@@ -712,7 +716,10 @@ export default function AllocationLabPage() {
                     </TableHeader>
                     <TableBody>
                       {plans.map((plan) => (
-                        <TableRow key={plan.id}>
+                        <TableRow
+                          key={plan.id}
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        >
                           <TableCell className="font-medium">{plan.name}</TableCell>
                           <TableCell>{getStatusBadge(plan.status)}</TableCell>
                           <TableCell>

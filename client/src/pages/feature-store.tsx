@@ -99,7 +99,11 @@ export default function FeatureStore() {
             {dataSources.map((source) => {
               const StatusIcon = statusIcons[source.status];
               return (
-                <Card key={source.name} data-testid={`card-source-${source.name.toLowerCase().replace(/[/\s]+/g, "-")}`}>
+                <Card
+                  key={source.name}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  data-testid={`card-source-${source.name.toLowerCase().replace(/[/\s]+/g, "-")}`}
+                >
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -147,7 +151,7 @@ export default function FeatureStore() {
                 {featureGroups.map((group, index) => (
                   <div
                     key={group.name}
-                    className="flex items-center justify-between p-4 hover-elevate"
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors"
                     data-testid={`row-feature-${group.name.toLowerCase().replace(/\s+/g, "-")}`}
                   >
                     <div>
