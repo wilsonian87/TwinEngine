@@ -22,6 +22,8 @@ import { analyticsRouter } from "./routes/analytics-routes";
 import { exportHubRouter } from "./routes/export-hub-routes";
 import { veevaRouter } from "./routes/veeva-routes";
 import { webhookRouter } from "./routes/webhook-routes";
+import { approvalRouter } from "./routes/approval-routes";
+import { seedApprovalPolicies } from "./services/approval-service";
 import { evaluateAlerts, evaluateRuleById, startAlertEvaluator } from "./jobs/alert-evaluator";
 import { seedKnowledgeContent } from "./storage/knowledge-storage";
 import { requestMetrics, requestId } from "./middleware/observability";
@@ -285,6 +287,14 @@ export async function registerRoutes(
     }
   }
 
+  // Seed approval policies
+  try {
+    await seedApprovalPolicies();
+    debugLog("STARTUP", "Approval policies seeded");
+  } catch (error) {
+    console.error("[STARTUP] Error seeding approval policies:", error);
+  }
+
   // ============ Validation Endpoints ============
   // Content validation with @twinengine/insightrx
   app.use("/api/validation", validationRouter);
@@ -320,6 +330,10 @@ export async function registerRoutes(
   // ============ Webhook Destinations ============
   // Custom webhook endpoints for export
   app.use("/api/webhooks", webhookRouter);
+
+  // ============ Approval Workflow ============
+  // Approval requests and policies
+  app.use("/api/approvals", approvalRouter);
 
   // Manual alert evaluation (for testing/admin)
   app.post("/api/alerts/evaluate", async (req, res) => {

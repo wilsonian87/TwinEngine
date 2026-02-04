@@ -184,10 +184,21 @@ export function ExportModal({
         payload,
         ...(Object.keys(destinationConfig).length > 0 && { destinationConfig }),
       });
-      return res.json() as Promise<ExportJob>;
+      return res.json();
     },
-    onSuccess: (job) => {
-      setPendingJobId(job.id);
+    onSuccess: (response: any) => {
+      // Check if approval is required
+      if (response.status === "pending_approval") {
+        toast({
+          title: "Approval Required",
+          description: response.message || "Your export request has been submitted for approval.",
+        });
+        onClose();
+        return;
+      }
+
+      // Normal export job created
+      setPendingJobId(response.id);
       toast({
         title: "Export started",
         description: "Your export is being processed. It will download automatically when ready.",

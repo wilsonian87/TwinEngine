@@ -16,6 +16,10 @@ import {
 } from "@shared/schema";
 import { pushToVeeva, getVeevaCredentials } from "./veeva-integration";
 import { renderPayloadTemplate } from "../routes/webhook-routes";
+import {
+  checkApprovalRequired,
+  createApprovalRequest,
+} from "./approval-service";
 
 // ============================================================================
 // TYPES
@@ -39,6 +43,17 @@ export interface ExportResult {
   filename: string;
   size: number;
   recordCount: number;
+}
+
+export interface ExportJobCreationResult {
+  status: "created" | "pending_approval";
+  job?: ExportJob;
+  approvalRequest?: {
+    id: string;
+    policyId: string;
+    policyName: string;
+    expiresAt: Date;
+  };
 }
 
 // Simple in-memory job queue (in production, use Redis/BullMQ)
@@ -112,6 +127,69 @@ export async function createExportJob(
   jobQueue.set(job.id, timeoutId);
 
   return job;
+}
+
+/**
+ * Create export job with approval checking
+ * Returns approval request if approval is required
+ */
+export async function createExportJobWithApproval(
+  userId: string,
+  input: ExportJobInput,
+  justification?: string
+): Promise<ExportJobCreationResult> {
+  // Calculate HCP count for approval check
+  let hcpCount = 0;
+  if (input.payload.hcpIds) {
+    hcpCount = input.payload.hcpIds.length;
+  } else if (input.payload.entityId) {
+    // Count from audience
+    const [audience] = await db
+      .select()
+      .from(savedAudiences)
+      .where(eq(savedAudiences.id, input.payload.entityId));
+    hcpCount = audience?.hcpIds?.length || 0;
+  }
+
+  // Check if approval is required
+  const approvalCheck = await checkApprovalRequired(userId, "export", {
+    contains_npi: input.payload.fields.includes("npi"),
+    hcp_count: hcpCount,
+    destination: input.destination,
+  });
+
+  if (approvalCheck.required && approvalCheck.policyId) {
+    // Create approval request instead of export job
+    const approvalRequest = await createApprovalRequest(
+      userId,
+      approvalCheck.policyId,
+      "export",
+      {
+        type: input.type,
+        destination: input.destination,
+        payload: input.payload,
+        destinationConfig: input.destinationConfig,
+      },
+      justification || "Export requested"
+    );
+
+    return {
+      status: "pending_approval",
+      approvalRequest: {
+        id: approvalRequest.id,
+        policyId: approvalRequest.policyId!,
+        policyName: approvalCheck.policyName || "Approval Required",
+        expiresAt: approvalRequest.expiresAt!,
+      },
+    };
+  }
+
+  // No approval required, create export job directly
+  const job = await createExportJob(userId, input);
+  return {
+    status: "created",
+    job,
+  };
 }
 
 /**

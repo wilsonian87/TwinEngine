@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createExportJob,
+  createExportJobWithApproval,
   getExportJob,
   listExportJobs,
   cancelExportJob,
@@ -19,8 +20,14 @@ export const exportHubRouter = Router();
 // ============================================================================
 
 /**
- * Create a new export job
+ * Create a new export job (with approval checking)
  * POST /api/exports
+ *
+ * Query params:
+ * - skipApproval=true: Skip approval check (uses direct createExportJob)
+ *
+ * Body:
+ * - justification: Optional reason for the export (used in approval request)
  */
 exportHubRouter.post("/", async (req, res) => {
   try {
@@ -34,14 +41,53 @@ exportHubRouter.post("/", async (req, res) => {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
-    const job = await createExportJob(userId, parsed.data);
+    const { justification, skipApproval } = req.body;
 
+    // Check if we should skip approval (e.g., for approved requests being executed)
+    if (skipApproval === true) {
+      const job = await createExportJob(userId, parsed.data);
+      return res.status(201).json({
+        status: "created",
+        id: job.id,
+        userId: job.userId,
+        type: job.type,
+        destination: job.destination,
+        jobStatus: job.status,
+        payload: job.payload,
+        destinationConfig: job.destinationConfig,
+        resultUrl: job.resultUrl,
+        errorMessage: job.errorMessage,
+        createdAt: job.createdAt.toISOString(),
+        startedAt: job.startedAt?.toISOString() || null,
+        completedAt: job.completedAt?.toISOString() || null,
+      });
+    }
+
+    // Use approval-aware export creation
+    const result = await createExportJobWithApproval(userId, parsed.data, justification);
+
+    if (result.status === "pending_approval" && result.approvalRequest) {
+      return res.status(202).json({
+        status: "pending_approval",
+        message: `Export requires approval: ${result.approvalRequest.policyName}`,
+        approvalRequest: {
+          id: result.approvalRequest.id,
+          policyId: result.approvalRequest.policyId,
+          policyName: result.approvalRequest.policyName,
+          expiresAt: result.approvalRequest.expiresAt.toISOString(),
+        },
+      });
+    }
+
+    // Export job created directly
+    const job = result.job!;
     res.status(201).json({
+      status: "created",
       id: job.id,
       userId: job.userId,
       type: job.type,
       destination: job.destination,
-      status: job.status,
+      jobStatus: job.status,
       payload: job.payload,
       destinationConfig: job.destinationConfig,
       resultUrl: job.resultUrl,

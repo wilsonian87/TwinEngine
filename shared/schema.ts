@@ -369,10 +369,14 @@ export const auditLogSchema = z.object({
 export type AuditLog = z.infer<typeof auditLogSchema>;
 
 // Keep existing user schema for compatibility
+export const userRoles = ["user", "admin", "manager", "compliance"] as const;
+export type UserRole = (typeof userRoles)[number];
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  role: varchar("role", { length: 20 }).notNull().default("user"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -7066,6 +7070,61 @@ export const webhookLogs = pgTable("webhook_logs", {
 }));
 
 export type WebhookLog = typeof webhookLogs.$inferSelect;
+
+// ============================================================================
+// APPROVAL WORKFLOW
+// ============================================================================
+
+export const approvalStatuses = ["pending", "approved", "rejected", "expired", "cancelled"] as const;
+export type ApprovalStatus = (typeof approvalStatuses)[number];
+
+export const approvalPolicies = pgTable("approval_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  triggerConditions: jsonb("trigger_conditions").notNull().$type<Record<string, unknown>>(),
+  approverRoles: text("approver_roles").array().notNull(),
+  autoExpireHours: integer("auto_expire_hours").notNull().default(72),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertApprovalPolicySchema = createInsertSchema(approvalPolicies).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertApprovalPolicy = z.infer<typeof insertApprovalPolicySchema>;
+export type ApprovalPolicy = typeof approvalPolicies.$inferSelect;
+
+export const approvalRequests = pgTable("approval_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyId: varchar("policy_id").references(() => approvalPolicies.id),
+  requesterId: varchar("requester_id").notNull().references(() => users.id),
+  approverId: varchar("approver_id").references(() => users.id),
+  type: varchar("type", { length: 50 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
+  justification: text("justification"),
+  decisionNotes: text("decision_notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  decidedAt: timestamp("decided_at"),
+  expiresAt: timestamp("expires_at"),
+}, (table) => ({
+  requesterIdIdx: index("approval_requests_requester_id_idx").on(table.requesterId),
+  approverIdIdx: index("approval_requests_approver_id_idx").on(table.approverId),
+  statusIdx: index("approval_requests_status_idx").on(table.status),
+  policyIdIdx: index("approval_requests_policy_id_idx").on(table.policyId),
+}));
+
+export const insertApprovalRequestSchema = createInsertSchema(approvalRequests).omit({
+  id: true,
+  createdAt: true,
+  decidedAt: true,
+});
+
+export type InsertApprovalRequest = z.infer<typeof insertApprovalRequestSchema>;
+export type ApprovalRequest = typeof approvalRequests.$inferSelect;
 
 // API Schemas for Export Hub
 export const createExportJobRequestSchema = z.object({
