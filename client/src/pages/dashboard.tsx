@@ -31,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GettingStartedCard } from "@/components/onboarding";
 
 // ============================================================================
 // TYPES
@@ -345,6 +346,9 @@ export default function Dashboard() {
           <>
             {/* System Health Bar */}
             <SystemHealthBar health={data?.health} isLoading={isLoading} />
+
+            {/* Getting Started Card (for new users) */}
+            <GettingStartedCard />
 
             {/* Key Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

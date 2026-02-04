@@ -21,3 +21,8 @@ export {
   resetFirstRun,
   GUIDE_STEPS,
 } from './first-run-guide';
+
+export {
+  GettingStartedCard,
+  GettingStartedCompact,
+} from './GettingStartedCard';
