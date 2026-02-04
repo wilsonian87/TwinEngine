@@ -15,6 +15,7 @@ import { seedInsightRxFlags } from "./services/feature-flags";
 import { knowledgeRouter } from "./routes/knowledge-routes";
 import { validationRouter } from "./routes/validation-routes";
 import { observabilityRouter } from "./routes/observability-routes";
+import { exportRouter } from "./routes/export-routes";
 import { seedKnowledgeContent } from "./storage/knowledge-storage";
 import { requestMetrics, requestId } from "./middleware/observability";
 import { logAudit } from "./services/audit-service";
@@ -284,6 +285,10 @@ export async function registerRoutes(
   // ============ Observability Endpoints ============
   // Audit logs, metrics, and health checks
   app.use("/api/observability", observabilityRouter);
+
+  // ============ PDF Export Endpoints ============
+  // PDF generation for simulations, audiences, HCPs, and comparisons
+  app.use("/api/exports", exportRouter);
 
   // ============ Authentication Endpoints ============
 
