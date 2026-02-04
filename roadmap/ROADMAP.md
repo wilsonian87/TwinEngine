@@ -18,6 +18,9 @@
 | 9A-H | Interaction & Experience Design | Complete | `roadmap/archives/ROADMAP-PHASE9-INTERACTION-EXPERIENCE.md` |
 | 10A-H | Constellation Visualization | Complete | `roadmap/archives/ROADMAP-PHASE10-CONSTELLATION.md` |
 | **11A-F** | **HCP-Centric Visualization Hierarchy** | **Complete** | `roadmap/phase-11/ROADMAP-PHASE11-HCP-CENTRIC-HIERARCHY.md` |
+| 12 | Multi-Roadmap Consolidation | Complete | `roadmap/archives/ROADMAP-PHASE12-MULTI-ROADMAP-CONSOLIDATION.md` |
+| 13 | Integration & Design System Overhaul | Complete | `CHANGELOG.md` (v1.13.0) |
+| **Phase 0** | **Regulatory Calendar Data Foundation** | **Complete** | `CHANGELOG.md` (v1.14.0) |
 
 ### Phase 11 Summary (2026-01-18)
 
