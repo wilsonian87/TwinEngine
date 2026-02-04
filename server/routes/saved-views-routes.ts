@@ -16,7 +16,7 @@ export const savedViewsRouter = Router();
 
 savedViewsRouter.get("/", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -65,7 +65,7 @@ savedViewsRouter.get("/", async (req, res) => {
 
 savedViewsRouter.post("/", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -131,7 +131,7 @@ savedViewsRouter.post("/", async (req, res) => {
 
 savedViewsRouter.put("/:id", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -209,7 +209,7 @@ savedViewsRouter.put("/:id", async (req, res) => {
 
 savedViewsRouter.delete("/:id", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -242,7 +242,7 @@ savedViewsRouter.delete("/:id", async (req, res) => {
 
 savedViewsRouter.post("/:id/default", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = req.user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
