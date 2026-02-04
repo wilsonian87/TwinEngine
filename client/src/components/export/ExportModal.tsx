@@ -2,10 +2,13 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Check,
   Download,
+  ExternalLink,
   FileSpreadsheet,
   FileText,
   Loader2,
+  Upload,
 } from "lucide-react";
 import {
   Dialog,
@@ -47,6 +50,12 @@ interface ExportJob {
   status: string;
   resultUrl: string | null;
   errorMessage: string | null;
+}
+
+interface VeevaStatus {
+  connected: boolean;
+  instanceUrl?: string;
+  isValid?: boolean;
 }
 
 // ============================================================================
@@ -96,10 +105,21 @@ export function ExportModal({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [format, setFormat] = useState<"csv" | "xlsx">("csv");
+  const [format, setFormat] = useState<"csv" | "xlsx" | "veeva">("csv");
   const [fields, setFields] = useState<string[]>(DEFAULT_FIELDS);
   const [includeNBA, setIncludeNBA] = useState(false);
   const [pendingJobId, setPendingJobId] = useState<string | null>(null);
+
+  // Query Veeva connection status
+  const { data: veevaStatus } = useQuery<VeevaStatus>({
+    queryKey: ["/api/integrations/veeva/status"],
+    queryFn: async () => {
+      const res = await fetch("/api/integrations/veeva/status");
+      if (!res.ok) return { connected: false };
+      return res.json();
+    },
+    enabled: open,
+  });
 
   // Reset state when modal opens
   useEffect(() => {
@@ -161,15 +181,23 @@ export function ExportModal({
     },
   });
 
-  // Auto-download when complete
+  // Auto-download when complete (or show success for Veeva)
   useEffect(() => {
     if (jobStatus?.status === "complete" && pendingJobId) {
-      // Trigger download
-      window.location.href = `/api/exports/${pendingJobId}/download`;
-      toast({
-        title: "Export complete",
-        description: "Your file is downloading.",
-      });
+      if (format === "veeva") {
+        // Veeva push complete
+        toast({
+          title: "Pushed to Veeva",
+          description: "NBA recommendations have been sent to Veeva CRM.",
+        });
+      } else {
+        // Trigger file download
+        window.location.href = `/api/exports/${pendingJobId}/download`;
+        toast({
+          title: "Export complete",
+          description: "Your file is downloading.",
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/exports"] });
       onClose();
     } else if (jobStatus?.status === "failed") {
@@ -180,7 +208,7 @@ export function ExportModal({
       });
       setPendingJobId(null);
     }
-  }, [jobStatus, pendingJobId, toast, onClose, queryClient]);
+  }, [jobStatus, pendingJobId, format, toast, onClose, queryClient]);
 
   const toggleField = (fieldKey: string) => {
     setFields((prev) =>
@@ -197,7 +225,7 @@ export function ExportModal({
     FIELD_DEFINITIONS.find((def) => def.key === f)?.sensitive
   );
 
-  const isProcessing = createExport.isPending || (pendingJobId && jobStatus?.status === "processing");
+  const isProcessing = createExport.isPending || !!(pendingJobId && jobStatus?.status === "processing");
 
   const handleExport = () => {
     if (fields.length === 0) {
@@ -242,11 +270,11 @@ export function ExportModal({
         <div className="space-y-6 py-4">
           {/* Format Selection */}
           <div className="space-y-3">
-            <Label>Export Format</Label>
+            <Label>Export Destination</Label>
             <RadioGroup
               value={format}
-              onValueChange={(v) => setFormat(v as "csv" | "xlsx")}
-              className="flex gap-4"
+              onValueChange={(v) => setFormat(v as "csv" | "xlsx" | "veeva")}
+              className="grid gap-2"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="csv" id="csv" />
@@ -260,6 +288,33 @@ export function ExportModal({
                 <Label htmlFor="xlsx" className="flex items-center gap-2 cursor-pointer">
                   <FileSpreadsheet className="h-4 w-4" />
                   Excel (.xlsx)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem
+                  value="veeva"
+                  id="veeva"
+                  disabled={!veevaStatus?.connected}
+                />
+                <Label
+                  htmlFor="veeva"
+                  className={`flex items-center gap-2 cursor-pointer ${
+                    !veevaStatus?.connected ? "opacity-50" : ""
+                  }`}
+                >
+                  <Upload className="h-4 w-4" />
+                  Veeva CRM
+                  {veevaStatus?.connected ? (
+                    <Check className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <a
+                      href="/settings/integrations"
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Connect <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
                 </Label>
               </div>
             </RadioGroup>
@@ -365,7 +420,12 @@ export function ExportModal({
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Exporting...
+                {format === "veeva" ? "Pushing..." : "Exporting..."}
+              </>
+            ) : format === "veeva" ? (
+              <>
+                <Upload className="h-4 w-4 mr-2" />
+                Push to Veeva
               </>
             ) : (
               <>

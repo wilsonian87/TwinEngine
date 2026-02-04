@@ -38,6 +38,7 @@ import MessageSaturationPage from "@/pages/message-saturation";
 import NBODashboard from "@/pages/NBODashboard";
 import SimulationComparePage from "@/pages/SimulationComparePage";
 import AlertsPage from "@/pages/alerts";
+import IntegrationsPage from "@/pages/settings/IntegrationsPage";
 
 function Router() {
   const [location] = useLocation();
@@ -57,6 +58,7 @@ function Router() {
           <Route path="/feature-store" component={FeatureStore} />
           <Route path="/model-evaluation" component={ModelEvaluationPage} />
           <Route path="/settings" component={Settings} />
+          <Route path="/settings/integrations" component={IntegrationsPage} />
           <Route path="/agents" component={AgentsPage} />
           <Route path="/constraints" component={ConstraintsPage} />
           <Route path="/allocation-lab" component={AllocationLabPage} />

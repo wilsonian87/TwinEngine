@@ -20,6 +20,7 @@ import { alertRouter } from "./routes/alert-routes";
 import { savedViewsRouter } from "./routes/saved-views-routes";
 import { analyticsRouter } from "./routes/analytics-routes";
 import { exportHubRouter } from "./routes/export-hub-routes";
+import { veevaRouter } from "./routes/veeva-routes";
 import { evaluateAlerts, evaluateRuleById, startAlertEvaluator } from "./jobs/alert-evaluator";
 import { seedKnowledgeContent } from "./storage/knowledge-storage";
 import { requestMetrics, requestId } from "./middleware/observability";
@@ -310,6 +311,10 @@ export async function registerRoutes(
   // ============ Export Hub Endpoints ============
   // Unified export jobs and integrations
   app.use("/api/exports", exportHubRouter);
+
+  // ============ Veeva CRM Integration ============
+  // OAuth flow and recommendation push
+  app.use("/api/integrations/veeva", veevaRouter);
 
   // Manual alert evaluation (for testing/admin)
   app.post("/api/alerts/evaluate", async (req, res) => {
