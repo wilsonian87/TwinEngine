@@ -35,6 +35,7 @@ import ConstraintsPage from "@/pages/constraints";
 import AllocationLabPage from "@/pages/allocation-lab";
 import MessageSaturationPage from "@/pages/message-saturation";
 import NBODashboard from "@/pages/NBODashboard";
+import SimulationComparePage from "@/pages/SimulationComparePage";
 
 function Router() {
   const [location] = useLocation();
@@ -46,6 +47,7 @@ function Router() {
           <Route path="/" component={HCPExplorer} />
           <Route path="/hcp-explorer" component={HCPExplorer} />
           <Route path="/simulations" component={Simulations} />
+          <Route path="/simulations/compare" component={SimulationComparePage} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/audience-builder" component={AudienceBuilder} />
           <Route path="/action-queue" component={ActionQueuePage} />

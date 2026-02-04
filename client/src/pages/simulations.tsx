@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch, useLocation } from "wouter";
-import { FlaskConical, Clock, ArrowRight, X, GitBranch, Users } from "lucide-react";
+import { FlaskConical, Clock, ArrowRight, X, GitBranch, Users, GitCompare, Check } from "lucide-react";
 import { SignalCard, SignalCardContent, SignalCardHeader } from "@/components/ui/signal-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { SimulationStudioEmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { SimulationBuilder } from "@/components/simulation-builder";
 import { CounterfactualBacktesting } from "@/components/counterfactual-backtesting";
@@ -21,10 +22,40 @@ export default function Simulations() {
   const [isSeedCleared, setIsSeedCleared] = useState(false);
   const [initialAudience, setInitialAudience] = useState<SavedAudience | null>(null);
   const [isAudienceCleared, setIsAudienceCleared] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const searchString = useSearch();
   const [, setLocation] = useLocation();
+
+  const toggleSelection = (id: string) => {
+    setSelectedForCompare((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else if (next.size < 3) {
+        next.add(id);
+      } else {
+        toast({
+          title: "Selection limit reached",
+          description: "You can compare up to 3 scenarios at a time.",
+          variant: "destructive",
+        });
+      }
+      return next;
+    });
+  };
+
+  const handleCompareSelected = () => {
+    if (selectedForCompare.size >= 2) {
+      const ids = Array.from(selectedForCompare).join(",");
+      setLocation(`/simulations/compare?ids=${ids}`);
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedForCompare(new Set());
+  };
 
   const { data: history = [], isLoading: historyLoading, isError: historyError, refetch: refetchHistory } = useQuery<SimulationResult[]>({
     queryKey: ["/api/simulations/history"],
@@ -243,79 +274,128 @@ export default function Simulations() {
                 className="py-16"
               />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {history.map((result) => (
-                  <SignalCard
-                    key={result.id}
-                    variant="default"
-                    glowOnHover
-                    liftOnHover
-                    clickable
-                    className="cursor-pointer"
-                    onClick={() => setCurrentResult(result)}
-                    data-testid={`card-simulation-${result.id}`}
-                  >
-                    <SignalCardHeader>
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-base font-semibold text-foreground">{result.scenarioName}</h3>
-                        <Badge
-                          variant={result.vsBaseline.rxLiftDelta >= 0 ? "default" : "secondary"}
-                          className={result.vsBaseline.rxLiftDelta >= 0 ? "bg-emerald-500/20 text-emerald-400 border-0" : ""}
+              <div className="space-y-4">
+                {/* Comparison action bar */}
+                {selectedForCompare.size > 0 && (
+                  <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">
+                        {selectedForCompare.size} selected
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        Select 2-3 scenarios to compare
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearSelection}
+                      >
+                        Clear
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleCompareSelected}
+                        disabled={selectedForCompare.size < 2}
+                        data-testid="button-compare-selected"
+                      >
+                        <GitCompare className="h-4 w-4 mr-2" />
+                        Compare Selected
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {history.map((result) => {
+                    const isSelected = selectedForCompare.has(result.id);
+                    return (
+                      <SignalCard
+                        key={result.id}
+                        variant="default"
+                        glowOnHover
+                        liftOnHover
+                        clickable
+                        className={`cursor-pointer relative ${isSelected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
+                        onClick={() => setCurrentResult(result)}
+                        data-testid={`card-simulation-${result.id}`}
+                      >
+                        {/* Selection checkbox */}
+                        <div
+                          className="absolute top-3 left-3 z-10"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          {result.vsBaseline.rxLiftDelta >= 0 ? "+" : ""}
-                          {result.vsBaseline.rxLiftDelta.toFixed(1)}%
-                        </Badge>
-                      </div>
-                      <p className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                        <Clock className="h-3 w-3" />
-                        {formatDate(result.runAt)}
-                      </p>
-                    </SignalCardHeader>
-                    <SignalCardContent>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Signal</span>
-                          <p className="font-mono text-lg font-bold" style={{ color: "var(--process-violet, #a855f7)" }} data-testid={`text-sim-engagement-${result.id}`}>
-                            {result.predictedEngagementRate.toFixed(1)}%
-                          </p>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelection(result.id)}
+                            className="h-5 w-5 border-2"
+                            data-testid={`checkbox-sim-${result.id}`}
+                          />
                         </div>
-                        <div>
-                          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Response</span>
-                          <p className="font-mono text-lg font-bold text-foreground" data-testid={`text-sim-response-${result.id}`}>
-                            {result.predictedResponseRate.toFixed(1)}%
+                        <SignalCardHeader className="pl-10">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="text-base font-semibold text-foreground">{result.scenarioName}</h3>
+                            <Badge
+                              variant={result.vsBaseline.rxLiftDelta >= 0 ? "default" : "secondary"}
+                              className={result.vsBaseline.rxLiftDelta >= 0 ? "bg-emerald-500/20 text-emerald-400 border-0" : ""}
+                            >
+                              {result.vsBaseline.rxLiftDelta >= 0 ? "+" : ""}
+                              {result.vsBaseline.rxLiftDelta.toFixed(1)}%
+                            </Badge>
+                          </div>
+                          <p className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                            <Clock className="h-3 w-3" />
+                            {formatDate(result.runAt)}
                           </p>
-                        </div>
-                        <div>
-                          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Rx Lift</span>
-                          <p className="font-mono text-lg font-bold" style={{ color: "var(--catalyst-gold, #d97706)" }} data-testid={`text-sim-rxlift-${result.id}`}>
-                            +{result.predictedRxLift.toFixed(1)}%
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Reach</span>
-                          <p className="font-mono text-lg font-bold text-foreground" data-testid={`text-sim-reach-${result.id}`}>
-                            {result.predictedReach.toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-border/50">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full text-xs hover:text-purple-400"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCurrentResult(result);
-                          }}
-                          data-testid={`button-view-result-${result.id}`}
-                        >
-                          View Details
-                          <ArrowRight className="ml-2 h-3 w-3" />
-                        </Button>
-                      </div>
-                    </SignalCardContent>
-                  </SignalCard>
-                ))}
+                        </SignalCardHeader>
+                        <SignalCardContent>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Signal</span>
+                              <p className="font-mono text-lg font-bold" style={{ color: "var(--process-violet, #a855f7)" }} data-testid={`text-sim-engagement-${result.id}`}>
+                                {result.predictedEngagementRate.toFixed(1)}%
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Response</span>
+                              <p className="font-mono text-lg font-bold text-foreground" data-testid={`text-sim-response-${result.id}`}>
+                                {result.predictedResponseRate.toFixed(1)}%
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Rx Lift</span>
+                              <p className="font-mono text-lg font-bold" style={{ color: "var(--catalyst-gold, #d97706)" }} data-testid={`text-sim-rxlift-${result.id}`}>
+                                +{result.predictedRxLift.toFixed(1)}%
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Reach</span>
+                              <p className="font-mono text-lg font-bold text-foreground" data-testid={`text-sim-reach-${result.id}`}>
+                                {result.predictedReach.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="mt-4 pt-3 border-t border-border/50">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full text-xs hover:text-purple-400"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentResult(result);
+                              }}
+                              data-testid={`button-view-result-${result.id}`}
+                            >
+                              View Details
+                              <ArrowRight className="ml-2 h-3 w-3" />
+                            </Button>
+                          </div>
+                        </SignalCardContent>
+                      </SignalCard>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </TabsContent>

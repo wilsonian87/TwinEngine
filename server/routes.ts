@@ -1179,7 +1179,7 @@ export async function registerRoutes(
     }
   });
 
-  // Differential simulation: compare two scenarios
+  // Differential simulation: compare two scenarios (POST)
   app.post("/api/simulations/compare", async (req, res) => {
     try {
       const parseResult = compareScenarioRequestSchema.safeParse(req.body);
@@ -1196,6 +1196,88 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error comparing scenarios:", error);
       res.status(500).json({ error: "Failed to compare scenarios" });
+    }
+  });
+
+  // GET endpoint for comparing multiple simulations via query string
+  app.get("/api/simulations/compare", async (req, res) => {
+    try {
+      const idsParam = req.query.ids as string;
+      if (!idsParam) {
+        return res.status(400).json({
+          error: "Missing ids parameter",
+          message: "Provide comma-separated simulation IDs via ?ids=id1,id2,id3",
+        });
+      }
+
+      const ids = idsParam.split(",").filter((id) => id.trim());
+      if (ids.length < 2 || ids.length > 5) {
+        return res.status(400).json({
+          error: "Invalid number of IDs",
+          message: "Provide 2-5 simulation IDs for comparison",
+        });
+      }
+
+      // Fetch all simulations
+      const simulations = await Promise.all(
+        ids.map((id) => storage.getSimulationById(id))
+      );
+
+      // Check for missing simulations
+      const missingIds = ids.filter((id, idx) => !simulations[idx]);
+      if (missingIds.length > 0) {
+        return res.status(404).json({
+          error: "Simulations not found",
+          missingIds,
+        });
+      }
+
+      // Build scenarios array with full data
+      const scenarios = simulations.map((sim) => ({
+        id: sim!.id,
+        name: sim!.scenarioName,
+        config: {
+          scenarioId: sim!.scenarioId,
+        },
+        results: {
+          predictedRxLift: sim!.predictedRxLift,
+          predictedEngagementRate: sim!.predictedEngagementRate,
+          predictedResponseRate: sim!.predictedResponseRate,
+          predictedReach: sim!.predictedReach,
+          costPerEngagement: sim!.costPerEngagement,
+          efficiencyScore: sim!.efficiencyScore,
+          channelPerformance: sim!.channelPerformance,
+          vsBaseline: sim!.vsBaseline,
+        },
+        createdAt: sim!.runAt,
+      }));
+
+      // Compute deltas between first two scenarios (primary comparison)
+      const [a, b] = scenarios;
+      const computeDelta = (valA: number, valB: number) => ({
+        absolute: valB - valA,
+        percent: valA !== 0 ? ((valB - valA) / Math.abs(valA)) * 100 : 0,
+      });
+
+      const deltas = {
+        rxLift: computeDelta(a.results.predictedRxLift, b.results.predictedRxLift),
+        engagement: computeDelta(a.results.predictedEngagementRate, b.results.predictedEngagementRate),
+        response: computeDelta(a.results.predictedResponseRate, b.results.predictedResponseRate),
+        reach: computeDelta(a.results.predictedReach, b.results.predictedReach),
+        efficiency: computeDelta(a.results.efficiencyScore, b.results.efficiencyScore),
+        costPerEngagement: a.results.costPerEngagement && b.results.costPerEngagement
+          ? computeDelta(a.results.costPerEngagement, b.results.costPerEngagement)
+          : null,
+      };
+
+      res.json({
+        scenarios,
+        deltas,
+        comparedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error comparing simulations:", error);
+      res.status(500).json({ error: "Failed to compare simulations" });
     }
   });
 
