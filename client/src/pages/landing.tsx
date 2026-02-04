@@ -13,7 +13,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { InlineError } from "@/components/ui/error-state";
 import { Loader2, ArrowRight, Hexagon, Search, Users, FlaskConical, Zap } from "lucide-react";
 import { WordmarkDisplay, LogoIcon, useBrand } from "@/components/brand";
 import { BRAND_CONFIG } from "@/lib/brand-config";
@@ -68,44 +68,21 @@ export default function Landing() {
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col relative overflow-hidden"
-      style={{ backgroundColor: "var(--void-black, #0a0a0b)" }}
-    >
+    <div className="min-h-screen flex flex-col relative overflow-hidden bg-zinc-950 dark">
       {/* Hero Glow Background */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Central glow */}
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] omnivor-hero-glow"
-          style={{
-            background: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(107, 33, 168, 0.25), transparent)",
-          }}
-        />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] omnivor-hero-glow bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,_hsl(var(--primary)/0.25),_transparent)]" />
         {/* Secondary ambient glow */}
-        <div
-          className="absolute bottom-0 left-1/4 w-[600px] h-[400px] opacity-30"
-          style={{
-            background: "radial-gradient(ellipse at center, rgba(107, 33, 168, 0.2), transparent 70%)",
-            animation: "omnivor-converge 12s ease-in-out infinite",
-          }}
-        />
-        <div
-          className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] opacity-20"
-          style={{
-            background: "radial-gradient(ellipse at center, rgba(217, 119, 6, 0.15), transparent 70%)",
-            animation: "omnivor-converge 10s ease-in-out infinite reverse",
-          }}
-        />
+        <div className="absolute bottom-0 left-1/4 w-[600px] h-[400px] opacity-30 bg-[radial-gradient(ellipse_at_center,_hsl(var(--primary)/0.2),_transparent_70%)] animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] opacity-20 bg-[radial-gradient(ellipse_at_center,_hsl(var(--accent)/0.15),_transparent_70%)] animate-pulse" />
       </div>
 
       {/* Header */}
       <header className="relative z-10 p-6">
         <div className="flex items-center gap-3">
           <LogoIcon size="md" />
-          <span
-            className="text-lg font-semibold tracking-wide"
-            style={{ color: "var(--signal-white, #fafafa)" }}
-          >
+          <span className="text-lg font-semibold tracking-wide text-zinc-50">
             {config.product.name}
           </span>
         </div>
@@ -128,72 +105,40 @@ export default function Landing() {
                 taglineVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
               )}
             >
-              <p
-                className="text-xl md:text-2xl font-light tracking-wide"
-                style={{ color: "rgba(250, 250, 250, 0.7)" }}
-              >
+              <p className="text-xl md:text-2xl font-light tracking-wide text-zinc-50/70">
                 {currentTagline}
               </p>
             </div>
 
             {/* Subtle divider */}
             <div className="flex items-center justify-center gap-4 pt-4">
-              <div
-                className="h-px w-16"
-                style={{ background: "linear-gradient(90deg, transparent, var(--border-gray, #27272a), transparent)" }}
-              />
-              <Hexagon
-                className="h-4 w-4"
-                style={{ color: "var(--consumption-purple, #6b21a8)" }}
-              />
-              <div
-                className="h-px w-16"
-                style={{ background: "linear-gradient(90deg, transparent, var(--border-gray, #27272a), transparent)" }}
-              />
+              <div className="h-px w-16 bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+              <Hexagon className="h-4 w-4 text-primary" />
+              <div className="h-px w-16 bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
             </div>
           </div>
 
           {/* Access Form Card */}
           <div className="max-w-md mx-auto omnivor-animate-slide-up">
-            <div
-              className="p-8 rounded-2xl omnivor-glass"
-              style={{
-                background: "rgba(10, 10, 11, 0.85)",
-                backdropFilter: "blur(16px)",
-                border: "1px solid rgba(107, 33, 168, 0.2)",
-              }}
-            >
+            <div className="p-8 rounded-2xl bg-zinc-950/85 backdrop-blur-xl border border-primary/20">
               <div className="text-center mb-6">
-                <h2
-                  className="text-xl font-semibold mb-2"
-                  style={{ color: "var(--signal-white, #fafafa)" }}
-                >
+                <h2 className="text-xl font-semibold mb-2 text-zinc-50">
                   Access {config.product.name}
                 </h2>
-                <p
-                  className="text-sm"
-                  style={{ color: "var(--data-gray, #71717a)" }}
-                >
+                <p className="text-sm text-zinc-400">
                   Enter your credentials to connect
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 {error && (
-                  <Alert
-                    variant="destructive"
-                    className="border-red-500/30"
-                    style={{ background: "rgba(239, 68, 68, 0.1)" }}
-                  >
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
+                  <InlineError message={error} />
                 )}
 
                 <div className="space-y-2">
                   <Label
                     htmlFor="email"
-                    className="text-xs font-semibold uppercase tracking-wider"
-                    style={{ color: "var(--muted-gray, #52525b)" }}
+                    className="text-xs font-semibold uppercase tracking-wider text-zinc-500"
                   >
                     Email
                   </Label>
@@ -204,20 +149,14 @@ export default function Landing() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="h-12 border-0 focus-visible:ring-2"
-                    style={{
-                      backgroundColor: "var(--void-black, #0a0a0b)",
-                      color: "var(--signal-white, #fafafa)",
-                      borderRadius: "8px",
-                    }}
+                    className="h-12 border-0 rounded-lg bg-zinc-950 text-zinc-50 focus-visible:ring-2"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label
                     htmlFor="code"
-                    className="text-xs font-semibold uppercase tracking-wider"
-                    style={{ color: "var(--muted-gray, #52525b)" }}
+                    className="text-xs font-semibold uppercase tracking-wider text-zinc-500"
                   >
                     Invite Code
                   </Label>
@@ -228,23 +167,14 @@ export default function Landing() {
                     value={code}
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                     required
-                    className="h-12 border-0 uppercase tracking-widest text-center font-mono focus-visible:ring-2"
-                    style={{
-                      backgroundColor: "var(--void-black, #0a0a0b)",
-                      color: "var(--signal-white, #fafafa)",
-                      borderRadius: "8px",
-                    }}
+                    className="h-12 border-0 rounded-lg uppercase tracking-widest text-center font-mono bg-zinc-950 text-zinc-50 focus-visible:ring-2"
                   />
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full h-12 text-base font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                  style={{
-                    backgroundColor: "var(--catalyst-gold, #d97706)",
-                    color: "var(--void-black, #0a0a0b)",
-                    borderRadius: "8px",
-                  }}
+                  variant="accent"
+                  className="w-full h-12 text-base font-semibold rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                   disabled={validateMutation.isPending}
                 >
                   {validateMutation.isPending ? (
@@ -260,15 +190,11 @@ export default function Landing() {
                   )}
                 </Button>
 
-                <p
-                  className="text-xs text-center pt-2"
-                  style={{ color: "var(--muted-gray, #52525b)" }}
-                >
+                <p className="text-xs text-center pt-2 text-zinc-500">
                   Need an invite?{" "}
                   <a
                     href="mailto:access@omnivorlabs.com"
-                    className="hover:underline transition-colors"
-                    style={{ color: "var(--process-violet, #a855f7)" }}
+                    className="text-primary hover:underline transition-colors"
                   >
                     Request access
                   </a>
@@ -276,15 +202,11 @@ export default function Landing() {
 
                 {/* Dev mode skip */}
                 {import.meta.env.DEV && (
-                  <div
-                    className="pt-4 mt-4"
-                    style={{ borderTop: "1px solid var(--border-gray, #27272a)" }}
-                  >
+                  <div className="pt-4 mt-4 border-t border-zinc-800">
                     <Button
                       type="button"
                       variant="ghost"
-                      className="w-full text-xs"
-                      style={{ color: "var(--data-gray, #71717a)" }}
+                      className="w-full text-xs text-zinc-400"
                       onClick={async () => {
                         const response = await fetch("/api/invite/dev-bypass", {
                           method: "POST",
@@ -332,10 +254,7 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="relative z-10 p-6 text-center">
-        <p
-          className="text-xs"
-          style={{ color: "var(--muted-gray, #52525b)" }}
-        >
+        <p className="text-xs text-zinc-500">
           {config.company.copyright}
         </p>
       </footer>
@@ -354,26 +273,14 @@ function CapabilityHint({
 }) {
   return (
     <div className="space-y-2 opacity-60 hover:opacity-100 transition-opacity duration-200">
-      <div
-        className="mx-auto w-10 h-10 rounded-lg flex items-center justify-center"
-        style={{
-          backgroundColor: "rgba(107, 33, 168, 0.15)",
-          color: "var(--process-violet, #a855f7)",
-        }}
-      >
+      <div className="mx-auto w-10 h-10 rounded-lg flex items-center justify-center bg-primary/15 text-primary">
         {icon}
       </div>
       <div>
-        <p
-          className="text-sm font-medium"
-          style={{ color: "var(--signal-white, #fafafa)" }}
-        >
+        <p className="text-sm font-medium text-zinc-50">
           {label}
         </p>
-        <p
-          className="text-xs"
-          style={{ color: "var(--data-gray, #71717a)" }}
-        >
+        <p className="text-xs text-zinc-400">
           {description}
         </p>
       </div>

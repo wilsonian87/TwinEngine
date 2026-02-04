@@ -156,21 +156,21 @@ export function ErrorState({
       {showIcon && (
         <div
           className={cn(
-            'flex items-center justify-center rounded-full bg-error-red/10 mb-4',
+            'flex items-center justify-center rounded-full bg-destructive/10 mb-4',
             sizeStyles.iconWrapper
           )}
         >
-          <Icon className={cn('text-error-red', sizeStyles.iconSize)} />
+          <Icon className={cn('text-destructive', sizeStyles.iconSize)} />
         </div>
       )}
 
       {/* Title */}
-      <h3 className={cn('font-semibold text-signal-white mb-1', sizeStyles.title)}>
+      <h3 className={cn('font-semibold text-foreground mb-1', sizeStyles.title)}>
         {displayTitle}
       </h3>
 
       {/* Message */}
-      <p className={cn('text-data-gray mb-4 max-w-sm', sizeStyles.message)}>
+      <p className={cn('text-muted-foreground mb-4 max-w-sm', sizeStyles.message)}>
         {displayMessage}
       </p>
 
@@ -211,7 +211,7 @@ export function InlineError({ message, retry, className }: InlineErrorProps) {
   return (
     <div
       className={cn(
-        'flex items-center gap-2 text-error-red text-sm p-3 rounded-lg bg-error-red/10',
+        'flex items-center gap-2 text-destructive text-sm p-3 rounded-lg bg-destructive/10',
         className
       )}
     >
@@ -271,7 +271,7 @@ export function OfflineIndicator({ className }: OfflineIndicatorProps) {
   return (
     <motion.div
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-50 bg-error-red px-4 py-2 text-center text-sm text-signal-white',
+        'fixed bottom-0 left-0 right-0 z-50 bg-destructive px-4 py-2 text-center text-sm text-destructive-foreground',
         className
       )}
       initial={{ y: 100 }}

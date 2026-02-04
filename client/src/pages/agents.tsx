@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmptyState, EMPTY_STATE_COPY } from "@/components/ui/empty-state";
 import {
   Table,
   TableBody,
@@ -368,8 +369,14 @@ export default function AgentsPage() {
               </div>
             ) : agents.length === 0 ? (
               <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  No agents registered
+                <CardContent>
+                  <EmptyState
+                    title="No agents registered."
+                    description="Autonomous agents will appear here once configured."
+                    icon="activity"
+                    size="sm"
+                    showAnimation={false}
+                  />
                 </CardContent>
               </Card>
             ) : (
@@ -474,9 +481,14 @@ export default function AgentsPage() {
               </CardHeader>
               <CardContent>
                 {alerts.length === 0 ? (
-                  <div className="py-8 text-center text-muted-foreground">
-                    No alerts
-                  </div>
+                  <EmptyState
+                    title="No alerts."
+                    description="Agent alerts will appear here when triggered."
+                    icon="alert"
+                    size="sm"
+                    showAnimation={false}
+                    className="py-4"
+                  />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -657,9 +669,14 @@ function AgentRunHistory() {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : runs.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground">
-            No runs recorded yet
-          </div>
+          <EmptyState
+            title={EMPTY_STATE_COPY.agentRuns.title}
+            description={EMPTY_STATE_COPY.agentRuns.description}
+            icon={EMPTY_STATE_COPY.agentRuns.icon}
+            size="sm"
+            showAnimation={false}
+            className="py-4"
+          />
         ) : (
           <Table>
             <TableHeader>

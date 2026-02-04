@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { EmptyState } from "@/components/ui/empty-state";
 import { GitCompare, Users, FolderOpen, ChevronDown, ChevronUp, FlaskConical } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { SavedAudience } from "@shared/schema";
@@ -116,11 +117,13 @@ export default function AudienceBuilder() {
                     ))}
                   </div>
                 ) : audiences.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No saved audiences yet</p>
-                    <p className="text-xs mt-1">Create your first audience below</p>
-                  </div>
+                  <EmptyState
+                    title="No saved audiences yet."
+                    description="Create your first audience using natural language or filters below."
+                    icon="users"
+                    size="sm"
+                    showAnimation={false}
+                  />
                 ) : (
                   <>
                     <p className="text-xs text-muted-foreground mb-3">

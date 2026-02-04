@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FilteredEmptyState } from "@/components/ui/empty-state";
 import {
   Target,
   TrendingUp,
@@ -273,9 +274,8 @@ export default function NBODashboard() {
             </div>
           ) : filteredRecommendations.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center">
-                <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No recommendations match your filters</p>
+              <CardContent>
+                <FilteredEmptyState className="py-8" />
               </CardContent>
             </Card>
           ) : (

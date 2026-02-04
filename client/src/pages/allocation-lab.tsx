@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
   TableBody,
@@ -438,9 +439,14 @@ export default function AllocationLabPage() {
                     <Loader2 className="h-6 w-6 animate-spin" />
                   </div>
                 ) : problems.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No optimization problems yet. Create one to get started.
-                  </div>
+                  <EmptyState
+                    title="No optimization problems yet."
+                    description="Create an optimization problem to get started with budget allocation."
+                    icon="flask"
+                    size="sm"
+                    showAnimation={false}
+                    className="py-4"
+                  />
                 ) : (
                   <Table>
                     <TableHeader>
@@ -683,9 +689,14 @@ export default function AllocationLabPage() {
                     <Loader2 className="h-6 w-6 animate-spin" />
                   </div>
                 ) : plans.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No execution plans yet. Create one from an optimization result.
-                  </div>
+                  <EmptyState
+                    title="No execution plans yet."
+                    description="Create an execution plan from an optimization result to start tracking."
+                    icon="zap"
+                    size="sm"
+                    showAnimation={false}
+                    className="py-4"
+                  />
                 ) : (
                   <Table>
                     <TableHeader>

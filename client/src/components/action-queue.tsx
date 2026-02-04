@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState, EMPTY_STATE_COPY } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
 import {
   Select,
   SelectContent,
@@ -509,8 +511,14 @@ export function ActionQueue({ hcpIds, audienceName, onHcpClick }: ActionQueuePro
   if (hcpIds.length === 0) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          No HCPs selected. Select HCPs or a saved audience to view action queue.
+        <CardContent className="py-4">
+          <EmptyState
+            title={EMPTY_STATE_COPY.actionQueue.title}
+            description={EMPTY_STATE_COPY.actionQueue.description}
+            icon={EMPTY_STATE_COPY.actionQueue.icon}
+            size="sm"
+            showAnimation={false}
+          />
         </CardContent>
       </Card>
     );
@@ -534,8 +542,13 @@ export function ActionQueue({ hcpIds, audienceName, onHcpClick }: ActionQueuePro
   if (error || !nbaData) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          Unable to load action queue.
+        <CardContent className="py-4">
+          <ErrorState
+            title="Unable to load action queue."
+            message="Failed to fetch recommendations. Please try again."
+            type="server"
+            size="sm"
+          />
         </CardContent>
       </Card>
     );

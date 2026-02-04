@@ -1,10 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { RefreshCw, AlertCircle, Download, Save, CheckSquare, List, FlaskConical, Zap, GitCompare, ChevronLeft, ChevronRight } from "lucide-react";
+import { RefreshCw, Download, Save, CheckSquare, FlaskConical, Zap, GitCompare, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ErrorState } from "@/components/ui/error-state";
+import { FilteredEmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -289,23 +290,13 @@ export default function HCPExplorer() {
 
         <div className="h-[calc(100%-64px)] overflow-auto p-6">
           {isError ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <Alert variant="destructive" className="max-w-md">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error Loading HCPs</AlertTitle>
-                <AlertDescription>
-                  {error instanceof Error ? error.message : "Failed to load HCP data. Please try again."}
-                </AlertDescription>
-              </Alert>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => refetch()}
-                data-testid="button-retry-load"
-              >
-                Try Again
-              </Button>
-            </div>
+            <ErrorState
+              title="Unable to load HCP data."
+              message={error instanceof Error ? error.message : "Failed to load HCP data. Please try again."}
+              type="server"
+              retry={() => refetch()}
+              size="lg"
+            />
           ) : isLoading ? (
             <div className={gridClasses}>
               {Array.from({ length: 9 }).map((_, i) => (
@@ -313,23 +304,10 @@ export default function HCPExplorer() {
               ))}
             </div>
           ) : filteredHcps.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="mb-4 rounded-full bg-muted p-6">
-                <List className="h-10 w-10 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold">No signals match.</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                Refine your filters or adjust search criteria to detect matching signals.
-              </p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setFilter({})}
-                data-testid="button-clear-all"
-              >
-                Reset filters
-              </Button>
-            </div>
+            <FilteredEmptyState
+              onClearFilters={() => setFilter({})}
+              className="py-16"
+            />
           ) : (
             <>
               {/* Pagination info */}

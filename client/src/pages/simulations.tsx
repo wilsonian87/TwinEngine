@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch, useLocation } from "wouter";
-import { FlaskConical, Clock, ArrowRight, AlertCircle, X, GitBranch, Users } from "lucide-react";
+import { FlaskConical, Clock, ArrowRight, X, GitBranch, Users } from "lucide-react";
 import { SignalCard, SignalCardContent, SignalCardHeader } from "@/components/ui/signal-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ErrorState } from "@/components/ui/error-state";
+import { SimulationStudioEmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { SimulationBuilder } from "@/components/simulation-builder";
@@ -220,23 +221,13 @@ export default function Simulations() {
 
           <TabsContent value="history">
             {historyError ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Alert variant="destructive" className="max-w-md">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error Loading History</AlertTitle>
-                  <AlertDescription>
-                    Failed to load simulation history. Please try again.
-                  </AlertDescription>
-                </Alert>
-                <Button
-                  variant="outline"
-                  className="mt-4"
-                  onClick={() => refetchHistory()}
-                  data-testid="button-retry-history"
-                >
-                  Try Again
-                </Button>
-              </div>
+              <ErrorState
+                title="Unable to load history."
+                message="Failed to load simulation history. Please try again."
+                type="server"
+                retry={() => refetchHistory()}
+                size="lg"
+              />
             ) : historyLoading ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -244,28 +235,13 @@ export default function Simulations() {
                 ))}
               </div>
             ) : history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="mb-4 rounded-full bg-muted p-6">
-                  <FlaskConical className="h-10 w-10 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold">No simulations run yet.</h3>
-                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                  Build your first scenario to predict outcomes and optimize engagement signals.
-                </p>
-                {/* Phase 13.5: Forward action to builder tab */}
-                <Button
-                  variant="default"
-                  className="mt-4"
-                  onClick={() => {
-                    const builderTab = document.querySelector('[data-testid="tab-builder"]') as HTMLButtonElement;
-                    builderTab?.click();
-                  }}
-                  data-testid="button-create-first-simulation"
-                >
-                  <FlaskConical className="h-4 w-4 mr-2" />
-                  Create Your First Simulation
-                </Button>
-              </div>
+              <SimulationStudioEmptyState
+                onAction={() => {
+                  const builderTab = document.querySelector('[data-testid="tab-builder"]') as HTMLButtonElement;
+                  builderTab?.click();
+                }}
+                className="py-16"
+              />
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {history.map((result) => (

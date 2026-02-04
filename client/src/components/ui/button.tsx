@@ -11,25 +11,25 @@ const buttonVariants = cva(
       variant: {
         // Primary: Consumption Purple - Main actions
         default:
-          "bg-[var(--consumption-purple,#6b21a8)] text-[var(--signal-white,#fafafa)] border-0 hover:bg-[#7c3aed] hover:shadow-[0_0_20px_rgba(107,33,168,0.3)]",
+          "bg-primary text-primary-foreground border-0 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20",
         // Accent: Catalyst Gold - High-priority CTAs
         accent:
-          "bg-[var(--catalyst-gold,#d97706)] text-[var(--void-black,#0a0a0b)] border-0 font-semibold hover:bg-[#f59e0b] hover:shadow-[0_0_20px_rgba(217,119,6,0.3)]",
+          "bg-accent text-accent-foreground border-0 font-semibold hover:bg-accent/90 hover:shadow-lg hover:shadow-accent/20",
         // Destructive: Error states
         destructive:
           "bg-destructive text-destructive-foreground border-0 hover:bg-destructive/90",
         // Outline: Shows background, purple border
         outline:
-          "border border-[var(--consumption-purple,#6b21a8)] text-[var(--consumption-purple,#6b21a8)] bg-transparent hover:bg-[rgba(107,33,168,0.1)] hover:border-[var(--process-violet,#a855f7)]",
+          "border border-primary text-primary bg-transparent hover:bg-primary/10 hover:border-primary/80",
         // Secondary: Subtle alternative actions
         secondary:
-          "bg-[var(--border-gray,#27272a)] text-[var(--signal-white,#fafafa)] border border-[rgba(255,255,255,0.1)] hover:bg-[#3f3f46] hover:border-[rgba(255,255,255,0.2)]",
+          "bg-secondary text-secondary-foreground border border-border hover:bg-secondary/80",
         // Ghost: Minimal presence, subtle actions
         ghost:
-          "text-[var(--signal-white,#fafafa)] border border-transparent hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)]",
+          "text-foreground border border-transparent hover:bg-muted hover:text-foreground",
         // Link: Text-only style
         link:
-          "text-[var(--process-violet,#a855f7)] underline-offset-4 hover:underline",
+          "text-primary underline-offset-4 hover:underline",
       },
       // Heights are set as "min" heights, because sometimes Ai will place large amount of content
       // inside buttons. With a min-height they will look appropriate with small amounts of content,
