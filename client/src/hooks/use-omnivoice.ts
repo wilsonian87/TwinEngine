@@ -81,7 +81,7 @@ const OMNIVOICE_API_URL = "/api/omnivoice";
 // ============================================================================
 
 async function fetchHealth(): Promise<OmniVoiceHealth> {
-  const response = await fetch(`${OMNIVOICE_API_URL}/api/health`);
+  const response = await fetch(`${OMNIVOICE_API_URL}/health`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch Omni-Voice health");
@@ -97,7 +97,7 @@ async function fetchHealth(): Promise<OmniVoiceHealth> {
 }
 
 async function clearHistory(): Promise<void> {
-  const response = await fetch(`${OMNIVOICE_API_URL}/api/clear`, {
+  const response = await fetch(`${OMNIVOICE_API_URL}/clear`, {
     method: "POST",
   });
 
@@ -182,7 +182,7 @@ export function useOmniVoice() {
       abortControllerRef.current = new AbortController();
 
       try {
-        const response = await fetch(`${OMNIVOICE_API_URL}/api/chat`, {
+        const response = await fetch(`${OMNIVOICE_API_URL}/chat`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
