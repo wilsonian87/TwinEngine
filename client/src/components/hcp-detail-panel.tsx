@@ -1,4 +1,4 @@
-import { Mail, Phone, Video, Globe, Calendar, Users, ArrowRight, UserSearch, Sparkles, Zap, Activity } from "lucide-react";
+import { Mail, Phone, Video, Globe, Calendar, Users, ArrowRight, UserSearch, Sparkles, Zap, Activity, Clock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -22,6 +22,7 @@ import {
 } from "recharts";
 import { StimuliPrediction } from "./stimuli-prediction";
 import { ChannelHealthRadial } from "./channel-health-radial";
+import { ActivityTimeline } from "./hcp/ActivityTimeline";
 import type { HCPProfile, Channel } from "@shared/schema";
 import type { ChannelHealth } from "../../../server/services/channel-health";
 
@@ -143,8 +144,12 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate, onSelectHcp }: 
           </div>
 
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
+              <TabsTrigger value="activity" data-testid="tab-activity">
+                <Clock className="mr-1 h-3 w-3" />
+                Activity
+              </TabsTrigger>
               <TabsTrigger value="health" data-testid="tab-health">
                 <Activity className="mr-1 h-3 w-3" />
                 Health
@@ -204,6 +209,10 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate, onSelectHcp }: 
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="activity" className="mt-4" data-testid="tab-content-activity">
+              <ActivityTimeline hcpId={hcp.id} />
             </TabsContent>
 
             <TabsContent value="health" className="mt-4 space-y-4" data-testid="tab-content-health">

@@ -735,6 +735,75 @@ export async function registerRoutes(
     }
   });
 
+  // Get activity timeline for an HCP
+  app.get("/api/hcps/:id/activities", async (req, res) => {
+    try {
+      const hcp = await storage.getHcpById(req.params.id);
+      if (!hcp) {
+        return res.status(404).json({ error: "HCP not found" });
+      }
+
+      // Parse query params
+      const channel = req.query.channel as string | undefined;
+      const from = req.query.from as string | undefined;
+      const to = req.query.to as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+
+      // Get stimuli events for this HCP
+      const allEvents = await storage.getStimuliEvents(req.params.id, 200);
+
+      // Filter by channel if specified
+      let filteredEvents = allEvents;
+      if (channel && channel !== "all") {
+        filteredEvents = filteredEvents.filter((e) => e.channel === channel);
+      }
+
+      // Filter by date range if specified
+      if (from) {
+        const fromDate = new Date(from);
+        filteredEvents = filteredEvents.filter((e) => new Date(e.eventDate) >= fromDate);
+      }
+      if (to) {
+        const toDate = new Date(to);
+        filteredEvents = filteredEvents.filter((e) => new Date(e.eventDate) <= toDate);
+      }
+
+      // Map to activity format
+      const activities = filteredEvents.slice(0, limit).map((event) => ({
+        id: event.id,
+        timestamp: event.eventDate,
+        channel: event.channel,
+        actionType: event.stimulusType,
+        outcome: event.status === "confirmed"
+          ? event.actualEngagementDelta !== null
+            ? `${event.actualEngagementDelta > 0 ? "+" : ""}${(event.actualEngagementDelta * 100).toFixed(1)}% engagement`
+            : "Confirmed"
+          : event.status === "predicted"
+          ? "Pending response"
+          : event.status === "rejected"
+          ? "No response"
+          : event.status,
+        metadata: {
+          subject: event.messageVariant || event.contentType || undefined,
+          callToAction: event.callToAction || undefined,
+          predictedImpact: event.predictedEngagementDelta
+            ? `${(event.predictedEngagementDelta * 100).toFixed(1)}%`
+            : undefined,
+        },
+      }));
+
+      res.json({
+        activities,
+        total: filteredEvents.length,
+        hcpId: req.params.id,
+        filters: { channel, from, to, limit },
+      });
+    } catch (error) {
+      console.error("Error getting HCP activities:", error);
+      res.status(500).json({ error: "Failed to get HCP activities" });
+    }
+  });
+
   // Get aggregate channel health for a cohort (via POST with HCP IDs)
   app.post("/api/channel-health/cohort", async (req, res) => {
     try {
