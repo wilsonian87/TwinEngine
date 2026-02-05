@@ -152,13 +152,43 @@ export function setupAuth(app: Express): void {
   configurePassport();
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Development auth bypass - inject mock user for all requests when SKIP_AUTH is enabled
+  if (process.env.SKIP_AUTH === "true") {
+    debugLog("Auth", "⚠️  SKIP_AUTH enabled - all requests will use mock user (dev-user-001)");
+    app.use((req, _res, next) => {
+      if (!req.user) {
+        (req as any).user = {
+          id: "dev-user-001",
+          username: "dev@example.com",
+          role: "admin",
+        };
+      }
+      next();
+    });
+  }
 }
 
 /**
  * Middleware to require authentication
  * Returns 401 if user is not authenticated
+ *
+ * Set SKIP_AUTH=true in .env to bypass authentication during development.
+ * This injects a mock user for all requests.
  */
 export const requireAuth: RequestHandler = (req, res, next) => {
+  // Development bypass - inject mock user when SKIP_AUTH is enabled
+  if (process.env.SKIP_AUTH === "true") {
+    if (!req.user) {
+      (req as any).user = {
+        id: "dev-user-001",
+        username: "dev@example.com",
+        role: "admin",
+      };
+    }
+    return next();
+  }
+
   if (req.isAuthenticated()) {
     return next();
   }
