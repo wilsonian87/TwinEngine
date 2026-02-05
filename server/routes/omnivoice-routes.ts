@@ -10,8 +10,8 @@
 
 import { Router, Request, Response } from "express";
 import { db } from "../db";
-import { hcps } from "@shared/schema";
-import { ilike, or, eq } from "drizzle-orm";
+import { hcpProfiles } from "@shared/schema";
+import { ilike, or } from "drizzle-orm";
 
 export const omnivoiceRouter = Router();
 
@@ -42,8 +42,8 @@ interface HCPData {
   specialty: string;
   tier: string;
   overallEngagementScore: number;
-  channelPreference: string | null;
-  practiceType: string;
+  channelPreference: string;
+  organization: string;
   city: string;
   state: string;
 }
@@ -74,49 +74,58 @@ omnivoiceRouter.post("/clear", (req: Request, res: Response) => {
 // ============================================================================
 
 async function findHCPByName(query: string): Promise<HCPData | null> {
-  // Extract potential name parts from query
-  const words = query.toLowerCase().split(/\s+/);
-  const namePatterns: string[] = [];
+  try {
+    // Extract potential name parts from query
+    const words = query.toLowerCase().split(/\s+/);
+    const namePatterns: string[] = [];
 
-  // Look for "Dr." or "Doctor" followed by a name
-  for (let i = 0; i < words.length; i++) {
-    if (words[i] === "dr." || words[i] === "dr" || words[i] === "doctor") {
-      if (words[i + 1]) {
-        namePatterns.push(words[i + 1]);
+    // Look for "Dr." or "Doctor" followed by a name
+    for (let i = 0; i < words.length; i++) {
+      if (words[i] === "dr." || words[i] === "dr" || words[i] === "doctor") {
+        if (words[i + 1]) {
+          namePatterns.push(words[i + 1]);
+        }
+      }
+      // Also try any capitalized-looking words that might be names
+      if (words[i].length > 2 && !["the", "and", "how", "can", "with", "for", "about", "what", "like"].includes(words[i])) {
+        namePatterns.push(words[i]);
       }
     }
-    // Also try any capitalized-looking words that might be names
-    if (words[i].length > 2 && !["the", "and", "how", "can", "with", "for", "about", "what", "like"].includes(words[i])) {
-      namePatterns.push(words[i]);
-    }
+
+    if (namePatterns.length === 0) return null;
+
+    console.log("[OMNIVOICE] Searching for HCP with patterns:", namePatterns);
+
+    // Search for HCPs matching any of the patterns
+    const conditions = namePatterns.flatMap(pattern => [
+      ilike(hcpProfiles.firstName, `%${pattern}%`),
+      ilike(hcpProfiles.lastName, `%${pattern}%`),
+    ]);
+
+    const results = await db
+      .select({
+        id: hcpProfiles.id,
+        firstName: hcpProfiles.firstName,
+        lastName: hcpProfiles.lastName,
+        specialty: hcpProfiles.specialty,
+        tier: hcpProfiles.tier,
+        overallEngagementScore: hcpProfiles.overallEngagementScore,
+        channelPreference: hcpProfiles.channelPreference,
+        organization: hcpProfiles.organization,
+        city: hcpProfiles.city,
+        state: hcpProfiles.state,
+      })
+      .from(hcpProfiles)
+      .where(or(...conditions))
+      .limit(1);
+
+    console.log("[OMNIVOICE] Found HCP:", results[0]?.firstName, results[0]?.lastName || "none");
+
+    return results[0] || null;
+  } catch (error) {
+    console.error("[OMNIVOICE] Error finding HCP:", error);
+    return null;
   }
-
-  if (namePatterns.length === 0) return null;
-
-  // Search for HCPs matching any of the patterns
-  const conditions = namePatterns.flatMap(pattern => [
-    ilike(hcps.firstName, `%${pattern}%`),
-    ilike(hcps.lastName, `%${pattern}%`),
-  ]);
-
-  const results = await db
-    .select({
-      id: hcps.id,
-      firstName: hcps.firstName,
-      lastName: hcps.lastName,
-      specialty: hcps.specialty,
-      tier: hcps.tier,
-      overallEngagementScore: hcps.overallEngagementScore,
-      channelPreference: hcps.channelPreference,
-      practiceType: hcps.practiceType,
-      city: hcps.city,
-      state: hcps.state,
-    })
-    .from(hcps)
-    .where(or(...conditions))
-    .limit(1);
-
-  return results[0] || null;
 }
 
 // ============================================================================
@@ -373,7 +382,7 @@ function generateHCPResponse(hcp: HCPData, query: string): string {
 **Profile Summary:**
 - **Specialty:** ${hcp.specialty}
 - **Tier:** ${hcp.tier} (${tierDescription})
-- **Practice Type:** ${hcp.practiceType}
+- **Practice Type:** ${hcp.organization}
 - **Location:** ${hcp.city}, ${hcp.state}
 - **Current Engagement Score:** ${hcp.overallEngagementScore}/100 (${engagementLevel})
 - **Channel Preference:** ${hcp.channelPreference || "Not specified"}
@@ -516,7 +525,7 @@ omnivoiceRouter.post("/chat", async (req: Request, res: Response) => {
     sources = [
       {
         title: `HCP Profile: Dr. ${hcp.lastName}`,
-        summary: `${hcp.specialty} - ${hcp.practiceType} - ${hcp.tier}`,
+        summary: `${hcp.specialty} - ${hcp.organization} - ${hcp.tier}`,
         similarity: 0.98,
       },
       {
