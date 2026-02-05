@@ -19,6 +19,7 @@ import {
   X,
   ChevronRight,
   Sparkles,
+  RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -231,7 +232,7 @@ function StepItem({
 // ============================================================================
 
 export function GettingStartedCard() {
-  const { progress, markComplete, dismiss } = useOnboardingProgress();
+  const { progress, markComplete, dismiss, reset } = useOnboardingProgress();
   const autoProgress = useAutoDetectProgress();
 
   // Auto-mark steps as complete based on detected data
@@ -260,9 +261,46 @@ export function GettingStartedCard() {
   const progressPercent = Math.round((completedCount / totalSteps) * 100);
   const allComplete = completedCount === totalSteps;
 
-  // Don't show if all complete (auto-hide after completion)
+  // Show celebration state when all complete (with reset option for demos)
   if (allComplete) {
-    return null;
+    return (
+      <Card className="border-green-500/20 bg-gradient-to-br from-green-500/5 to-transparent">
+        <CardContent className="pt-6 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-green-500/10">
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+            </div>
+            <div className="flex-1">
+              <div className="font-medium text-green-600 dark:text-green-400">
+                All set! You've explored the platform.
+              </div>
+              <p className="text-sm text-muted-foreground">
+                You're ready to make an impact.
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-primary"
+                onClick={reset}
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Reset for demo
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={dismiss}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -280,14 +318,25 @@ export function GettingStartedCard() {
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            onClick={dismiss}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary"
+              onClick={reset}
+              title="Reset checklist for demo"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={dismiss}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
