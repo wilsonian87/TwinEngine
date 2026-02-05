@@ -26,7 +26,7 @@ export const approvalRouter = Router();
  */
 approvalRouter.get("/", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -91,7 +91,7 @@ approvalRouter.get("/", async (req, res) => {
  */
 approvalRouter.get("/count", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -110,7 +110,7 @@ approvalRouter.get("/count", async (req, res) => {
  */
 approvalRouter.get("/:id", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -164,7 +164,7 @@ approvalRouter.get("/:id", async (req, res) => {
  */
 approvalRouter.post("/:id/approve", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -194,7 +194,7 @@ approvalRouter.post("/:id/approve", async (req, res) => {
  */
 approvalRouter.post("/:id/reject", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -228,7 +228,7 @@ approvalRouter.post("/:id/reject", async (req, res) => {
  */
 approvalRouter.post("/:id/cancel", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -260,7 +260,7 @@ approvalRouter.post("/:id/cancel", async (req, res) => {
  */
 approvalRouter.get("/policies/list", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -285,7 +285,7 @@ approvalRouter.get("/policies/list", async (req, res) => {
  */
 approvalRouter.post("/policies/:id/toggle", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -335,7 +335,7 @@ approvalRouter.post("/policies/:id/toggle", async (req, res) => {
  */
 approvalRouter.post("/check", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -360,7 +360,7 @@ approvalRouter.post("/check", async (req, res) => {
  */
 approvalRouter.post("/request", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }

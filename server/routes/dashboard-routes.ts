@@ -22,7 +22,7 @@ export const dashboardRouter = Router();
  */
 dashboardRouter.get("/", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId || (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
@@ -84,7 +84,7 @@ dashboardRouter.get("/alerts", async (_req, res) => {
  */
 dashboardRouter.get("/recent-activity", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId || (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
@@ -105,7 +105,7 @@ dashboardRouter.get("/recent-activity", async (req, res) => {
  */
 dashboardRouter.get("/pending-approvals", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId || (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });

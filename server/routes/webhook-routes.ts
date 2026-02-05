@@ -19,7 +19,7 @@ export const webhookRouter = Router();
  */
 webhookRouter.get("/", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -43,7 +43,7 @@ webhookRouter.get("/", async (req, res) => {
  */
 webhookRouter.get("/:id", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -77,7 +77,7 @@ webhookRouter.get("/:id", async (req, res) => {
  */
 webhookRouter.post("/", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -121,7 +121,7 @@ webhookRouter.post("/", async (req, res) => {
  */
 webhookRouter.put("/:id", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -179,7 +179,7 @@ webhookRouter.put("/:id", async (req, res) => {
  */
 webhookRouter.delete("/:id", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -228,7 +228,7 @@ webhookRouter.delete("/:id", async (req, res) => {
  */
 webhookRouter.post("/:id/test", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -317,7 +317,7 @@ webhookRouter.post("/:id/test", async (req, res) => {
  */
 webhookRouter.get("/:id/logs", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }

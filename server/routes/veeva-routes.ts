@@ -21,7 +21,7 @@ export const veevaRouter = Router();
  */
 veevaRouter.get("/connect", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -89,7 +89,7 @@ veevaRouter.get("/callback", async (req, res) => {
  */
 veevaRouter.get("/status", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -108,7 +108,7 @@ veevaRouter.get("/status", async (req, res) => {
  */
 veevaRouter.post("/disconnect", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -127,7 +127,7 @@ veevaRouter.post("/disconnect", async (req, res) => {
  */
 veevaRouter.post("/test", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -150,7 +150,7 @@ veevaRouter.post("/test", async (req, res) => {
  */
 veevaRouter.post("/push", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -203,7 +203,7 @@ veevaRouter.post("/push", async (req, res) => {
  */
 veevaRouter.get("/field-mappings", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }

@@ -31,7 +31,7 @@ export const exportHubRouter = Router();
  */
 exportHubRouter.post("/", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -108,7 +108,7 @@ exportHubRouter.post("/", async (req, res) => {
  */
 exportHubRouter.get("/", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -150,7 +150,7 @@ exportHubRouter.get("/", async (req, res) => {
  */
 exportHubRouter.get("/:id", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -188,7 +188,7 @@ exportHubRouter.get("/:id", async (req, res) => {
  */
 exportHubRouter.get("/:id/download", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -258,7 +258,7 @@ exportHubRouter.get("/fields/list", async (req, res) => {
  */
 exportHubRouter.post("/:id/cancel", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -290,7 +290,7 @@ exportHubRouter.post("/:id/cancel", async (req, res) => {
  */
 exportHubRouter.get("/integrations/list", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -321,7 +321,7 @@ exportHubRouter.get("/integrations/list", async (req, res) => {
  */
 exportHubRouter.post("/integrations/:type", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -348,7 +348,7 @@ exportHubRouter.post("/integrations/:type", async (req, res) => {
  */
 exportHubRouter.post("/integrations/:type/test", async (req, res) => {
   try {
-    const userId = (req as any).session?.userId;
+    const userId = (req as any).user?.id;
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
