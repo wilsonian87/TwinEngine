@@ -15,7 +15,7 @@ import { CommandPaletteProvider, useCommandPaletteState } from "@/hooks/use-comm
 import { KeyboardShortcutsProvider, useKeyboardShortcutsState } from "@/hooks/use-keyboard-shortcuts";
 import { ShortcutsModal } from "@/components/ui/shortcuts-modal";
 import { FirstRunGuide } from "@/components/onboarding";
-import { DevToolbar } from "@/components/dev-toolbar";
+// DevToolbar import removed - dev navigation widget disabled
 import { OmniVoiceProvider, useOmniVoiceCtx } from "@/contexts/omnivoice-context";
 import { OmniVoiceChat } from "@/components/omnivoice-chat";
 import { useFeatureFlag, INSIGHTRX_FLAGS } from "@/hooks/use-feature-flags";
@@ -30,7 +30,7 @@ import ActionQueuePage from "@/pages/action-queue";
 import CohortCompare from "@/pages/cohort-compare";
 import ModelEvaluationPage from "@/pages/model-evaluation";
 import Settings from "@/pages/settings";
-import Landing from "@/pages/landing";
+// Landing import removed - bypassing login page in dev mode
 import AgentsPage from "@/pages/agents";
 import ConstraintsPage from "@/pages/constraints";
 import AllocationLabPage from "@/pages/allocation-lab";
@@ -125,6 +125,9 @@ function AppLayout() {
 }
 
 function AuthenticatedApp() {
+  // Development mode: skip auth check and go straight to platform
+  // To re-enable auth, restore the session check below
+  /*
   const { data: session, isLoading } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
@@ -146,6 +149,7 @@ function AuthenticatedApp() {
   if (!session?.authenticated) {
     return <Landing />;
   }
+  */
 
   return (
     <OmniVoiceProvider>
@@ -185,7 +189,7 @@ function App() {
             <KeyboardShortcutsWrapper>
               <CommandPaletteWrapper>
                 <AuthenticatedApp />
-                <DevToolbar />
+                {/* DevToolbar removed - was dev navigation widget */}
               </CommandPaletteWrapper>
             </KeyboardShortcutsWrapper>
             <Toaster />
