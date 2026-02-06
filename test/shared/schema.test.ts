@@ -97,7 +97,7 @@ describe('Schema Validation', () => {
 
     it('should reject invalid channel preference', () => {
       const invalidFilter = {
-        channelPreference: 'smoke_signal',
+        channelPreferences: ['smoke_signal'],
       };
 
       const result = hcpFilterSchema.safeParse(invalidFilter);

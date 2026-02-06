@@ -156,6 +156,27 @@ vi.mock('../../server/auth', () => ({
   hashPassword: vi.fn().mockResolvedValue('hashed_password'),
   comparePassword: vi.fn().mockResolvedValue(true),
   setupAuth: vi.fn(),
+  requireAuth: (req: any, res: any, next: any) => next(),
+}));
+
+// Mock dashboard service - uses direct DB calls that need to be mocked
+vi.mock('../../server/services/dashboard-service', () => ({
+  getSystemHealth: vi.fn().mockResolvedValue({ status: 'healthy', checks: [] }),
+  getOperationalMetrics: vi.fn().mockResolvedValue({
+    totalHcps: 100,
+    avgEngagementScore: 65,
+    totalSimulations: 10,
+    totalAudiences: 5,
+    recentActivity: [],
+  }),
+  getAlertSummary: vi.fn().mockResolvedValue({ total: 0, critical: 0, warning: 0 }),
+  getRecentActivity: vi.fn().mockResolvedValue([]),
+  getDashboardData: vi.fn().mockResolvedValue({
+    metrics: { totalHcps: 100, avgEngagementScore: 65 },
+    health: { status: 'healthy' },
+    alerts: { total: 0 },
+    activity: [],
+  }),
 }));
 
 // Mock rate limiter - bypass for tests

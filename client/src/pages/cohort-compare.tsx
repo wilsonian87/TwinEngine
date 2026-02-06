@@ -300,7 +300,7 @@ export default function CohortCompare() {
       `Overlap: ${comparisonData.overlap.count} HCPs (${comparisonData.overlap.percentage}%)`,
       "",
       "=== Metrics Comparison ===",
-      ...Object.entries(comparisonData.metrics).map(([key, metric]) => {
+      ...(Object.entries(comparisonData.metrics) as [string, CohortMetrics][]).map(([key, metric]) => {
         const label = metricLabels[key] || key;
         const sig = metric.significant ? " *" : "";
         return `${label}: ${metric.a} vs ${metric.b} (delta: ${formatDelta(metric.delta, metric.percentDelta)})${sig}`;
@@ -519,7 +519,7 @@ export default function CohortCompare() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {Object.entries(comparisonData.metrics).map(([key, metric]) => {
+                    {(Object.entries(comparisonData.metrics) as [string, CohortMetrics][]).map(([key, metric]) => {
                       const DeltaIcon =
                         metric.delta > 0 ? TrendingUp : metric.delta < 0 ? TrendingDown : Minus;
                       const deltaColor =

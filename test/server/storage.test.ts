@@ -328,7 +328,7 @@ describe('DatabaseStorage', () => {
         expect(hcps[0].overallEngagementScore).toBeLessThanOrEqual(70);
       });
 
-      it('should filter by channel preference', async () => {
+      it('should filter by channel preferences', async () => {
         const mockRows = [createMockDbHcpRow({ channelPreference: 'email' })];
 
         const whereMock = vi.fn().mockResolvedValue(mockRows);
@@ -339,7 +339,7 @@ describe('DatabaseStorage', () => {
         });
 
         const storage = new DatabaseStorage();
-        const filter: HCPFilter = { channelPreference: 'email' };
+        const filter: HCPFilter = { channelPreferences: ['email'] };
         const hcps = await storage.filterHcps(filter);
 
         expect(hcps).toHaveLength(1);
