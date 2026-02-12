@@ -79,7 +79,7 @@ const actionConfig: Record<string, {
   defend: { icon: Shield, color: "bg-red-500", label: "Defend", verb: "Counter competitive pressure on" },
   nurture: { icon: Heart, color: "bg-purple-500", label: "Nurture", verb: "Maintain relationship with" },
   expand: { icon: Users, color: "bg-cyan-500", label: "Expand", verb: "Explore new channels for" },
-  pause: { icon: Pause, color: "bg-orange-500", label: "Pause", verb: "Reduce messaging to" },
+  pause: { icon: Pause, color: "bg-amber-500", label: "Pause", verb: "Reduce messaging to" },
   reactivate: { icon: Target, color: "bg-amber-500", label: "Reactivate", verb: "Re-establish contact with" },
 };
 

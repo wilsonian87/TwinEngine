@@ -67,7 +67,7 @@ const actionTypeConfig: Record<string, { icon: React.ComponentType<any>; color: 
   },
   pause: {
     icon: Pause,
-    color: "bg-orange-500",
+    color: "bg-amber-500",
     label: "Pause",
     description: "Reduce messaging frequency to prevent fatigue",
   },

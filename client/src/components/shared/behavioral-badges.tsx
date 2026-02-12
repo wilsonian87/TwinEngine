@@ -19,7 +19,7 @@ const badgeConfig: Record<BadgeType, { icon: string; label: string; colors: stri
   rising: {
     icon: "\u{1F525}",
     label: "Rising Engagement",
-    colors: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
+    colors: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   },
   "at-risk": {
     icon: "\u26A0\uFE0F",

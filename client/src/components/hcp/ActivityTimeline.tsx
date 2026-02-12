@@ -68,7 +68,7 @@ const channelColors: Record<Channel, string> = {
   email: "bg-blue-500",
   phone: "bg-teal-500",
   webinar: "bg-purple-500",
-  digital_ad: "bg-orange-500",
+  digital_ad: "bg-amber-500",
   rep_visit: "bg-green-500",
   conference: "bg-pink-500",
 };

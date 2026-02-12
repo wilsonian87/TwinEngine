@@ -67,7 +67,7 @@ function formatTimeAgo(dateStr: string): string {
 
 function getSeverityColor(hcpCount: number): string {
   if (hcpCount >= 50) return "text-red-500";
-  if (hcpCount >= 10) return "text-orange-500";
+  if (hcpCount >= 10) return "text-amber-500";
   return "text-yellow-500";
 }
 

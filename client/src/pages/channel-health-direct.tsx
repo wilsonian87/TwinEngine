@@ -113,10 +113,10 @@ const trafficLightColors: Record<HealthStatus, {
     label: "Dark",
   },
   saturated: {
-    bg: "bg-orange-500/10 dark:bg-orange-950/30",
-    border: "border-orange-300/50 dark:border-orange-800/50",
-    text: "text-orange-700 dark:text-orange-300",
-    dot: "bg-orange-500",
+    bg: "bg-amber-500/10 dark:bg-amber-950/30",
+    border: "border-amber-300/50 dark:border-amber-800/50",
+    text: "text-amber-700 dark:text-amber-300",
+    dot: "bg-amber-500",
     label: "Saturated",
   },
 };

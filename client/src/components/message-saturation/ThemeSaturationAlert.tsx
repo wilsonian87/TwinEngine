@@ -114,10 +114,10 @@ function getWarningColors(type: SaturationWarningType) {
       };
     case "approaching_saturation":
       return {
-        bg: "bg-orange-500/10 dark:bg-orange-500/20",
-        border: "border-orange-500/30",
-        text: "text-orange-600 dark:text-orange-400",
-        icon: "text-orange-500",
+        bg: "bg-amber-500/10 dark:bg-amber-500/20",
+        border: "border-amber-500/30",
+        text: "text-amber-600 dark:text-amber-400",
+        icon: "text-amber-500",
       };
     case "safe_to_reinforce":
       return {
@@ -146,7 +146,7 @@ function getWarningColors(type: SaturationWarningType) {
 function getMsiBadgeColor(msi: number): string {
   if (msi >= 80) return "bg-red-500 text-white";
   if (msi >= 65) return "bg-amber-500 text-white";
-  if (msi >= 50) return "bg-orange-500 text-white";
+  if (msi >= 50) return "bg-amber-500 text-white";
   if (msi >= 26) return "bg-emerald-500 text-white";
   return "bg-sky-500 text-white";
 }

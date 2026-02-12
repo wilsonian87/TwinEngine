@@ -230,7 +230,7 @@ function ActionCard({
                         rec.action === "nurture" && "bg-purple-500/10 text-purple-600 dark:text-purple-400",
                         rec.action === "expand" && "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
                         rec.action === "reactivate" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                        rec.action === "pause" && "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+                        rec.action === "pause" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
                       )}
                     >
                       {rec.action}
@@ -519,12 +519,30 @@ function ReviewedSection({
 
 export default function ActionQueueDirect() {
   const [, navigate] = useLocation();
+  const searchString = useSearch();
+  const simulationId = new URLSearchParams(searchString).get("simulation");
+
   const [showDailyBrief, setShowDailyBrief] = useState(false);
   const [selectedAudienceId, setSelectedAudienceId] = useState<string>("all");
   const [selectedHcpId, setSelectedHcpId] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   // Track decisions per item (not just completion)
   const [decisions, setDecisions] = useState<Map<string, DecisionType>>(new Map());
+
+  // Fetch simulation context if navigated from Simulation Studio
+  const { data: simulationContext } = useQuery<SimulationResult>({
+    queryKey: ["/api/simulations/history", simulationId],
+    queryFn: async () => {
+      const res = await fetch("/api/simulations/history", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch simulations");
+      const history: SimulationResult[] = await res.json();
+      const match = history.find((s) => s.id === simulationId);
+      if (!match) throw new Error("Simulation not found");
+      return match;
+    },
+    enabled: !!simulationId,
+    retry: false,
+  });
 
   const { data: audiences = [] } = useAudiences();
   const { data: allHcps = [] } = useAllHcps();
@@ -755,6 +773,45 @@ export default function ActionQueueDirect() {
           />
         </div>
       </div>
+
+      {/* Simulation Context Banner */}
+      {simulationContext && (
+        <div className="mx-6 mt-4 rounded-lg border border-purple-500/20 bg-purple-500/5 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="rounded-full bg-purple-500/15 p-2 shrink-0">
+                <FlaskConical className="h-4 w-4 text-purple-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Actions from Simulation
+                </p>
+                <p className="text-sm font-semibold mt-0.5 truncate">
+                  {simulationContext.scenarioName}
+                </p>
+                <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3" />
+                    {simulationContext.predictedRxLift > 0 ? "+" : ""}
+                    {simulationContext.predictedRxLift.toFixed(1)}% Rx Lift
+                  </span>
+                  <span>{simulationContext.predictedReach.toLocaleString()} HCPs reached</span>
+                  <span>Efficiency: {simulationContext.efficiencyScore}/100</span>
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-xs"
+              onClick={() => navigate("/simulations")}
+            >
+              <ArrowLeft className="h-3 w-3 mr-1" />
+              Back to Simulation
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="px-6 py-4">

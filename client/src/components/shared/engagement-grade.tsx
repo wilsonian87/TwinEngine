@@ -31,9 +31,9 @@ function getGrade(score: number): GradeInfo {
   if (score >= 53) return { letter: "C", modifier: "+", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-500/10" };
   if (score >= 45) return { letter: "C", modifier: "", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-500/10" };
   if (score >= 40) return { letter: "C", modifier: "-", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-500/10" };
-  if (score >= 33) return { letter: "D", modifier: "+", color: "text-orange-600 dark:text-orange-400", bgColor: "bg-orange-500/10" };
-  if (score >= 25) return { letter: "D", modifier: "", color: "text-orange-600 dark:text-orange-400", bgColor: "bg-orange-500/10" };
-  if (score >= 20) return { letter: "D", modifier: "-", color: "text-orange-600 dark:text-orange-400", bgColor: "bg-orange-500/10" };
+  if (score >= 33) return { letter: "D", modifier: "+", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-500/10" };
+  if (score >= 25) return { letter: "D", modifier: "", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-500/10" };
+  if (score >= 20) return { letter: "D", modifier: "-", color: "text-amber-600 dark:text-amber-400", bgColor: "bg-amber-500/10" };
   return { letter: "F", modifier: "", color: "text-red-600 dark:text-red-400", bgColor: "bg-red-500/10" };
 }
 

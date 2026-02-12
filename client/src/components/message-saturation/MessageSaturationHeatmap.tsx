@@ -301,7 +301,7 @@ function SummaryStatsPanel({ data }: SummaryStatsPanelProps) {
               </p>
             </div>
             {summary.avgOverallMsi > 50 ? (
-              <TrendingUp className="w-8 h-8 text-orange-500" />
+              <TrendingUp className="w-8 h-8 text-amber-500" />
             ) : summary.avgOverallMsi < 30 ? (
               <TrendingDown className="w-8 h-8 text-sky-500" />
             ) : (
@@ -316,11 +316,11 @@ function SummaryStatsPanel({ data }: SummaryStatsPanelProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-muted-foreground">HCPs at Risk</p>
-              <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                 {summary.hcpsAtRisk}
               </p>
             </div>
-            <AlertTriangle className="w-8 h-8 text-orange-400" />
+            <AlertTriangle className="w-8 h-8 text-amber-400" />
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             {saturatedPercentage}% of exposures saturated

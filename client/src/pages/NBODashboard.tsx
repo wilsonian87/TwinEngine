@@ -57,7 +57,7 @@ const actionColors: Record<string, string> = {
   defend: "bg-red-500",
   nurture: "bg-purple-500",
   expand: "bg-cyan-500",
-  pause: "bg-orange-500",
+  pause: "bg-amber-500",
   reactivate: "bg-amber-500",
 };
 

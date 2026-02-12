@@ -69,13 +69,13 @@ function getSeverity(hcpCount: number): "low" | "medium" | "high" {
 
 const severityStyles = {
   low: "border-l-yellow-500 bg-yellow-500/5",
-  medium: "border-l-orange-500 bg-orange-500/5",
+  medium: "border-l-amber-500 bg-amber-500/5",
   high: "border-l-red-500 bg-red-500/5",
 };
 
 const severityBadgeStyles = {
   low: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30",
-  medium: "bg-orange-500/20 text-orange-600 border-orange-500/30",
+  medium: "bg-amber-500/20 text-amber-600 border-amber-500/30",
   high: "bg-red-500/20 text-red-600 border-red-500/30",
 };
 

@@ -49,6 +49,8 @@ import {
   TrendingUp,
   Activity,
   Shield,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 
@@ -143,6 +145,8 @@ export default function ConstraintsPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [showNewWindowDialog, setShowNewWindowDialog] = useState(false);
   const [showNewBudgetDialog, setShowNewBudgetDialog] = useState(false);
+  const [editingWindow, setEditingWindow] = useState<ComplianceWindow | null>(null);
+  const [editingBudget, setEditingBudget] = useState<BudgetAllocation | null>(null);
 
   // Fetch constraint summary
   const { data: summary, isLoading: summaryLoading, isError: summaryError, error: summaryErrorObj, refetch: refetchSummary } = useQuery<ConstraintSummary>({
@@ -204,6 +208,90 @@ export default function ConstraintsPage() {
     },
     onError: () => {
       toast({ title: "Failed to create budget allocation", variant: "destructive" });
+    },
+  });
+
+  // Delete compliance window
+  const deleteWindowMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/constraints/compliance-windows/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete compliance window");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/constraints/compliance-windows"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/constraints/summary"] });
+      toast({ title: "Compliance window deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete", variant: "destructive" });
+    },
+  });
+
+  // Edit compliance window
+  const editWindowMutation = useMutation({
+    mutationFn: async ({ id, ...data }: Partial<ComplianceWindow> & { id: string }) => {
+      const res = await fetch(`/api/constraints/compliance-windows/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update compliance window");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/constraints/compliance-windows"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/constraints/summary"] });
+      setEditingWindow(null);
+      toast({ title: "Compliance window updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update", variant: "destructive" });
+    },
+  });
+
+  // Delete budget allocation
+  const deleteBudgetMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/constraints/budget/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to delete budget allocation");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/constraints/budget"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/constraints/summary"] });
+      toast({ title: "Budget allocation deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete", variant: "destructive" });
+    },
+  });
+
+  // Edit budget allocation
+  const editBudgetMutation = useMutation({
+    mutationFn: async ({ id, ...data }: Partial<BudgetAllocation> & { id: string }) => {
+      const res = await fetch(`/api/constraints/budget/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to update budget allocation");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/constraints/budget"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/constraints/summary"] });
+      setEditingBudget(null);
+      toast({ title: "Budget allocation updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update", variant: "destructive" });
     },
   });
 
@@ -610,6 +698,7 @@ export default function ConstraintsPage() {
                       <TableHead>Committed</TableHead>
                       <TableHead>Available</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="w-24">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -641,6 +730,27 @@ export default function ConstraintsPage() {
                             >
                               {utilizationPct.toFixed(0)}% used
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => setEditingBudget(alloc)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() => deleteBudgetMutation.mutate(alloc.id)}
+                                disabled={deleteBudgetMutation.isPending}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -686,6 +796,7 @@ export default function ConstraintsPage() {
                       <TableHead>Period</TableHead>
                       <TableHead>Reason</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="w-24">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -726,6 +837,27 @@ export default function ConstraintsPage() {
                             >
                               {isActive ? "Active" : isUpcoming ? "Upcoming" : "Expired"}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => setEditingWindow(window)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() => deleteWindowMutation.mutate(window.id)}
+                                disabled={deleteWindowMutation.isPending}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -971,6 +1103,215 @@ export default function ConstraintsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      {/* Edit Compliance Window Dialog */}
+      <Dialog open={!!editingWindow} onOpenChange={(open) => !open && setEditingWindow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Compliance Window</DialogTitle>
+            <DialogDescription>
+              Modify the compliance window settings
+            </DialogDescription>
+          </DialogHeader>
+          {editingWindow && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                editWindowMutation.mutate({
+                  id: editingWindow.id,
+                  name: formData.get("name") as string,
+                  windowType: formData.get("windowType") as string,
+                  channel: formData.get("channel") as string || undefined,
+                  startDate: formData.get("startDate") as string,
+                  endDate: formData.get("endDate") as string,
+                  reason: formData.get("reason") as string || undefined,
+                });
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Name</Label>
+                <Input id="edit-name" name="name" defaultValue={editingWindow.name} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-windowType">Type</Label>
+                <Select name="windowType" defaultValue={editingWindow.windowType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="blackout">Blackout</SelectItem>
+                    <SelectItem value="restricted">Restricted</SelectItem>
+                    <SelectItem value="preferred">Preferred</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-channel">Channel (optional)</Label>
+                <Select name="channel" defaultValue={editingWindow.channel || ""}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All channels" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All channels</SelectItem>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="phone">Phone</SelectItem>
+                    <SelectItem value="rep_visit">Rep Visit</SelectItem>
+                    <SelectItem value="webinar">Webinar</SelectItem>
+                    <SelectItem value="conference">Conference</SelectItem>
+                    <SelectItem value="digital_ad">Digital Ad</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-startDate">Start Date</Label>
+                  <Input
+                    id="edit-startDate"
+                    name="startDate"
+                    type="date"
+                    defaultValue={editingWindow.startDate.split("T")[0]}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-endDate">End Date</Label>
+                  <Input
+                    id="edit-endDate"
+                    name="endDate"
+                    type="date"
+                    defaultValue={editingWindow.endDate.split("T")[0]}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-reason">Reason (optional)</Label>
+                <Input
+                  id="edit-reason"
+                  name="reason"
+                  defaultValue={editingWindow.reason || ""}
+                  placeholder="Holiday, Conference, etc."
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditingWindow(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editWindowMutation.isPending}>
+                  {editWindowMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Budget Allocation Dialog */}
+      <Dialog open={!!editingBudget} onOpenChange={(open) => !open && setEditingBudget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Budget Allocation</DialogTitle>
+            <DialogDescription>
+              Modify the budget allocation settings
+            </DialogDescription>
+          </DialogHeader>
+          {editingBudget && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                editBudgetMutation.mutate({
+                  id: editingBudget.id,
+                  periodType: formData.get("periodType") as string,
+                  channel: formData.get("channel") as string || undefined,
+                  periodStart: formData.get("periodStart") as string,
+                  periodEnd: formData.get("periodEnd") as string,
+                  allocatedAmount: parseFloat(formData.get("allocatedAmount") as string),
+                });
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="edit-periodType">Period Type</Label>
+                <Select name="periodType" defaultValue={editingBudget.periodType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                    <SelectItem value="campaign">Campaign</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-budget-channel">Channel (optional)</Label>
+                <Select name="channel" defaultValue={editingBudget.channel || ""}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All channels" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All channels</SelectItem>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="phone">Phone</SelectItem>
+                    <SelectItem value="rep_visit">Rep Visit</SelectItem>
+                    <SelectItem value="webinar">Webinar</SelectItem>
+                    <SelectItem value="conference">Conference</SelectItem>
+                    <SelectItem value="digital_ad">Digital Ad</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-periodStart">Period Start</Label>
+                  <Input
+                    id="edit-periodStart"
+                    name="periodStart"
+                    type="date"
+                    defaultValue={editingBudget.periodStart.split("T")[0]}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-periodEnd">Period End</Label>
+                  <Input
+                    id="edit-periodEnd"
+                    name="periodEnd"
+                    type="date"
+                    defaultValue={editingBudget.periodEnd.split("T")[0]}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-allocatedAmount">Allocated Amount ($)</Label>
+                <Input
+                  id="edit-allocatedAmount"
+                  name="allocatedAmount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  defaultValue={editingBudget.allocatedAmount}
+                  required
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditingBudget(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={editBudgetMutation.isPending}>
+                  {editBudgetMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
