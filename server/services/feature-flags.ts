@@ -277,6 +277,13 @@ export async function seedInsightRxFlags(): Promise<void> {
       enabled: true,
       rolloutPercentage: 100,
     },
+    {
+      flagKey: "omnivor.platform_mode",
+      name: "Platform Mode Toggle (Discover/Direct)",
+      description: "Enable the Discover/Direct mode toggle in navigation. Controls dual-mode page rendering.",
+      enabled: true,
+      rolloutPercentage: 100,
+    },
   ];
 
   for (const flag of flags) {

@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { BrandProvider } from "@/components/brand";
+import { ModeProvider } from "@/lib/mode-context";
 import { PageTransition } from "@/components/transitions";
 import { CommandPalette, CommandPaletteTrigger } from "@/components/ui/command-palette";
 import { CommandPaletteProvider, useCommandPaletteState } from "@/hooks/use-command-palette";
@@ -16,18 +17,28 @@ import { KeyboardShortcutsProvider, useKeyboardShortcutsState } from "@/hooks/us
 import { ShortcutsModal } from "@/components/ui/shortcuts-modal";
 import { FirstRunGuide } from "@/components/onboarding";
 // DevToolbar import removed - dev navigation widget disabled
-import { OmniVoiceProvider, useOmniVoiceCtx } from "@/contexts/omnivoice-context";
-import { OmniVoiceChat } from "@/components/omnivoice-chat";
+// OmniVoice imports disabled - module not production ready
+// import { OmniVoiceProvider, useOmniVoiceCtx } from "@/contexts/omnivoice-context";
+// import { OmniVoiceChat } from "@/components/omnivoice-chat";
 import { useFeatureFlag, INSIGHTRX_FLAGS } from "@/hooks/use-feature-flags";
 import { AlertBell } from "@/components/alerts/AlertBell";
 import NotFound from "@/pages/not-found";
 import HCPExplorer from "@/pages/hcp-explorer";
+import HCPExplorerDirect from "@/pages/hcp-explorer-direct";
 import Simulations from "@/pages/simulations";
+import SimulationsDirect from "@/pages/simulations-direct";
 import Dashboard from "@/pages/dashboard";
 import FeatureStore from "@/pages/feature-store";
 import AudienceBuilder from "@/pages/audience-builder";
+import AudienceBuilderDirect from "@/pages/audience-builder-direct";
+import ChannelHealthDirect from "@/pages/channel-health-direct";
 import ActionQueuePage from "@/pages/action-queue";
+import ActionQueueDirect from "@/pages/action-queue-direct";
+import { ModePage } from "@/components/mode-page";
+import DashboardDirect from "@/pages/dashboard-direct";
 import CohortCompare from "@/pages/cohort-compare";
+import CohortCompareDirect from "@/pages/cohort-compare-direct";
+import { AmbientAlertBar } from "@/components/shared/ambient-alert-bar";
 import ModelEvaluationPage from "@/pages/model-evaluation";
 import Settings from "@/pages/settings";
 // Landing import removed - bypassing login page in dev mode
@@ -35,7 +46,9 @@ import AgentsPage from "@/pages/agents";
 import ConstraintsPage from "@/pages/constraints";
 import AllocationLabPage from "@/pages/allocation-lab";
 import MessageSaturationPage from "@/pages/message-saturation";
+import MessageSaturationDirect from "@/pages/message-saturation-direct";
 import NBODashboard from "@/pages/NBODashboard";
+import NBODirect from "@/pages/nbo-direct";
 import SimulationComparePage from "@/pages/SimulationComparePage";
 import AlertsPage from "@/pages/alerts";
 import IntegrationsPage from "@/pages/settings/IntegrationsPage";
@@ -50,14 +63,31 @@ function Router() {
     <AnimatePresence mode="wait">
       <PageTransition key={location} pageKey={location}>
         <Switch location={location}>
-          <Route path="/" component={HCPExplorer} />
-          <Route path="/hcp-explorer" component={HCPExplorer} />
-          <Route path="/simulations" component={Simulations} />
+          <Route path="/">
+            {() => <ModePage discover={HCPExplorer} direct={HCPExplorerDirect} />}
+          </Route>
+          <Route path="/hcp-explorer">
+            {() => <ModePage discover={HCPExplorer} direct={HCPExplorerDirect} />}
+          </Route>
+          <Route path="/simulations">
+            {() => <ModePage discover={Simulations} direct={SimulationsDirect} />}
+          </Route>
           <Route path="/simulations/compare" component={SimulationComparePage} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/audience-builder" component={AudienceBuilder} />
-          <Route path="/action-queue" component={ActionQueuePage} />
-          <Route path="/cohort-compare" component={CohortCompare} />
+          <Route path="/dashboard">
+            {() => <ModePage discover={Dashboard} direct={DashboardDirect} />}
+          </Route>
+          <Route path="/audience-builder">
+            {() => <ModePage discover={AudienceBuilder} direct={AudienceBuilderDirect} />}
+          </Route>
+          <Route path="/channel-health">
+            {() => <ModePage discover={ChannelHealthDirect} direct={ChannelHealthDirect} />}
+          </Route>
+          <Route path="/action-queue">
+            {() => <ModePage discover={ActionQueuePage} direct={ActionQueueDirect} />}
+          </Route>
+          <Route path="/cohort-compare">
+            {() => <ModePage discover={CohortCompare} direct={CohortCompareDirect} />}
+          </Route>
           <Route path="/feature-store" component={FeatureStore} />
           <Route path="/model-evaluation" component={ModelEvaluationPage} />
           <Route path="/settings" component={Settings} />
@@ -68,8 +98,12 @@ function Router() {
           <Route path="/agents" component={AgentsPage} />
           <Route path="/constraints" component={ConstraintsPage} />
           <Route path="/allocation-lab" component={AllocationLabPage} />
-          <Route path="/message-saturation" component={MessageSaturationPage} />
-          <Route path="/next-best-orbit" component={NBODashboard} />
+          <Route path="/message-saturation">
+            {() => <ModePage discover={MessageSaturationPage} direct={MessageSaturationDirect} />}
+          </Route>
+          <Route path="/next-best-orbit">
+            {() => <ModePage discover={NBODashboard} direct={NBODirect} />}
+          </Route>
           <Route path="/alerts" component={AlertsPage} />
           <Route component={NotFound} />
         </Switch>
@@ -78,20 +112,8 @@ function Router() {
   );
 }
 
-/**
- * Omni-Voice Chat Widget (conditionally rendered based on feature flag)
- */
-function OmniVoiceChatWidget() {
-  const { isEnabled, isLoading } = useFeatureFlag(INSIGHTRX_FLAGS.OMNIVOICE_CHAT);
-  const { context } = useOmniVoiceCtx();
-
-  // Don't render if feature is disabled or still loading
-  if (isLoading || !isEnabled) {
-    return null;
-  }
-
-  return <OmniVoiceChat context={context} />;
-}
+// OmniVoice Chat Widget disabled - module not production ready
+// function OmniVoiceChatWidget() { ... }
 
 function AppLayout() {
   const sidebarStyle = {
@@ -112,6 +134,7 @@ function AppLayout() {
               <ThemeToggle />
             </div>
           </header>
+          <AmbientAlertBar />
           <main className="flex-1 overflow-hidden">
             <Router />
           </main>
@@ -119,7 +142,6 @@ function AppLayout() {
       </div>
       <CommandPalette />
       <FirstRunGuide />
-      <OmniVoiceChatWidget />
     </SidebarProvider>
   );
 }
@@ -151,11 +173,7 @@ function AuthenticatedApp() {
   }
   */
 
-  return (
-    <OmniVoiceProvider>
-      <AppLayout />
-    </OmniVoiceProvider>
-  );
+  return <AppLayout />;
 }
 
 function CommandPaletteWrapper({ children }: { children: React.ReactNode }) {
@@ -184,6 +202,7 @@ function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="omnivor-theme">
       <BrandProvider>
+        <ModeProvider>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <KeyboardShortcutsWrapper>
@@ -195,6 +214,7 @@ function App() {
             <Toaster />
           </TooltipProvider>
         </QueryClientProvider>
+        </ModeProvider>
       </BrandProvider>
     </ThemeProvider>
   );

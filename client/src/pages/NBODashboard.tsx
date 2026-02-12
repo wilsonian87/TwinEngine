@@ -24,8 +24,10 @@ import {
   Zap,
   BarChart3,
   PieChart,
+  Loader2,
 } from "lucide-react";
 import { NBORecommendationCard } from "@/components/nbo/NBORecommendationCard";
+import { useAudiences } from "@/hooks/use-action-queue-data";
 import type { NBORecommendation } from "@shared/schema";
 
 interface NBOBatchResponse {
@@ -65,6 +67,35 @@ export default function NBODashboard() {
   const [activeTab, setActiveTab] = useState("priority");
   const [limit, setLimit] = useState(20);
   const [urgencyFilter, setUrgencyFilter] = useState<string>("all");
+  const [selectedAudienceId, setSelectedAudienceId] = useState<string>("");
+  const [audienceRecs, setAudienceRecs] = useState<NBORecommendation[] | null>(null);
+
+  // Fetch saved audiences for the "All Recommendations" tab
+  const { data: audiences = [] } = useAudiences();
+
+  // Batch generate NBO for a specific audience
+  const batchMutation = useMutation({
+    mutationFn: async (hcpIds: string[]) => {
+      const res = await fetch("/api/nbo/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ hcpIds, prioritize: true, limit: 50 }),
+      });
+      if (!res.ok) throw new Error("Failed to generate recommendations");
+      return res.json() as Promise<NBOBatchResponse>;
+    },
+    onSuccess: (data) => {
+      setAudienceRecs(data.recommendations);
+    },
+  });
+
+  const handleGenerateForAudience = () => {
+    const audience = audiences.find((a) => a.id === selectedAudienceId);
+    if (audience?.hcpIds?.length) {
+      batchMutation.mutate(audience.hcpIds);
+    }
+  };
 
   // Fetch priority queue
   const { data: priorityData, isLoading: priorityLoading, isError: priorityError, error: priorityErrorObj, refetch: refetchPriority } = useQuery<{
@@ -221,7 +252,7 @@ export default function NBODashboard() {
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="priority">Priority Queue</TabsTrigger>
-            <TabsTrigger value="all">All Recommendations</TabsTrigger>
+            <TabsTrigger value="all">By Audience</TabsTrigger>
           </TabsList>
 
           <div className="flex items-center gap-4">
@@ -297,16 +328,91 @@ export default function NBODashboard() {
           )}
         </TabsContent>
 
-        <TabsContent value="all" className="mt-6">
+        <TabsContent value="all" className="mt-6 space-y-4">
           <Card>
-            <CardContent className="py-12 text-center">
-              <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-4">
-                Generate recommendations for a specific cohort
-              </p>
-              <Button variant="outline">Select Cohort</Button>
+            <CardContent className="py-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                <div className="flex-1 w-full">
+                  <Label htmlFor="audience-select" className="text-sm font-medium mb-1.5 block">
+                    Select Audience
+                  </Label>
+                  <Select value={selectedAudienceId} onValueChange={setSelectedAudienceId}>
+                    <SelectTrigger id="audience-select" className="w-full">
+                      <SelectValue placeholder="Choose a saved audience..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {audiences.map((aud) => (
+                        <SelectItem key={aud.id} value={aud.id}>
+                          {aud.name} ({aud.hcpCount} HCPs)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handleGenerateForAudience}
+                  disabled={!selectedAudienceId || batchMutation.isPending}
+                  className="gap-2"
+                >
+                  {batchMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4" />
+                  )}
+                  Generate Recommendations
+                </Button>
+              </div>
             </CardContent>
           </Card>
+
+          {batchMutation.isError && (
+            <Card>
+              <CardContent className="py-8">
+                <ErrorState
+                  title="Generation failed"
+                  message={batchMutation.error instanceof Error ? batchMutation.error.message : "Failed to generate recommendations"}
+                  type="server"
+                  retry={handleGenerateForAudience}
+                  size="md"
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {audienceRecs && audienceRecs.length > 0 ? (
+            <div className="grid gap-4">
+              <p className="text-sm text-muted-foreground">
+                {audienceRecs.length} recommendations generated for{" "}
+                <span className="font-medium text-foreground">
+                  {audiences.find((a) => a.id === selectedAudienceId)?.name}
+                </span>
+              </p>
+              {audienceRecs.map((rec) => (
+                <NBORecommendationCard
+                  key={rec.id}
+                  recommendation={rec}
+                  onAccept={handleAccept}
+                  onDismiss={handleDismiss}
+                  onHcpClick={(hcpId) => navigate(`/?hcp=${hcpId}`)}
+                />
+              ))}
+            </div>
+          ) : audienceRecs && audienceRecs.length === 0 ? (
+            <Card>
+              <CardContent>
+                <FilteredEmptyState className="py-8" />
+              </CardContent>
+            </Card>
+          ) : !batchMutation.isPending ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  Select an audience above to generate targeted recommendations
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>

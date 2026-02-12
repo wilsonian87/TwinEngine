@@ -265,6 +265,7 @@ export const INSIGHTRX_FLAGS = {
   KNOWLEDGE: "insightrx.knowledge",
   KNOWLEDGE_PANELS: "insightrx.knowledge.panels",
   OMNIVOICE_CHAT: "omnivoice.chat_widget",
+  PLATFORM_MODE: "omnivor.platform_mode",
 } as const;
 
 /**

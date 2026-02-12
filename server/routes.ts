@@ -1599,6 +1599,24 @@ export async function registerRoutes(
     }
   });
 
+  // ============ AI Narrative Generation (protected) ============
+
+  app.post("/api/narrative/generate", async (req, res) => {
+    try {
+      const { context, data } = req.body;
+      if (!context || !data) {
+        return res.status(400).json({ error: "Missing context or data" });
+      }
+
+      const { generateNarrativeWithAI } = await import("./services/genai-service");
+      const result = await generateNarrativeWithAI(context, data);
+      res.json(result);
+    } catch (error) {
+      console.error("Error generating narrative:", error);
+      res.status(500).json({ error: "Failed to generate narrative" });
+    }
+  });
+
   // ============ Model Evaluation & Closed-Loop Learning Endpoints (protected) ============
 
   app.post("/api/stimuli/:id/outcome", async (req, res) => {

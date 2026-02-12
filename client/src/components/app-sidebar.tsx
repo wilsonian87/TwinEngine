@@ -46,6 +46,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { LogoIcon } from "@/components/brand";
 import { BRAND_CONFIG } from "@/lib/brand-config";
+import { ModeToggle } from "@/components/mode-toggle";
 
 // Phase 13: Organized navigation sections (Explore / Analyze / Activate / System)
 
@@ -81,7 +82,7 @@ const analyzeItems = [
   },
   {
     title: "Channel Health",
-    url: "/feature-store",
+    url: "/channel-health",
     icon: Activity,
     description: "Channel performance diagnostics",
   },
@@ -205,6 +206,9 @@ export function AppSidebar() {
               {BRAND_CONFIG.product.subtitle}
             </span>
           </div>
+        </div>
+        <div className="mt-3">
+          <ModeToggle />
         </div>
       </SidebarHeader>
 

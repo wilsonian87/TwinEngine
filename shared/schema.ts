@@ -5402,6 +5402,9 @@ export const nboRecommendationSchema = z.object({
 
   // Urgency derived from inputs
   urgency: z.enum(["high", "medium", "low"]),
+
+  // Phase 15: Temporal bucket for Direct Mode display
+  urgencyBucket: z.enum(["act-now", "this-week", "backlog"]).optional(),
 });
 
 export type NBORecommendation = z.infer<typeof nboRecommendationSchema>;

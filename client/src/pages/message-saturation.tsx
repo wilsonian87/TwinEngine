@@ -7,16 +7,40 @@
 
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Flame, RefreshCw, Download, Info } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Flame, RefreshCw, Download, Info, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MessageSaturationHeatmap } from "@/components/message-saturation";
 import { useToast } from "@/hooks/use-toast";
+import type { SavedAudience } from "@shared/schema";
 
 export default function MessageSaturationPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isSeeding, setIsSeeding] = useState(false);
+  const [selectedAudienceId, setSelectedAudienceId] = useState<string | null>(null);
+
+  // Fetch saved audiences for filtering
+  const { data: audiences = [] } = useQuery<SavedAudience[]>({
+    queryKey: ["/api/audiences"],
+    queryFn: async () => {
+      const res = await fetch("/api/audiences", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const selectedAudience = audiences.find((a) => a.id === selectedAudienceId);
+  const audienceHcpIds = selectedAudience?.hcpIds ?? undefined;
 
   // Handle HCP click - navigate to HCP detail
   const handleHcpClick = (hcpId: string) => {
@@ -146,8 +170,51 @@ export default function MessageSaturationPage() {
           </div>
         </div>
 
+        {/* Audience Filter */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="w-4 h-4" />
+            <span>Audience:</span>
+          </div>
+          <Select
+            value={selectedAudienceId ?? "all"}
+            onValueChange={(v) => setSelectedAudienceId(v === "all" ? null : v)}
+          >
+            <SelectTrigger className="w-[220px] h-8 text-xs">
+              <SelectValue placeholder="All HCPs" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All HCPs</SelectItem>
+              {audiences.map((audience) => (
+                <SelectItem key={audience.id} value={audience.id}>
+                  <div className="flex items-center gap-2">
+                    {audience.name}
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                      {audience.hcpIds.length}
+                    </Badge>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedAudience && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setSelectedAudienceId(null)}
+            >
+              <X className="w-3 h-3" />
+              Clear
+            </Button>
+          )}
+        </div>
+
         {/* Heatmap Visualization */}
-        <MessageSaturationHeatmap onHcpClick={handleHcpClick} />
+        <MessageSaturationHeatmap
+          hcpIds={audienceHcpIds}
+          onHcpClick={handleHcpClick}
+        />
       </div>
     </div>
   );

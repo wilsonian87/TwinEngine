@@ -391,7 +391,7 @@ export function NLAudienceBuilder() {
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-6" data-testid="nl-audience-builder">
       {/* Left Column - Query & Filters */}
-      <div className="w-96 shrink-0 flex flex-col gap-4 overflow-auto">
+      <div className="w-80 lg:w-96 shrink-0 flex flex-col gap-4 overflow-auto">
         {/* NL Query Input */}
         <Card data-testid="card-query-input">
           <CardHeader className="pb-3">
@@ -751,7 +751,7 @@ export function NLAudienceBuilder() {
       {/* Right Column - Live Preview */}
       <div className="flex-1 flex flex-col gap-4 min-w-0">
         {/* Stats Bar */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Card className="p-3">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
@@ -909,8 +909,8 @@ export function NLAudienceBuilder() {
         )}
 
         {/* Actions Bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
             <Badge variant="outline" className="text-xs">
               {stats.total} HCPs match your criteria
             </Badge>
@@ -962,7 +962,7 @@ export function NLAudienceBuilder() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -992,11 +992,11 @@ export function NLAudienceBuilder() {
               </TooltipTrigger>
               <TooltipContent>Clone as new audience</TooltipContent>
             </Tooltip>
-            <Button variant="outline" size="sm" onClick={exportToCsv} disabled={stats.total === 0}>
+            <Button variant="outline" size="sm" onClick={exportToCsv} disabled={stats.total === 0} className="whitespace-nowrap">
               <Download className="h-3.5 w-3.5 mr-1.5" />
               Export
             </Button>
-            <Button size="sm" onClick={() => setSaveDialogOpen(true)} disabled={stats.total === 0}>
+            <Button size="sm" onClick={() => setSaveDialogOpen(true)} disabled={stats.total === 0} className="whitespace-nowrap">
               <Save className="h-3.5 w-3.5 mr-1.5" />
               Save Audience
             </Button>
@@ -1046,9 +1046,9 @@ export function NLAudienceBuilder() {
                         {hcp.specialty} • {hcp.organization} • {hcp.city}, {hcp.state}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <Badge variant="outline" className="text-xs">{hcp.tier}</Badge>
-                      <Badge variant="secondary" className="text-xs">{hcp.segment}</Badge>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="outline" className="text-xs hidden sm:inline-flex">{hcp.tier}</Badge>
+                      <Badge variant="secondary" className="text-xs hidden sm:inline-flex">{hcp.segment}</Badge>
                       <div className="flex flex-col items-end">
                         <span className="text-sm font-mono font-semibold text-primary">
                           {hcp.overallEngagementScore}

@@ -416,6 +416,110 @@ Generate 2-3 specific recommendations as JSON:
   }
 }
 
+// Zod schema for LLM-generated narratives
+const llmNarrativeSchema = z.object({
+  narrative: z.string(),
+  verdict: z.string().optional(),
+  keyInsights: z.array(z.string()).optional(),
+});
+
+/**
+ * Generate AI narrative for Direct Mode views.
+ * Produces human-readable insight paragraphs from structured data.
+ * Falls back to template-based narrative if LLM is unavailable.
+ */
+export async function generateNarrativeWithAI(
+  context: string,
+  data: Record<string, unknown>
+): Promise<{ narrative: string; verdict?: string; usedAI: boolean }> {
+  // Rule-based fallback
+  if (!isGenAIAvailable()) {
+    return {
+      narrative: generateRuleBasedNarrative(context, data),
+      usedAI: false,
+    };
+  }
+
+  const systemPrompt = `You are a pharmaceutical analytics narrator for the OmniVor platform.
+Generate concise, insightful narratives from structured data. Write in active voice.
+Focus on actionable insights, not data recitation. 2-3 sentences maximum.
+Never use placeholder numbers — use the exact data provided.`;
+
+  const contextPrompts: Record<string, string> = {
+    dashboard: `Summarize the state of this HCP engagement portfolio. Highlight the most important trend or anomaly. Data: ${JSON.stringify(data)}`,
+    comparison: `Compare these two audience cohorts. Lead with the most striking difference and its strategic implication. Provide a 1-sentence "verdict" characterizing each audience. Data: ${JSON.stringify(data)}`,
+    channel_health: `Diagnose the health of engagement channels. Lead with the strongest and weakest channel. Data: ${JSON.stringify(data)}`,
+  };
+
+  const userPrompt = contextPrompts[context] || `Generate an insight narrative for: ${JSON.stringify(data)}`;
+
+  try {
+    rateLimitState.requestCount++;
+
+    const response = await anthropicClient!.messages.create({
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 512,
+      messages: [{ role: 'user', content: `${userPrompt}\n\nReturn JSON: {"narrative": "...", "verdict": "...", "keyInsights": ["..."]}` }],
+      system: systemPrompt,
+    });
+
+    const inputTokens = response.usage?.input_tokens || 0;
+    const outputTokens = response.usage?.output_tokens || 0;
+    rateLimitState.totalTokensUsed += inputTokens + outputTokens;
+    rateLimitState.totalCost +=
+      inputTokens * config.costPerInputToken +
+      outputTokens * config.costPerOutputToken;
+
+    const textContent = response.content.find(c => c.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text content in response');
+    }
+
+    const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const validated = llmNarrativeSchema.parse(parsed);
+
+    return {
+      narrative: validated.narrative,
+      verdict: validated.verdict,
+      usedAI: true,
+    };
+  } catch (error) {
+    console.error('GenAI narrative generation failed, using rule-based fallback:', error);
+    return {
+      narrative: generateRuleBasedNarrative(context, data),
+      usedAI: false,
+    };
+  }
+}
+
+/**
+ * Rule-based narrative fallback when LLM is unavailable.
+ */
+function generateRuleBasedNarrative(context: string, data: Record<string, unknown>): string {
+  switch (context) {
+    case 'dashboard': {
+      const metrics = data as { avgEngagementScore?: number; totalHcps?: number; atRiskHcps?: number; atRiskTrend?: number };
+      const engagement = metrics.avgEngagementScore || 0;
+      const total = metrics.totalHcps || 0;
+      const atRisk = metrics.atRiskHcps || 0;
+      const trend = metrics.atRiskTrend || 0;
+      const trendWord = trend > 0 ? 'up' : trend < 0 ? 'down' : 'stable';
+      return `Your portfolio of ${total} HCPs has an average engagement score of ${engagement.toFixed(1)}. ${atRisk} providers are flagged as at-risk, trending ${trendWord} from last period.`;
+    }
+    case 'comparison': {
+      const comp = data as { cohortA?: { name: string; count: number }; cohortB?: { name: string; count: number }; overlap?: { percentage: number } };
+      return `${comp.cohortA?.name || 'Cohort A'} (${comp.cohortA?.count || 0} HCPs) and ${comp.cohortB?.name || 'Cohort B'} (${comp.cohortB?.count || 0} HCPs) overlap by ${comp.overlap?.percentage?.toFixed(1) || 0}%.`;
+    }
+    default:
+      return 'Analysis complete. Switch to Discover mode for detailed data exploration.';
+  }
+}
+
 /**
  * Helper function to get top channels from HCP list
  */

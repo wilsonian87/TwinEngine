@@ -9,7 +9,7 @@
  * - Oranges/Reds (51-100): Saturated - risk of fatigue
  */
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -395,10 +395,14 @@ export function MessageSaturationHeatmap({
   onHcpClick,
   className,
 }: MessageSaturationHeatmapProps) {
+  const ROW_PAGE_SIZE = 50;
+  const ROW_MAX = 100;
+
   // Filter state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedRiskLevel, setSelectedRiskLevel] = useState<SaturationRiskLevel | null>(null);
   const [selectedStage, setSelectedStage] = useState<AdoptionStage | null>(null);
+  const [visibleRows, setVisibleRows] = useState(ROW_PAGE_SIZE);
 
   // Fetch heatmap data
   const { data, isLoading, error } = useQuery<MessageSaturationHeatmapData>({
@@ -412,6 +416,12 @@ export function MessageSaturationHeatmap({
     },
     staleTime: 60000, // 1 minute
   });
+
+  // Reset visible rows when audience filter changes
+  const hcpIdsKey = hcpIds?.join(",") ?? "";
+  useEffect(() => {
+    setVisibleRows(ROW_PAGE_SIZE);
+  }, [hcpIdsKey]);
 
   // Get unique HCP IDs from cells
   const hcpIdList = useMemo(() => {
@@ -558,7 +568,7 @@ export function MessageSaturationHeatmap({
               </thead>
               <tbody>
                 <AnimatePresence>
-                  {hcpIdList.slice(0, 50).map((hcpId) => (
+                  {hcpIdList.slice(0, Math.min(visibleRows, ROW_MAX)).map((hcpId) => (
                     <motion.tr
                       key={hcpId}
                       initial={{ opacity: 0 }}
@@ -601,13 +611,20 @@ export function MessageSaturationHeatmap({
             </table>
           </div>
 
-          {hcpIdList.length > 50 && (
+          {hcpIdList.length > Math.min(visibleRows, ROW_MAX) && (
             <div className="mt-4 text-center">
               <p className="text-xs text-muted-foreground">
-                Showing 50 of {hcpIdList.length} HCPs.{" "}
-                <span className="text-primary cursor-pointer hover:underline">
-                  Load more
-                </span>
+                Showing {Math.min(visibleRows, ROW_MAX)} of {hcpIdList.length} HCPs.{" "}
+                {visibleRows < ROW_MAX ? (
+                  <button
+                    onClick={() => setVisibleRows((v) => Math.min(v + ROW_PAGE_SIZE, ROW_MAX))}
+                    className="text-primary hover:underline"
+                  >
+                    Load more
+                  </button>
+                ) : (
+                  <span>Use an audience filter to narrow results.</span>
+                )}
               </p>
             </div>
           )}

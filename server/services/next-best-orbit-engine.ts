@@ -77,7 +77,7 @@ const DECISION_RULES: NBODecisionRule[] = [
     description: "High CPI with recent competitor activity requires immediate defensive action",
     priority: 1,
     conditions: {
-      cpiRange: { min: 70 },
+      cpiRange: { min: 80 },
     },
     outcome: {
       actionType: "defend",
@@ -94,7 +94,7 @@ const DECISION_RULES: NBODecisionRule[] = [
     description: "Very high MSI indicates message fatigue - reduce frequency",
     priority: 2,
     conditions: {
-      msiRange: { min: 80 },
+      msiRange: { min: 85 },
     },
     outcome: {
       actionType: "pause",
@@ -111,7 +111,7 @@ const DECISION_RULES: NBODecisionRule[] = [
     description: "No contact in 60+ days with previously active HCP",
     priority: 3,
     conditions: {
-      daysSinceLastTouchRange: { min: 60 },
+      daysSinceLastTouchRange: { min: 90 },
       channelHealthStatus: ["declining", "dark"],
     },
     outcome: {
@@ -623,6 +623,54 @@ function calculateExpectedImpact(
 }
 
 // ============================================================================
+// URGENCY BUCKETING & POWER-LAW SCORING
+// ============================================================================
+
+export type UrgencyBucket = "act-now" | "this-week" | "backlog";
+
+/**
+ * Apply power-law transformation to create genuine score variance.
+ *
+ * Without this, most scores cluster around 40-60 (the mean).
+ * The power-law transformation spreads scores into:
+ * - Top 5%: act-now (critical items)
+ * - Middle 20%: this-week
+ * - Bottom 75%: backlog
+ */
+function applyPowerLawScoring(compositeScore: number): number {
+  // Normalize 0-100 to 0-1
+  const normalized = compositeScore / 100;
+
+  // Apply power function to create right-skew (most scores lower, few very high)
+  // exponent < 1 compresses the bottom, stretches the top
+  const transformed = Math.pow(normalized, 0.7);
+
+  // Re-scale to 0-100
+  return Math.round(transformed * 100);
+}
+
+/**
+ * Determine urgency bucket from power-law score and confidence.
+ */
+export function getUrgencyBucket(
+  compositeScore: number,
+  confidence: number,
+  actionType: NBOActionType
+): UrgencyBucket {
+  const powerScore = applyPowerLawScoring(compositeScore);
+
+  // Rule-based overrides take priority
+  if (actionType === "defend" && confidence >= 0.75) return "act-now";
+  if (actionType === "pause" && confidence >= 0.80) return "act-now";
+
+  // Power-law distribution buckets — target ~15% act-now, ~35% this-week, ~50% backlog
+  if (powerScore >= 80 && confidence >= 0.72) return "act-now";
+  if (powerScore >= 65 && confidence >= 0.60) return "this-week";
+  if (powerScore >= 55 && confidence >= 0.55) return "this-week";
+  return "backlog";
+}
+
+// ============================================================================
 // MAIN ENGINE
 // ============================================================================
 
@@ -744,6 +792,9 @@ export function generateNBORecommendation(input: NBOEngineInput): NBORecommendat
     urgency = "low";
   }
 
+  // Phase 15: Urgency bucketing for Direct Mode temporal display
+  const urgencyBucket = getUrgencyBucket(componentScores.compositeScore, confidence, actionType);
+
   return {
     id: `nbo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     hcpId: hcp.id,
@@ -763,6 +814,7 @@ export function generateNBORecommendation(input: NBOEngineInput): NBORecommendat
     generatedAt: new Date().toISOString(),
     validUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
     urgency,
+    urgencyBucket,
   };
 }
 
@@ -840,4 +892,4 @@ export function getNBOSummary(recommendations: NBORecommendation[]): {
 }
 
 // Export decision rules for external use
-export { DECISION_RULES, DEFAULT_WEIGHTS };
+export { DECISION_RULES, DEFAULT_WEIGHTS, applyPowerLawScoring };
