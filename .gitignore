@@ -8,6 +8,12 @@ vite.config.ts.*
 
 # Environment files
 .env
+.env.*
+
+# Secrets & deployment config (never commit to public repo)
+SESSION_SECRET
+omnivor-db-secret.txt
+Coolify Configuration for TwinEngine.ini
 
 # Replit artifacts
 .config/
