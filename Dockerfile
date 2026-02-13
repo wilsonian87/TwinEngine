@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # ---- Production Stage ----
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
@@ -32,4 +32,4 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "echo '=== STARTUP ===' && echo \"DATABASE_URL set: $([ -n \"$DATABASE_URL\" ] && echo YES || echo NO)\" && echo \"PORT: $PORT\" && node dist/index.cjs 2>&1 || echo '=== CRASH: exit code $? ==='"]
+CMD ["node", "dist/index.cjs"]
