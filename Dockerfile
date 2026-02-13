@@ -32,4 +32,4 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["node", "dist/index.cjs"]
+CMD ["sh", "-c", "echo '=== STARTUP ===' && echo \"DATABASE_URL set: $([ -n \"$DATABASE_URL\" ] && echo YES || echo NO)\" && echo \"PORT: $PORT\" && node dist/index.cjs 2>&1 || echo '=== CRASH: exit code $? ==='"]
