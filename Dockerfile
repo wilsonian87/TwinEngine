@@ -3,9 +3,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files + workspace structure
+# Copy package files
 COPY package.json package-lock.json ./
-COPY packages/insightrx/package.json ./packages/insightrx/
 
 RUN npm ci
 
@@ -22,7 +21,6 @@ WORKDIR /app
 
 # Copy package files for production install
 COPY package.json package-lock.json ./
-COPY packages/insightrx/package.json ./packages/insightrx/
 
 RUN npm ci --omit=dev && npm cache clean --force
 

@@ -28,7 +28,7 @@ import {
   knowledgeMarketContextSchema,
   knowledgeChannelContextSchema,
 } from "@shared/schema";
-import { getAvailableRules, getRulesVersion } from "@twinengine/insightrx";
+import { getAvailableRules, getRulesVersion } from "../services/insightrx-stubs";
 
 export const validationRouter = Router();
 

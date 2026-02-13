@@ -21,7 +21,7 @@ import {
   getRulesVersion,
   type ValidationResult,
   type ValidationInput,
-} from "@twinengine/insightrx";
+} from "./insightrx-stubs";
 import { isFeatureEnabled } from "./feature-flags";
 import {
   CircuitBreaker,
