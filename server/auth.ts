@@ -116,6 +116,9 @@ function configurePassport(): void {
  * Set up session and authentication middleware
  */
 export function setupAuth(app: Express): void {
+  // Trust first proxy (Traefik/Coolify) so secure cookies and rate limiting work
+  app.set("trust proxy", 1);
+
   // Configure session middleware
   const sessionSecret = requireEnvVar("SESSION_SECRET", "twinengine-dev-secret");
   const isProduction = process.env.NODE_ENV === "production";
@@ -135,11 +138,22 @@ export function setupAuth(app: Express): void {
 
   // Add PostgreSQL session store in production
   if (isProduction) {
+    // Create session table inline (connect-pg-simple's createTableIfMissing
+    // reads table.sql from disk, which breaks in esbuild single-file bundles)
+    pool.query(`
+      CREATE TABLE IF NOT EXISTS "user_sessions" (
+        "sid" varchar NOT NULL COLLATE "default",
+        "sess" json NOT NULL,
+        "expire" timestamp(6) NOT NULL,
+        CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
+      );
+      CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "user_sessions" ("expire");
+    `).catch((err: unknown) => console.error("[Auth] Failed to create session table:", err));
+
     const PgSession = connectPgSimple(session);
     sessionConfig.store = new PgSession({
       pool: pool,
       tableName: "user_sessions",
-      createTableIfMissing: true,
     });
     debugLog("Auth", "Using PostgreSQL session store");
   } else {
