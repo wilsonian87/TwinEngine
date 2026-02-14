@@ -227,18 +227,16 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Seed database on startup (development only)
-  if (process.env.NODE_ENV !== "production") {
-    try {
-      await storage.seedHcpData(100);
-      debugLog("STARTUP", "HCP database seeding completed successfully");
+  // Seed database on startup (idempotent — skips if data already exists)
+  try {
+    await storage.seedHcpData(2500);
+    debugLog("STARTUP", "HCP database seeding completed successfully");
 
-      // Seed message saturation data
-      const saturationResult = await messageSaturationStorage.seedMessageSaturationData();
-      debugLog("STARTUP", `Message saturation seeding completed: ${saturationResult.themesCreated} themes, ${saturationResult.exposuresCreated} exposures`);
-    } catch (error) {
-      console.error("[STARTUP] Error seeding database:", error);
-    }
+    // Seed message saturation data
+    const saturationResult = await messageSaturationStorage.seedMessageSaturationData();
+    debugLog("STARTUP", `Message saturation seeding completed: ${saturationResult.themesCreated} themes, ${saturationResult.exposuresCreated} exposures`);
+  } catch (error) {
+    console.error("[STARTUP] Error seeding database:", error);
   }
 
   // ============ Observability Middleware ============
