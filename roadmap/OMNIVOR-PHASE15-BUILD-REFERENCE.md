@@ -619,6 +619,119 @@ These patterns should be implemented as shared components, not per-module:
 
 ---
 
+---
+
+## Production Auth & Access (Priority: High)
+
+> **Status:** Blocked — using `ALLOW_DEV_BYPASS=true` as interim workaround
+> **Context:** First production deploy exposed that the auth flow has no usable registration path for new environments.
+
+### Requirements
+
+1. **Production Splash Page** — Functioning login/register page that works without dev bypass. Must support first-user registration flow for fresh deployments.
+
+2. **Admin User Management** — Settings control panel needs a working user management section visible only to admin users. CRUD for user accounts, role assignment, ability to deactivate users.
+
+3. **Invite System Integration** — The semi-built `InviteManager` component needs to be completed and wired into the registration flow. Invite codes gate new user registration; admin generates and manages codes from the control panel.
+
+### Current Workaround
+
+`SKIP_AUTH=true` set in Coolify env vars. Remove once the above is implemented.
+
+---
+
+## HCP Explorer — UX Refinement Pass (Priority: High)
+
+> **Status:** Ready to build
+> **Scope:** Multi-module UX pass — filtering, selection, profile expand, intent-based deep linking
+
+### Direct Mode Filters
+- **Tier**: multi-select filter
+- **Segment**: multi-select filter
+- **Specialty**: multi-select filter
+- **Location**: multi-select filter
+- All four nested neatly in a single row at top, near existing menu items (compact filter bar)
+
+### Profile Expand
+- Current profile panel uses ~1/3 of viewport width — wasteful
+- Refactor to a smooth transition popout (slide-over or expanding panel) that reclaims more horizontal real estate
+- Must be collapsible back into compact mode with a smooth animation
+
+### Record Selection UX
+- Add a minimalist checkbox (no label) on each HCP row/card — "select this record" universal gesture
+- Works in both Discover and Direct modes
+- Keep existing purple highlight hover state (renders beautifully)
+- Bridges the gap for users who can't multi-select via existing means (click+drag, shift+click)
+
+### Global Filters
+- **Location** should be a near-global filter available across modules (not just Explorer/Audience)
+- **Select All on/off toggle** globally — QoL for small segment or small exclusion workflows
+
+### Intent-Based Deep Linking (Bio Card → Profile Tabs)
+- **Segment badge** (bottom-left of HCP bio card) → deep link to **Channels** tab (currently redundant with "View Profile" → Overview)
+- **Rx metric** (middle top row) → deep link to **Trends** tab
+- **Design principle:** Every clickable element in the bio card should route to the most contextually relevant profile tab. Follow user intent — "what did they click? what do they probably want to see next?"
+- Extend this pattern: Engagement Score → Health tab, channel icons → Channels tab, etc.
+
+---
+
+## Message Saturation — Left Column Fix (Priority: Medium)
+
+> **Status:** Ready to build
+> **Scope:** UI fix + data display improvement
+
+The left column in the Message Saturation heatmap should default to a human-readable label (HCP name or audience name), not a raw ID or truncated hash. This module is designed for audience-level trend comparison, not 1:1 inspection — but even at aggregate level, the row labels need to be legible.
+
+### Requirements
+- Default row label: HCP name or audience segment name (human-readable string)
+- No clipping/truncation — adjust padding, column width, or CSS as needed
+- Restrained power: the 1:1 data is there, but the default view emphasizes audience-level patterns
+
+---
+
+## Content Journey Module (Priority: High — New Module)
+
+> **Status:** Design phase
+> **Scope:** New top-level module under ANALYZE, cross-linked from Message Saturation
+> **Design intent:** Spot the trend, not connect the dots
+
+### Concept
+
+Longitudinal visualization of the most frequent content exposure sequences across audiences. Aggregates touchpoints by position in the journey (Touchpoint 1, Touchpoint 2, ... Touchpoint N) and shows:
+- Most common channels/content types at each position
+- Engagement metrics per position
+- Early-touch vs late-touch channel patterns
+- Progression patterns compared and contrasted across audiences
+
+### Example Journey Sequence
+```
+Congress Booth → Email → MSL Visit → Banner Ad → Email → Rep Visit → Webinar
+```
+
+### What This Is NOT
+- Not a Sankey diagram connecting individual journeys
+- Not a 1:1 patient-journey tracker
+- It's an **aggregate pattern detector**: "For Tier 1 Oncologists, the most common 3rd touchpoint is MSL Visit at 34% engagement"
+
+### Visualization Direction
+- Horizontal position axis (Touchpoint 1 → N)
+- Stacked or ranked channel breakdown at each position
+- Audience comparison overlay (e.g., Tier 1 vs Tier 2 progression patterns)
+- Engagement/conversion metrics layered per position
+- Variable journey length (some audiences have shorter/longer typical sequences)
+
+### Cross-Links
+- **Message Saturation** → link to journey context for saturated HCPs
+- **Channel Health** → journey position informs channel effectiveness
+- **NBO** → journey stage should inform next-best-orbit recommendations
+
+### Data Requirements
+- Exposure events with: HCP ID, channel/content type, timestamp, engagement signal
+- Aggregation by audience segment + touchpoint position
+- Needs the full activity data generation pipeline (`npm run generate:data`) to populate
+
+---
+
 *"The only art I'll ever study is stuff that I can steal from." — David Bowie*
 
 *This document is the source of truth for Phase 15+ builds. CC CLI should reference this before any build session.*
