@@ -5,6 +5,9 @@ import { storage } from "./storage";
 import { competitiveStorage } from "./storage/competitive-storage";
 import { messageSaturationStorage } from "./storage/message-saturation-storage";
 import { hashPassword } from "./auth";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { requireEnvVar, debugLog } from "./utils/config";
 import { safeParseLimitOffset, safeParseLimit } from "./utils/validation";
 import { authRateLimiter } from "./middleware/rate-limit";
@@ -223,6 +226,30 @@ function getChannelFromOutcomeType(outcomeType: OutcomeType): string {
   return channelMap[outcomeType] ?? "email";
 }
 
+/**
+ * Bootstrap admin user from env vars (idempotent).
+ * Reads ADMIN_USERNAME + ADMIN_PASSWORD; creates user with role "admin" if absent.
+ */
+async function ensureAdminUser(): Promise<void> {
+  const username = process.env.ADMIN_USERNAME;
+  const password = process.env.ADMIN_PASSWORD;
+  if (!username || !password) {
+    debugLog("STARTUP", "No ADMIN_USERNAME/ADMIN_PASSWORD set — skipping admin bootstrap");
+    return;
+  }
+
+  const existing = await storage.getUserByUsername(username);
+  if (existing) {
+    debugLog("STARTUP", `Admin user '${username}' already exists — skipping`);
+    return;
+  }
+
+  const hashedPassword = await hashPassword(password);
+  const user = await storage.createUser({ username, password: hashedPassword });
+  await db.update(users).set({ role: "admin" }).where(eq(users.id, user.id));
+  debugLog("STARTUP", `Admin user '${username}' created with role 'admin'`);
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -237,6 +264,13 @@ export async function registerRoutes(
     debugLog("STARTUP", `Message saturation seeding completed: ${saturationResult.themesCreated} themes, ${saturationResult.exposuresCreated} exposures`);
   } catch (error) {
     console.error("[STARTUP] Error seeding database:", error);
+  }
+
+  // Bootstrap admin user from ADMIN_USERNAME / ADMIN_PASSWORD env vars
+  try {
+    await ensureAdminUser();
+  } catch (error) {
+    console.error("[STARTUP] Error bootstrapping admin user:", error);
   }
 
   // ============ Observability Middleware ============

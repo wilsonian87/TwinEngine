@@ -41,7 +41,7 @@ import CohortCompareDirect from "@/pages/cohort-compare-direct";
 import { AmbientAlertBar } from "@/components/shared/ambient-alert-bar";
 import ModelEvaluationPage from "@/pages/model-evaluation";
 import Settings from "@/pages/settings";
-// Landing import removed - bypassing login page in dev mode
+import Landing from "@/pages/landing";
 import AgentsPage from "@/pages/agents";
 import ConstraintsPage from "@/pages/constraints";
 import AllocationLabPage from "@/pages/allocation-lab";
@@ -147,14 +147,13 @@ function AppLayout() {
 }
 
 function AuthenticatedApp() {
-  // Development mode: skip auth check and go straight to platform
-  // To re-enable auth, restore the session check below
-  /*
   const { data: session, isLoading } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
-      const response = await fetch("/api/invite/session");
-      return response.json();
+      const response = await fetch("/api/auth/user");
+      if (!response.ok) return { authenticated: false };
+      const user = await response.json();
+      return { authenticated: true, ...user };
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: false,
@@ -171,7 +170,6 @@ function AuthenticatedApp() {
   if (!session?.authenticated) {
     return <Landing />;
   }
-  */
 
   return <AppLayout />;
 }
