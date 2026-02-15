@@ -4,6 +4,7 @@
  *
  * Usage:
  *   npm run generate:data -- --seed=42 --hcps=2000 --months=12 --wipe
+ *   npm run generate:data -- --additive --seed=42 --months=12
  *   npm run generate:data -- --validate-only
  */
 
@@ -61,6 +62,7 @@ interface CliOptions {
   hcps: number;
   months: number;
   wipe: boolean;
+  additive: boolean;
   validateOnly: boolean;
 }
 
@@ -74,6 +76,7 @@ function parseArgs(): CliOptions {
     hcps: DEFAULT_TARGETS.hcps,
     months: DEFAULT_TARGETS.months,
     wipe: false,
+    additive: false,
     validateOnly: false,
   };
 
@@ -86,6 +89,8 @@ function parseArgs(): CliOptions {
       options.months = parseInt(arg.split("=")[1], 10);
     } else if (arg === "--wipe") {
       options.wipe = true;
+    } else if (arg === "--additive") {
+      options.additive = true;
     } else if (arg === "--validate-only") {
       options.validateOnly = true;
     }
@@ -127,6 +132,25 @@ async function wipeData(): Promise<void> {
 }
 
 /**
+ * Wipe activity data only (keeps HCP profiles intact)
+ */
+async function wipeActivityOnly(): Promise<void> {
+  console.log("Wiping activity data (keeping HCP profiles)...");
+
+  // Same FK order as wipeData(), but skips hcpProfiles
+  await db.delete(campaignParticipation);
+  await db.delete(outcomeEvents);
+  await db.delete(stimuliEvents);
+  await db.delete(prescribingHistory);
+  await db.delete(territoryAssignments);
+  await db.delete(campaigns);
+  await db.delete(channelCapacity);
+  await db.delete(hcpContactLimits);
+
+  console.log("  Activity data wiped successfully");
+}
+
+/**
  * Insert records in batches with transaction wrapping
  */
 async function batchInsert<T extends Record<string, unknown>>(
@@ -152,11 +176,13 @@ async function batchInsert<T extends Record<string, unknown>>(
  * Main generation orchestrator
  */
 async function generateData(options: CliOptions): Promise<void> {
+  const mode = options.additive ? "additive" : options.wipe ? "wipe" : "default";
+
   console.log("\n=== TwinEngine Data Generation ===");
+  console.log(`Mode: ${mode}`);
   console.log(`Seed: ${options.seed}`);
-  console.log(`Target HCPs: ${options.hcps}`);
+  if (!options.additive) console.log(`Target HCPs: ${options.hcps}`);
   console.log(`Months: ${options.months}`);
-  console.log(`Wipe: ${options.wipe}`);
   console.log("");
 
   // Initialize RNG
@@ -164,14 +190,18 @@ async function generateData(options: CliOptions): Promise<void> {
   const rng = getRng();
 
   // Check existing data
-  const existing = await checkExistingData(options.hcps);
-  if (existing.exists && !options.wipe) {
-    console.log(`Data already exists (${existing.count} HCPs). Use --wipe to regenerate.`);
-    return;
+  if (!options.additive) {
+    const existing = await checkExistingData(options.hcps);
+    if (existing.exists && !options.wipe) {
+      console.log(`Data already exists (${existing.count} HCPs). Use --wipe to regenerate.`);
+      return;
+    }
   }
 
-  // Wipe if requested
-  if (options.wipe) {
+  // Wipe data
+  if (options.additive) {
+    await wipeActivityOnly();
+  } else if (options.wipe) {
     await wipeData();
   }
 
@@ -179,15 +209,25 @@ async function generateData(options: CliOptions): Promise<void> {
   startDate.setMonth(startDate.getMonth() - options.months);
 
   // =========================================================================
-  // Step 1: Generate HCP Profiles
+  // Step 1: Generate or read HCP Profiles
   // =========================================================================
-  console.log("\n[1/7] Generating HCP profiles...");
-  const hcps = generateHCPBatch(options.hcps);
-  await batchInsert(hcpProfiles, hcps, "hcp_profiles");
+  let insertedHcps: (typeof hcpProfiles.$inferSelect)[];
 
-  // Get inserted HCPs with IDs
-  const insertedHcps = await db.select().from(hcpProfiles);
-  console.log(`  Generated ${insertedHcps.length} HCPs`);
+  if (options.additive) {
+    console.log("\n[1/7] Reading existing HCP profiles...");
+    insertedHcps = await db.select().from(hcpProfiles);
+    if (insertedHcps.length === 0) {
+      console.error("  No existing HCPs found. Use full generation mode (--wipe) instead.");
+      return;
+    }
+    console.log(`  Found ${insertedHcps.length} existing HCPs`);
+  } else {
+    console.log("\n[1/7] Generating HCP profiles...");
+    const hcps = generateHCPBatch(options.hcps);
+    await batchInsert(hcpProfiles, hcps, "hcp_profiles");
+    insertedHcps = await db.select().from(hcpProfiles);
+    console.log(`  Generated ${insertedHcps.length} HCPs`);
+  }
 
   // =========================================================================
   // Step 2: Generate Territory Assignments
