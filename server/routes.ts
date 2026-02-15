@@ -266,6 +266,14 @@ export async function registerRoutes(
     console.error("[STARTUP] Error seeding database:", error);
   }
 
+  // Seed competitive data (idempotent)
+  try {
+    const compResult = await competitiveStorage.seedCompetitorData();
+    debugLog("STARTUP", `Competitive data seeded: ${compResult.competitors} competitors, ${compResult.signals} signals`);
+  } catch (error) {
+    console.error("[STARTUP] Error seeding competitive data:", error);
+  }
+
   // Bootstrap admin user from ADMIN_USERNAME / ADMIN_PASSWORD env vars
   try {
     await ensureAdminUser();
@@ -312,14 +320,12 @@ export async function registerRoutes(
   // Knowledge content CRUD and semantic search
   app.use("/api/knowledge", knowledgeRouter);
 
-  // Seed knowledge content in development
-  if (process.env.NODE_ENV !== "production") {
-    try {
-      await seedKnowledgeContent();
-      debugLog("STARTUP", "Knowledge base seeded");
-    } catch (error) {
-      console.error("[STARTUP] Error seeding knowledge base:", error);
-    }
+  // Seed knowledge content (idempotent)
+  try {
+    await seedKnowledgeContent();
+    debugLog("STARTUP", "Knowledge base seeded");
+  } catch (error) {
+    console.error("[STARTUP] Error seeding knowledge base:", error);
   }
 
   // Seed approval policies
