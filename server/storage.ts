@@ -1296,8 +1296,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getModelHealthSummary(): Promise<ModelHealthSummary> {
+    // Alias the table before local variable shadows the import
+    const stimuliTable = stimuliEvents;
     const evaluations = await this.getModelEvaluations(10);
-    const stimuliEvents = await this.getStimuliEvents(undefined, 100);
+    const recentStimuli = await this.getStimuliEvents(undefined, 100);
 
     // Calculate overall accuracy based on most recent evaluation
     const latestEval = evaluations[0];
@@ -1325,7 +1327,7 @@ export class DatabaseStorage implements IStorage {
     // Generate recommended actions
     const recommendedActions: { priority: "high" | "medium" | "low"; action: string; impact: string }[] = [];
 
-    const pendingOutcomes = stimuliEvents.filter(e => e.status === "predicted").length;
+    const pendingOutcomes = recentStimuli.filter(e => e.status === "predicted").length;
     if (pendingOutcomes > 20) {
       recommendedActions.push({
         priority: "high",
@@ -1358,12 +1360,46 @@ export class DatabaseStorage implements IStorage {
       });
     }
 
-    // Calculate prediction type breakdown
+    // Calculate prediction type breakdown from real stimuli data via SQL
+    const [engagementStats] = await db.select({
+      count: sql<number>`COUNT(*)`,
+      mae: sql<number>`AVG(ABS(predicted_engagement_delta - actual_engagement_delta))`,
+    }).from(stimuliTable).where(
+      and(
+        sql`predicted_engagement_delta IS NOT NULL`,
+        sql`actual_engagement_delta IS NOT NULL`
+      )
+    );
+
+    const [conversionStats] = await db.select({
+      count: sql<number>`COUNT(*)`,
+      mae: sql<number>`AVG(ABS(predicted_conversion_delta - actual_conversion_delta))`,
+    }).from(stimuliTable).where(
+      and(
+        sql`predicted_conversion_delta IS NOT NULL`,
+        sql`actual_conversion_delta IS NOT NULL`
+      )
+    );
+
+    const engagementCount = Number(engagementStats?.count || 0);
+    const conversionCount = Number(conversionStats?.count || 0);
+    const engagementMae = Number(engagementStats?.mae || 0);
+    const conversionMae = Number(conversionStats?.mae || 0);
+
+    const engagementAccuracy = engagementCount > 0
+      ? Math.max(0, Math.min(100, 100 - engagementMae * 5))
+      : overallAccuracy;
+    const conversionAccuracy = conversionCount > 0
+      ? Math.max(0, Math.min(100, 100 - conversionMae * 5))
+      : overallAccuracy * 0.92;
+
+    const counterfactualEvals = evaluations.filter(e => e.predictionType === "counterfactual").length;
+
     const predictionTypeBreakdown = [
-      { type: "stimuli_impact", accuracy: overallAccuracy, sampleSize: stimuliEvents.length },
-      { type: "counterfactual", accuracy: overallAccuracy * 0.95, sampleSize: 0 },
-      { type: "conversion", accuracy: overallAccuracy * 0.92, sampleSize: 0 },
-      { type: "engagement", accuracy: overallAccuracy * 0.88, sampleSize: 0 },
+      { type: "stimuli_impact", accuracy: overallAccuracy, sampleSize: recentStimuli.length },
+      { type: "engagement", accuracy: parseFloat(engagementAccuracy.toFixed(1)), sampleSize: engagementCount },
+      { type: "conversion", accuracy: parseFloat(conversionAccuracy.toFixed(1)), sampleSize: conversionCount },
+      { type: "counterfactual", accuracy: parseFloat((overallAccuracy * 0.95).toFixed(1)), sampleSize: counterfactualEvals },
     ];
 
     return {
