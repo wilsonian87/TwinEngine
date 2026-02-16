@@ -7,6 +7,7 @@ import {
   integrationCredentials,
   hcpProfiles,
   savedAudiences,
+  simulationResults,
   auditLogs,
   webhookDestinations,
   webhookLogs,
@@ -14,6 +15,10 @@ import {
   type ExportType,
   type ExportDestination,
 } from "@shared/schema";
+import { generateNBORecommendation, type NBOEngineInput } from "./next-best-orbit-engine";
+import { messageSaturationStorage } from "../storage/message-saturation-storage";
+import { competitiveStorage } from "../storage/competitive-storage";
+import { storage } from "../storage";
 import { pushToVeeva, getVeevaCredentials } from "./veeva-integration";
 import { renderPayloadTemplate } from "../routes/webhook-routes";
 import {
@@ -405,23 +410,45 @@ async function fetchExportData(job: ExportJob): Promise<Record<string, unknown>[
     }
 
     case "nba_recommendations": {
-      // Mock NBA data - in production, would fetch from NBA storage
       const hcpIds = payload.hcpIds || [];
-      return hcpIds.map((id) => ({
-        hcpId: id,
-        recommendation: "Email Campaign",
-        channel: "email",
-        confidence: Math.random() * 0.4 + 0.6,
-        reason: "High digital engagement",
-      }));
+      const recommendations = [];
+      for (const id of hcpIds) {
+        const hcp = await storage.getHcpById(id);
+        if (!hcp) continue;
+        const saturationSummary = await messageSaturationStorage.getHcpMessageSaturationSummary(id) ?? null;
+        const competitiveSummary = await competitiveStorage.getHcpCompetitiveSummary(id) ?? null;
+        const input: NBOEngineInput = { hcp, saturationSummary, competitiveSummary };
+        const rec = generateNBORecommendation(input);
+        recommendations.push({
+          hcpId: id,
+          recommendation: rec.actionType,
+          channel: rec.recommendedChannel,
+          confidence: rec.confidence,
+          reason: rec.rationale,
+          theme: rec.recommendedTheme,
+        });
+      }
+      return recommendations;
     }
 
     case "simulation_results": {
-      // Mock simulation data
+      if (!payload.entityId) {
+        throw new Error("entityId required for simulation_results export");
+      }
+      const [sim] = await db
+        .select()
+        .from(simulationResults)
+        .where(eq(simulationResults.id, payload.entityId));
+      if (!sim) {
+        throw new Error("Simulation not found");
+      }
       return [
-        { metric: "projected_lift", value: 12.5 },
-        { metric: "confidence", value: 0.85 },
-        { metric: "reach", value: 1234 },
+        { metric: "predicted_rx_lift", value: sim.predictedRxLift },
+        { metric: "predicted_engagement_rate", value: sim.predictedEngagementRate },
+        { metric: "predicted_response_rate", value: sim.predictedResponseRate },
+        { metric: "predicted_reach", value: sim.predictedReach },
+        { metric: "efficiency_score", value: sim.efficiencyScore },
+        { metric: "cost_per_engagement", value: sim.costPerEngagement },
       ];
     }
 
