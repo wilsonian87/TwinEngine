@@ -249,6 +249,22 @@ export const CONTENT_CATEGORIES = [
 
 export type ContentCategory = (typeof CONTENT_CATEGORIES)[number];
 
+/**
+ * Maps stimuli content categories to message_theme_dim categories.
+ * Aligns the 8 CONTENT_CATEGORIES from stimuli generation with the 8
+ * theme categories seeded at server startup in message-saturation-storage.
+ */
+export const CONTENT_TO_THEME_MAP: Record<ContentCategory, string> = {
+  clinical_data: "efficacy",
+  patient_outcomes: "patient_outcomes",
+  dosing_guide: "dosing_convenience",
+  formulary_update: "cost_value",
+  safety_info: "safety",
+  peer_insights: "peer_validation",
+  case_study: "rwe",
+  promotional: "mechanism_of_action",
+};
+
 // ============================================================================
 // DELIVERY STATUS WEIGHTS
 // ============================================================================

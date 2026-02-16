@@ -19,6 +19,8 @@ import {
   campaignParticipation,
   channelCapacity,
   hcpContactLimits,
+  messageExposureFact,
+  messageThemeDim,
 } from "@shared/schema";
 import { sql, count } from "drizzle-orm";
 
@@ -50,6 +52,7 @@ import {
   aggregateOutcomesForRx,
   type HCPPrescribingProfile,
 } from "./generators/rx-generator";
+import { generateMessageExposures } from "./generators/saturation-generator";
 import { validateDataIntegrity, type ValidationResult } from "./validators/integrity-validator";
 import {
   recalculateEngagementMetrics,
@@ -118,6 +121,7 @@ async function wipeData(): Promise<void> {
   console.log("Wiping existing data...");
 
   // Order matters due to FK constraints
+  await db.delete(messageExposureFact);
   await db.delete(campaignParticipation);
   await db.delete(outcomeEvents);
   await db.delete(stimuliEvents);
@@ -138,6 +142,7 @@ async function wipeActivityOnly(): Promise<void> {
   console.log("Wiping activity data (keeping HCP profiles)...");
 
   // Same FK order as wipeData(), but skips hcpProfiles
+  await db.delete(messageExposureFact);
   await db.delete(campaignParticipation);
   await db.delete(outcomeEvents);
   await db.delete(stimuliEvents);
@@ -214,7 +219,7 @@ async function generateData(options: CliOptions): Promise<void> {
   let insertedHcps: (typeof hcpProfiles.$inferSelect)[];
 
   if (options.additive) {
-    console.log("\n[1/7] Reading existing HCP profiles...");
+    console.log("\n[1/8] Reading existing HCP profiles...");
     insertedHcps = await db.select().from(hcpProfiles);
     if (insertedHcps.length === 0) {
       console.error("  No existing HCPs found. Use full generation mode (--wipe) instead.");
@@ -222,7 +227,7 @@ async function generateData(options: CliOptions): Promise<void> {
     }
     console.log(`  Found ${insertedHcps.length} existing HCPs`);
   } else {
-    console.log("\n[1/7] Generating HCP profiles...");
+    console.log("\n[1/8] Generating HCP profiles...");
     const hcps = generateHCPBatch(options.hcps);
     await batchInsert(hcpProfiles, hcps, "hcp_profiles");
     insertedHcps = await db.select().from(hcpProfiles);
@@ -232,7 +237,7 @@ async function generateData(options: CliOptions): Promise<void> {
   // =========================================================================
   // Step 2: Generate Territory Assignments
   // =========================================================================
-  console.log("\n[2/7] Generating territory assignments...");
+  console.log("\n[2/8] Generating territory assignments...");
   const hcpLocations: HCPLocation[] = insertedHcps.map((h) => ({
     hcpId: h.id,
     city: h.city,
@@ -246,7 +251,7 @@ async function generateData(options: CliOptions): Promise<void> {
   // =========================================================================
   // Step 3: Generate Campaigns
   // =========================================================================
-  console.log("\n[3/7] Generating campaigns...");
+  console.log("\n[3/8] Generating campaigns...");
   const generatedCampaigns = generateCampaigns(startDate, options.months);
 
   // Insert campaigns and get IDs
@@ -286,7 +291,7 @@ async function generateData(options: CliOptions): Promise<void> {
   // =========================================================================
   // Step 4: Generate Stimuli Events
   // =========================================================================
-  console.log("\n[4/7] Generating stimuli events...");
+  console.log("\n[4/8] Generating stimuli events...");
   const hcpProfiles_: HCPProfile[] = insertedHcps.map((h) => ({
     hcpId: h.id,
     tier: h.tier,
@@ -323,7 +328,7 @@ async function generateData(options: CliOptions): Promise<void> {
   // =========================================================================
   // Step 5: Generate Outcome Events
   // =========================================================================
-  console.log("\n[5/7] Generating outcome events...");
+  console.log("\n[5/8] Generating outcome events...");
 
   // Create stimulus lookup by position (since IDs are generated at insert)
   const stimulusForOutcomes: StimulusEvent[] = insertedStimuli.map((s, idx) => {
@@ -345,10 +350,64 @@ async function generateData(options: CliOptions): Promise<void> {
   await batchInsert(outcomeEvents, outcomes, "outcome_events");
   console.log(`  Generated ${outcomes.length} outcome events`);
 
+  // Get inserted outcomes for saturation + Rx correlation
+  const insertedOutcomes = await db.select().from(outcomeEvents);
+
   // =========================================================================
-  // Step 6: Generate Prescribing History
+  // Step 6: Generate Message Saturation Data
   // =========================================================================
-  console.log("\n[6/7] Generating prescribing history...");
+  console.log("\n[6/8] Generating message saturation data...");
+
+  // Read seeded message themes from DB
+  const dbThemes = await db.select().from(messageThemeDim);
+
+  if (dbThemes.length > 0) {
+    // Build stimuli records for saturation generator
+    const stimuliForSaturation = insertedStimuli.map((s) => ({
+      id: s.id,
+      hcpId: s.hcpId,
+      channel: s.channel,
+      contentCategory: s.contentCategory,
+      eventDate: new Date(s.eventDate),
+      actualEngagementDelta: s.actualEngagementDelta,
+    }));
+
+    // Build outcome records
+    const outcomesForSaturation = insertedOutcomes.map((o) => ({
+      hcpId: o.hcpId,
+      stimulusId: o.stimulusId,
+      eventDate: new Date(o.eventDate),
+    }));
+
+    // Build HCP segment lookup
+    const hcpSegments = new Map<string, string>();
+    for (const h of insertedHcps) {
+      hcpSegments.set(h.id, h.segment);
+    }
+
+    const themeRecords = dbThemes
+      .filter((t) => t.category != null)
+      .map((t) => ({ id: t.id, category: t.category! }));
+
+    const exposures = generateMessageExposures(
+      stimuliForSaturation,
+      themeRecords,
+      outcomesForSaturation,
+      hcpSegments
+    );
+
+    // Clear existing exposure data before inserting
+    await db.delete(messageExposureFact);
+    await batchInsert(messageExposureFact, exposures, "message_exposure_fact");
+    console.log(`  Generated ${exposures.length} message exposure records`);
+  } else {
+    console.log("  Skipping — no message themes found (themes are seeded at server startup)");
+  }
+
+  // =========================================================================
+  // Step 7: Generate Prescribing History
+  // =========================================================================
+  console.log("\n[7/8] Generating prescribing history...");
   const hcpPrescribingProfiles: HCPPrescribingProfile[] = insertedHcps.map((h) => ({
     hcpId: h.id,
     specialty: h.specialty,
@@ -358,8 +417,7 @@ async function generateData(options: CliOptions): Promise<void> {
     marketSharePct: h.marketSharePct,
   }));
 
-  // Get inserted outcomes for Rx correlation
-  const insertedOutcomes = await db.select().from(outcomeEvents);
+  // Reuse insertedOutcomes from Step 6
   const outcomeSummary = aggregateOutcomesForRx(
     insertedOutcomes.map((o) => ({
       hcpId: o.hcpId,
@@ -380,7 +438,7 @@ async function generateData(options: CliOptions): Promise<void> {
   // =========================================================================
   // Step 7: Recalculate Aggregations
   // =========================================================================
-  console.log("\n[7/7] Recalculating aggregations...");
+  console.log("\n[8/8] Recalculating aggregations...");
 
   const engagementResult = await recalculateEngagementMetrics();
   console.log(`  Updated ${engagementResult.updated} HCP engagement scores`);

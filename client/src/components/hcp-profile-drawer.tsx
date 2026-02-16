@@ -234,6 +234,28 @@ function DrawerSkeleton() {
 // MAIN COMPONENT
 // ============================================================================
 
+interface HCPActivity {
+  id: string;
+  timestamp: string;
+  channel: Channel;
+  actionType: string;
+  outcome: string;
+  metadata: { subject?: string; callToAction?: string; predictedImpact?: string };
+}
+
+function formatRelativeDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
+  return `${Math.floor(diffDays / 365)}y ago`;
+}
+
 export function HCPProfileDrawer({ hcpId, isOpen, onClose, onAction }: HCPProfileDrawerProps) {
   // Fetch HCP data when drawer opens
   const {
@@ -245,6 +267,17 @@ export function HCPProfileDrawer({ hcpId, isOpen, onClose, onAction }: HCPProfil
     queryFn: async () => {
       const res = await fetch(`/api/hcps/${hcpId}`);
       if (!res.ok) throw new Error('Failed to fetch HCP');
+      return res.json();
+    },
+    enabled: !!hcpId && isOpen,
+  });
+
+  // Fetch recent touches from real stimuli data
+  const { data: activitiesData } = useQuery<{ activities: HCPActivity[]; total: number }>({
+    queryKey: ['hcp-activities', hcpId],
+    queryFn: async () => {
+      const res = await fetch(`/api/hcps/${hcpId}/activities?limit=5`);
+      if (!res.ok) throw new Error('Failed to fetch activities');
       return res.json();
     },
     enabled: !!hcpId && isOpen,
@@ -278,12 +311,15 @@ export function HCPProfileDrawer({ hcpId, isOpen, onClose, onAction }: HCPProfil
       }, {} as Partial<Record<Channel, number>>)
     : {};
 
-  // Mock recent touches (in real app, this would come from API)
-  const recentTouches: Array<{ channel: Channel; date: string; description?: string }> = [
-    { channel: 'email', date: '2 days ago', description: 'Treatment efficacy update' },
-    { channel: 'rep_visit', date: '1 week ago', description: 'In-person meeting' },
-    { channel: 'webinar', date: '2 weeks ago', description: 'Webinar attendance' },
-  ];
+  // Recent touches from real stimuli data
+  const recentTouches = (activitiesData?.activities || []).map((a) => ({
+    channel: a.channel,
+    date: formatRelativeDate(a.timestamp),
+    description: a.metadata?.subject || a.actionType.replace(/_/g, ' '),
+  }));
+
+  // Last touch relative date for stat card
+  const lastTouchLabel = recentTouches.length > 0 ? recentTouches[0].date : 'None';
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -355,7 +391,7 @@ export function HCPProfileDrawer({ hcpId, isOpen, onClose, onAction }: HCPProfil
                   value={rxTrendValue}
                   trend={rxTrend}
                 />
-                <StatCard label="Last Touch" value="2d ago" icon={Clock} />
+                <StatCard label="Last Touch" value={lastTouchLabel} icon={Clock} />
               </div>
             </div>
 
@@ -384,9 +420,13 @@ export function HCPProfileDrawer({ hcpId, isOpen, onClose, onAction }: HCPProfil
                 Recent Touches
               </h4>
               <div className="space-y-4">
-                {recentTouches.map((touch, i) => (
-                  <TouchTimelineItem key={i} {...touch} />
-                ))}
+                {recentTouches.length > 0 ? (
+                  recentTouches.map((touch, i) => (
+                    <TouchTimelineItem key={i} {...touch} />
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No recent activity recorded</p>
+                )}
               </div>
             </div>
 

@@ -584,12 +584,70 @@ export class DatabaseStorage implements IStorage {
       };
     });
 
-    // Generate engagement trend
-    const engagementTrend = months.slice(-6).map((month) => ({
-      month,
-      avgScore: randomFloat(40, 65),
-      responseRate: randomFloat(20, 40),
-    }));
+    // Generate engagement trend from real stimuli/outcome data
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const monthlyStimuli = await db
+      .select({
+        month: sql<string>`TO_CHAR(${stimuliEvents.eventDate}, 'Mon')`,
+        monthNum: sql<number>`EXTRACT(MONTH FROM ${stimuliEvents.eventDate})`,
+        yearNum: sql<number>`EXTRACT(YEAR FROM ${stimuliEvents.eventDate})`,
+        stimuliCount: sql<number>`COUNT(*)`,
+        avgEngagement: sql<number>`AVG(${stimuliEvents.actualEngagementDelta})`,
+      })
+      .from(stimuliEvents)
+      .where(gte(stimuliEvents.eventDate, sixMonthsAgo))
+      .groupBy(
+        sql`TO_CHAR(${stimuliEvents.eventDate}, 'Mon')`,
+        sql`EXTRACT(MONTH FROM ${stimuliEvents.eventDate})`,
+        sql`EXTRACT(YEAR FROM ${stimuliEvents.eventDate})`
+      )
+      .orderBy(sql`EXTRACT(YEAR FROM ${stimuliEvents.eventDate})`, sql`EXTRACT(MONTH FROM ${stimuliEvents.eventDate})`);
+
+    const monthlyOutcomes = await db
+      .select({
+        monthNum: sql<number>`EXTRACT(MONTH FROM ${outcomeEvents.eventDate})`,
+        yearNum: sql<number>`EXTRACT(YEAR FROM ${outcomeEvents.eventDate})`,
+        outcomeCount: sql<number>`COUNT(*)`,
+      })
+      .from(outcomeEvents)
+      .where(gte(outcomeEvents.eventDate, sixMonthsAgo))
+      .groupBy(
+        sql`EXTRACT(MONTH FROM ${outcomeEvents.eventDate})`,
+        sql`EXTRACT(YEAR FROM ${outcomeEvents.eventDate})`
+      );
+
+    // Build outcome lookup by year-month
+    const outcomeLookup = new Map<string, number>();
+    for (const row of monthlyOutcomes) {
+      outcomeLookup.set(`${row.yearNum}-${row.monthNum}`, Number(row.outcomeCount));
+    }
+
+    let engagementTrend: { month: string; avgScore: number; responseRate: number }[];
+
+    if (monthlyStimuli.length > 0) {
+      engagementTrend = monthlyStimuli.map((row) => {
+        const stimCount = Number(row.stimuliCount);
+        const outcomeCount = outcomeLookup.get(`${row.yearNum}-${row.monthNum}`) || 0;
+        const responseRate = stimCount > 0 ? (outcomeCount / stimCount) * 100 : 0;
+        // avgEngagement is the delta; map to a 0-100 score centered around avg HCP engagement
+        const rawAvg = Number(row.avgEngagement) || 0;
+        const avgScore = Math.max(0, Math.min(100, avgEngagement + rawAvg * 10));
+        return {
+          month: row.month,
+          avgScore: Math.round(avgScore * 10) / 10,
+          responseRate: Math.round(responseRate * 10) / 10,
+        };
+      });
+    } else {
+      // Fallback to mock if no stimuli data
+      engagementTrend = months.slice(-6).map((month) => ({
+        month,
+        avgScore: randomFloat(40, 65),
+        responseRate: randomFloat(20, 40),
+      }));
+    }
 
     // Calculate averages
     const avgEngagement = allHcps.length > 0 

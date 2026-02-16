@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { eq, inArray, avg, count, sql } from "drizzle-orm";
 import { db } from "../db";
-import { hcpProfiles, savedAudiences } from "@shared/schema";
+import { hcpProfiles, savedAudiences, hcpCompetitiveSignalFact, messageExposureFact } from "@shared/schema";
 
 export const analyticsRouter = Router();
 
@@ -110,6 +110,50 @@ function isSignificant(valuesA: number[], valuesB: number[]): boolean {
   return Math.abs(meanA - meanB) > 1.96 * se; // 95% confidence
 }
 
+/**
+ * Batch-aggregate CPI and MSI for a set of HCP IDs.
+ * Queries hcp_competitive_signal_fact and message_exposure_fact directly
+ * instead of N individual lookups.
+ * Falls back to churn-risk/engagement proxy if no rows exist.
+ */
+async function getCohortCpiMsi(
+  hcpIds: string[],
+  churnRisks: number[],
+  engagements: number[]
+): Promise<{ avgCpi: number; avgMsi: number }> {
+  const avgArr = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+  if (hcpIds.length === 0) {
+    return { avgCpi: 0, avgMsi: 0 };
+  }
+
+  // CPI: average of per-HCP average CPI from competitive signal facts
+  const cpiRows = await db
+    .select({
+      avgCpi: sql<number>`AVG(${hcpCompetitiveSignalFact.cpi})`,
+    })
+    .from(hcpCompetitiveSignalFact)
+    .where(inArray(hcpCompetitiveSignalFact.hcpId, hcpIds));
+
+  const realCpi = cpiRows[0]?.avgCpi;
+
+  // MSI: average of per-HCP average MSI from message exposure facts
+  const msiRows = await db
+    .select({
+      avgMsi: sql<number>`AVG(${messageExposureFact.msi})`,
+    })
+    .from(messageExposureFact)
+    .where(inArray(messageExposureFact.hcpId, hcpIds));
+
+  const realMsi = msiRows[0]?.avgMsi;
+
+  // Fall back to proxy formulas if no real data
+  const avgCpi = realCpi != null ? Math.round(Number(realCpi) * 10) / 10 : Math.round(avgArr(churnRisks) * 0.8 + 20);
+  const avgMsi = realMsi != null ? Math.round(Number(realMsi) * 10) / 10 : Math.round(100 - avgArr(engagements) * 0.5);
+
+  return { avgCpi, avgMsi };
+}
+
 // ============================================================================
 // COHORT COMPARISON ENDPOINT
 // GET /api/analytics/cohort-compare?cohortA=id&cohortB=id
@@ -180,12 +224,11 @@ analyticsRouter.get("/cohort-compare", async (req, res) => {
     const avgMsA = Math.round(avg(marketShareA) * 10) / 10;
     const avgMsB = Math.round(avg(marketShareB) * 10) / 10;
 
-    // Mock CPI and MSI (in production, would come from competitive/saturation storage)
-    // Using churn risk as proxy for CPI, engagement decay as MSI proxy
-    const avgCpiA = Math.round(avg(churnRiskA) * 0.8 + 20); // Scaled mock
-    const avgCpiB = Math.round(avg(churnRiskB) * 0.8 + 20);
-    const avgMsiA = Math.round(100 - avg(engagementA) * 0.5); // Inverse of engagement
-    const avgMsiB = Math.round(100 - avg(engagementB) * 0.5);
+    // Real CPI/MSI from competitive and saturation storage
+    const hcpIdsA = hcpsA.map(h => h.id);
+    const hcpIdsB = hcpsB.map(h => h.id);
+    const { avgCpi: avgCpiA, avgMsi: avgMsiA } = await getCohortCpiMsi(hcpIdsA, churnRiskA, engagementA);
+    const { avgCpi: avgCpiB, avgMsi: avgMsiB } = await getCohortCpiMsi(hcpIdsB, churnRiskB, engagementB);
 
     // Build response
     const response: CohortComparisonResponse = {
@@ -381,10 +424,11 @@ analyticsRouter.post("/cohort-compare-preset", async (req, res) => {
     const avgMsA = Math.round(avg(marketShareA) * 10) / 10;
     const avgMsB = Math.round(avg(marketShareB) * 10) / 10;
 
-    const avgCpiA = Math.round(avg(churnRiskA) * 0.8 + 20);
-    const avgCpiB = Math.round(avg(churnRiskB) * 0.8 + 20);
-    const avgMsiA = Math.round(100 - avg(engagementA) * 0.5);
-    const avgMsiB = Math.round(100 - avg(engagementB) * 0.5);
+    // Real CPI/MSI from competitive and saturation storage
+    const hcpIdsA = cohortA.hcpIds as string[];
+    const hcpIdsB = cohortB.hcpIds as string[];
+    const { avgCpi: avgCpiA, avgMsi: avgMsiA } = await getCohortCpiMsi(hcpIdsA, churnRiskA, engagementA);
+    const { avgCpi: avgCpiB, avgMsi: avgMsiB } = await getCohortCpiMsi(hcpIdsB, churnRiskB, engagementB);
 
     const response: CohortComparisonResponse = {
       cohortA: {
