@@ -5,8 +5,8 @@
  * - Datadog: traffic light pattern, proactive anomaly callouts
  * - Apple Health: trend arrows with plain English, opportunity framing
  *
- * Green/Yellow/Red at a glance, before any charts.
- * One key takeaway. "Webinars are your strongest channel this month, up 15%."
+ * Brand purple gradient for channel status. Anomaly alerts fire only
+ * on significant, targeted drops — not routine portfolio-wide fluctuations.
  */
 
 import { useMemo } from "react";
@@ -51,6 +51,7 @@ interface ChannelSummary {
   status: HealthStatus;
   avgScore: number;
   hcpCount: number;
+  totalHcps: number;
   trend: "up" | "down" | "flat";
   trendPct: number;
 }
@@ -77,6 +78,10 @@ const channelLabels: Record<Channel, string> = {
   phone: "Phone",
 };
 
+/**
+ * Brand purple gradient system for channel health status.
+ * Lightest purple = healthiest; deepest = most concerning.
+ */
 const trafficLightColors: Record<HealthStatus, {
   bg: string;
   border: string;
@@ -85,38 +90,38 @@ const trafficLightColors: Record<HealthStatus, {
   label: string;
 }> = {
   active: {
-    bg: "bg-green-500/10 dark:bg-green-950/30",
-    border: "border-green-300/50 dark:border-green-800/50",
-    text: "text-green-700 dark:text-green-300",
-    dot: "bg-green-500",
+    bg: "bg-purple-50 dark:bg-purple-950/20",
+    border: "border-purple-200/60 dark:border-purple-800/40",
+    text: "text-purple-700 dark:text-purple-300",
+    dot: "bg-purple-400",
     label: "Healthy",
   },
   opportunity: {
-    bg: "bg-blue-500/10 dark:bg-blue-950/30",
-    border: "border-blue-300/50 dark:border-blue-800/50",
-    text: "text-blue-700 dark:text-blue-300",
-    dot: "bg-blue-500",
+    bg: "bg-violet-50 dark:bg-violet-950/20",
+    border: "border-violet-200/60 dark:border-violet-800/40",
+    text: "text-violet-700 dark:text-violet-300",
+    dot: "bg-violet-400",
     label: "Opportunity",
   },
   declining: {
-    bg: "bg-amber-500/10 dark:bg-amber-950/30",
-    border: "border-amber-300/50 dark:border-amber-800/50",
-    text: "text-amber-700 dark:text-amber-300",
-    dot: "bg-amber-500",
+    bg: "bg-purple-100/70 dark:bg-purple-950/30",
+    border: "border-purple-300/60 dark:border-purple-700/50",
+    text: "text-purple-800 dark:text-purple-200",
+    dot: "bg-purple-600",
     label: "Declining",
   },
   dark: {
-    bg: "bg-red-500/10 dark:bg-red-950/30",
-    border: "border-red-300/50 dark:border-red-800/50",
-    text: "text-red-700 dark:text-red-300",
-    dot: "bg-red-500",
+    bg: "bg-purple-200/50 dark:bg-purple-950/40",
+    border: "border-purple-400/50 dark:border-purple-600/50",
+    text: "text-purple-900 dark:text-purple-100",
+    dot: "bg-purple-800 dark:bg-purple-400",
     label: "Dark",
   },
   saturated: {
-    bg: "bg-amber-500/10 dark:bg-amber-950/30",
-    border: "border-amber-300/50 dark:border-amber-800/50",
-    text: "text-amber-700 dark:text-amber-300",
-    dot: "bg-amber-500",
+    bg: "bg-purple-100/70 dark:bg-purple-950/30",
+    border: "border-purple-300/60 dark:border-purple-700/50",
+    text: "text-purple-800 dark:text-purple-200",
+    dot: "bg-purple-600",
     label: "Saturated",
   },
 };
@@ -127,6 +132,7 @@ const trafficLightColors: Record<HealthStatus, {
 
 function deriveChannelSummaries(hcps: HCPProfile[]): ChannelSummary[] {
   const channels: Channel[] = ["email", "rep_visit", "webinar", "conference", "digital_ad", "phone"];
+  const totalHcps = hcps.length;
 
   return channels.map((channel) => {
     // Count HCPs using this channel and get avg engagement
@@ -154,8 +160,28 @@ function deriveChannelSummaries(hcps: HCPProfile[]): ChannelSummary[] {
     const trendPct = Math.round((avgScore - 50) * 0.3 + (Math.random() - 0.5) * 10);
     const trend: "up" | "down" | "flat" = trendPct > 3 ? "up" : trendPct < -3 ? "down" : "flat";
 
-    return { channel, status, avgScore: Math.round(avgScore), hcpCount: count, trend, trendPct };
+    return { channel, status, avgScore: Math.round(avgScore), hcpCount: count, totalHcps, trend, trendPct };
   });
+}
+
+/**
+ * Determine if a channel summary qualifies as an anomaly worth alerting on.
+ *
+ * Criteria (must meet ALL):
+ * 1. Trend is "down"
+ * 2. Drop is significant: >15% decline, OR score dropped into "dark" territory (<20)
+ * 3. Not a portfolio-wide baseline: affected HCPs must be <60% of total portfolio
+ *    (if nearly everyone is affected, it's a systemic trend, not an anomaly)
+ */
+function isSignificantAnomaly(s: ChannelSummary): boolean {
+  if (s.trend !== "down") return false;
+
+  const significantDrop = Math.abs(s.trendPct) >= 15;
+  const criticalScore = s.avgScore < 20;
+  const isTargeted = s.totalHcps > 0 && (s.hcpCount / s.totalHcps) < 0.6;
+
+  // Must be either a large drop or critically low, AND not a portfolio-wide effect
+  return (significantDrop || criticalScore) && isTargeted;
 }
 
 function getKeyTakeaway(summaries: ChannelSummary[]): string {
@@ -192,11 +218,11 @@ function ChannelTrafficLight({ summary }: { summary: ChannelSummary }) {
           config.bg
         )}
       >
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className={cn("rounded-lg p-2", config.bg)}>
-                <Icon className={cn("h-5 w-5", config.text)} />
+            <div className="flex items-center gap-2.5">
+              <div className={cn("rounded-lg p-1.5", config.bg)}>
+                <Icon className={cn("h-4 w-4", config.text)} />
               </div>
               <div>
                 <div className="font-medium text-sm">
@@ -241,15 +267,15 @@ function ChannelTrafficLight({ summary }: { summary: ChannelSummary }) {
           </div>
 
           {/* HCP Count + Apple Health framing */}
-          <div className="mt-3 text-xs text-muted-foreground">
+          <div className="mt-2 text-xs text-muted-foreground">
             {summary.hcpCount.toLocaleString()} HCPs engaged
             {summary.status === "opportunity" && (
-              <span className="ml-1 text-blue-600 dark:text-blue-400 font-medium">
+              <span className="ml-1 text-violet-600 dark:text-violet-400 font-medium">
                 · {100 - summary.avgScore}% headroom vs. benchmark
               </span>
             )}
             {summary.status === "declining" && (
-              <span className="ml-1 text-amber-600 dark:text-amber-400 font-medium">
+              <span className="ml-1 text-purple-600 dark:text-purple-400 font-medium">
                 · trending down this quarter
               </span>
             )}
@@ -268,24 +294,24 @@ function AnomalyCallout({
   onNavigate: (path: string) => void;
 }) {
   return (
-    <Card className="border-amber-300/50 dark:border-amber-800/50 bg-amber-500/5">
-      <CardContent className="p-4 flex items-center justify-between">
+    <Card className="border-purple-300/60 dark:border-purple-700/50 bg-purple-100/50 dark:bg-purple-950/30">
+      <CardContent className="p-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <AlertTriangle className="h-4 w-4 text-purple-700 dark:text-purple-300 shrink-0" />
           <div>
             <p className="text-sm font-medium">
               {channelLabels[summary.channel]} engagement dropped{" "}
               {Math.abs(summary.trendPct)}% — investigate?
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {summary.hcpCount} HCPs affected
+              {summary.hcpCount.toLocaleString()} HCPs affected ({Math.round((summary.hcpCount / summary.totalHcps) * 100)}% of portfolio)
             </p>
           </div>
         </div>
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-xs shrink-0"
+          className="h-7 text-xs shrink-0 border-purple-300 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/30"
           onClick={() => onNavigate("/?channelPreferences=" + summary.channel)}
         >
           View HCPs
@@ -310,9 +336,7 @@ export default function ChannelHealthDirect() {
 
   const summaries = useMemo(() => deriveChannelSummaries(hcps), [hcps]);
   const takeaway = useMemo(() => getKeyTakeaway(summaries), [summaries]);
-  const anomalies = summaries.filter(
-    (s) => s.trend === "down" && s.trendPct < -5
-  );
+  const anomalies = summaries.filter(isSignificantAnomaly);
   const healthyCount = summaries.filter(
     (s) => s.status === "active"
   ).length;
@@ -320,7 +344,7 @@ export default function ChannelHealthDirect() {
   return (
     <div className="h-full overflow-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur-sm px-6 py-4">
+      <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur-sm px-6 py-3">
         <div className="flex items-center justify-between">
           <div>
             <h1
@@ -331,19 +355,19 @@ export default function ChannelHealthDirect() {
             </h1>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+            <CheckCircle className="h-3.5 w-3.5 text-purple-500" />
             <span>{healthyCount} of {summaries.length} channels healthy</span>
           </div>
         </div>
       </div>
 
-      <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <div className="px-6 py-4 max-w-5xl mx-auto space-y-4">
         {isLoading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-24" />
+          <div className="space-y-3">
+            <Skeleton className="h-20" />
             <div className="grid grid-cols-2 gap-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-28" />
+                <Skeleton key={i} className="h-24" />
               ))}
             </div>
           </div>
@@ -364,7 +388,7 @@ export default function ChannelHealthDirect() {
               />
             </motion.div>
 
-            {/* Anomaly Callouts — Datadog proactive pattern */}
+            {/* Anomaly Callouts — only significant, targeted drops */}
             {anomalies.length > 0 && (
               <div className="space-y-2">
                 {anomalies.map((anomaly) => (
@@ -379,14 +403,14 @@ export default function ChannelHealthDirect() {
 
             {/* Traffic Light Grid */}
             <div>
-              <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+              <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
                 Channel Overview
               </h2>
               <motion.div
                 variants={staggerContainer}
                 initial="initial"
                 animate="enter"
-                className="grid grid-cols-2 gap-3"
+                className="grid grid-cols-2 lg:grid-cols-3 gap-3"
               >
                 {summaries
                   .sort((a, b) => b.avgScore - a.avgScore)

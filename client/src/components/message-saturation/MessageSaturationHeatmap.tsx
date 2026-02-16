@@ -3,10 +3,14 @@
  *
  * Phase 12B: Visual matrix showing HCP × Message Theme saturation levels.
  *
- * Color Encoding:
+ * Color Encoding (Standard):
  * - Blues (0-25): Underexposed - opportunity to increase
  * - Greens/Yellows (26-50): Optimal exposure zone
  * - Oranges/Reds (51-100): Saturated - risk of fatigue
+ *
+ * Color Encoding (Reversed / Content Gap mode):
+ * - Reds (0-25): Content gap hotspot - underexposed
+ * - Blues (51-100): Well-covered themes
  */
 
 import { useMemo, useState, useCallback, useEffect } from "react";
@@ -21,13 +25,15 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus, Filter, BarChart3 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus, Filter, BarChart3, ScanSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   MessageSaturationHeatmapData,
   SaturationRiskLevel,
   AdoptionStage,
   MessageThemeCategory,
+  HCPProfile,
 } from "@shared/schema";
 
 // ============================================================================
@@ -35,10 +41,21 @@ import type {
 // ============================================================================
 
 /**
- * Get background color for MSI value
- * Blues (underexposed) → Greens (optimal) → Reds (saturated)
+ * Get background color for MSI value (standard mode)
+ * Blues (underexposed) -> Greens (optimal) -> Reds (saturated)
  */
-function getMsiColor(msi: number): string {
+function getMsiColor(msi: number, reversed = false): string {
+  if (reversed) {
+    // Reversed: reds for LOW values (content gaps), blues for HIGH (well-covered)
+    if (msi <= 15) return "bg-red-300 dark:bg-red-700/50";
+    if (msi <= 25) return "bg-red-200 dark:bg-red-800/40";
+    if (msi <= 35) return "bg-orange-200 dark:bg-orange-800/40";
+    if (msi <= 50) return "bg-amber-100 dark:bg-amber-900/40";
+    if (msi <= 65) return "bg-lime-100 dark:bg-lime-900/30";
+    if (msi <= 75) return "bg-emerald-100 dark:bg-emerald-900/30";
+    if (msi <= 85) return "bg-sky-200 dark:bg-sky-800/40";
+    return "bg-sky-100 dark:bg-sky-900/30";
+  }
   if (msi <= 15) return "bg-sky-100 dark:bg-sky-900/30";
   if (msi <= 25) return "bg-sky-200 dark:bg-sky-800/40";
   if (msi <= 35) return "bg-emerald-100 dark:bg-emerald-900/30";
@@ -52,7 +69,13 @@ function getMsiColor(msi: number): string {
 /**
  * Get text color for MSI value
  */
-function getMsiTextColor(msi: number): string {
+function getMsiTextColor(msi: number, reversed = false): string {
+  if (reversed) {
+    if (msi <= 25) return "text-red-700 dark:text-red-300";
+    if (msi <= 50) return "text-orange-700 dark:text-orange-300";
+    if (msi <= 75) return "text-emerald-700 dark:text-emerald-300";
+    return "text-sky-700 dark:text-sky-300";
+  }
   if (msi <= 25) return "text-sky-700 dark:text-sky-300";
   if (msi <= 50) return "text-emerald-700 dark:text-emerald-300";
   if (msi <= 75) return "text-orange-700 dark:text-orange-300";
@@ -80,6 +103,7 @@ interface HeatmapCellProps {
   msi: number;
   saturationRisk: SaturationRiskLevel;
   adoptionStage: AdoptionStage | null;
+  reversed: boolean;
   onClick?: (hcpId: string, themeId: string) => void;
 }
 
@@ -90,6 +114,7 @@ function HeatmapCell({
   msi,
   saturationRisk,
   adoptionStage,
+  reversed,
   onClick,
 }: HeatmapCellProps) {
   const riskConfig = riskLevelConfig[saturationRisk];
@@ -105,11 +130,11 @@ function HeatmapCell({
             "w-10 h-10 rounded-sm flex items-center justify-center cursor-pointer",
             "border border-transparent hover:border-slate-400 dark:hover:border-slate-500",
             "transition-all duration-150",
-            getMsiColor(msi)
+            getMsiColor(msi, reversed)
           )}
           onClick={() => onClick?.(hcpId, themeId)}
         >
-          <span className={cn("text-xs font-semibold tabular-nums", getMsiTextColor(msi))}>
+          <span className={cn("text-xs font-semibold tabular-nums", getMsiTextColor(msi, reversed))}>
             {msi.toFixed(0)}
           </span>
         </motion.div>
@@ -117,6 +142,10 @@ function HeatmapCell({
       <TooltipContent side="top" className="max-w-xs">
         <div className="space-y-2">
           <div className="font-semibold text-sm">{themeName}</div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-xs text-muted-foreground">HCP ID</span>
+            <span className="text-xs font-mono">{hcpId}</span>
+          </div>
           <div className="flex items-center justify-between gap-4">
             <span className="text-xs text-muted-foreground">MSI Score</span>
             <span className={cn("text-sm font-bold", getMsiTextColor(msi))}>{msi.toFixed(1)}</span>
@@ -134,23 +163,11 @@ function HeatmapCell({
             </div>
           )}
           <p className="text-xs text-muted-foreground pt-1 border-t">
-            Click for HCP detail
+            Click to view HCP profile
           </p>
         </div>
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-// ============================================================================
-// Empty Cell (no data)
-// ============================================================================
-
-function EmptyCell() {
-  return (
-    <div className="w-10 h-10 rounded-sm bg-slate-50 dark:bg-slate-800/30 flex items-center justify-center">
-      <span className="text-[10px] text-slate-300 dark:text-slate-600">—</span>
-    </div>
   );
 }
 
@@ -260,7 +277,7 @@ interface SummaryStatsPanelProps {
 }
 
 function SummaryStatsPanel({ data }: SummaryStatsPanelProps) {
-  const { summary, themes } = data;
+  const { summary } = data;
 
   // Calculate saturation distribution
   const totalCells = data.hcpCells.length;
@@ -352,7 +369,35 @@ function SummaryStatsPanel({ data }: SummaryStatsPanelProps) {
 // Color Legend
 // ============================================================================
 
-function ColorLegend() {
+function ColorLegend({ reversed }: { reversed: boolean }) {
+  if (reversed) {
+    return (
+      <div className="flex items-center gap-4 text-xs">
+        <span className="text-muted-foreground">Gap Scale:</span>
+        <div className="flex items-center gap-1">
+          <div className="w-6 h-4 rounded-sm bg-red-300" />
+          <span>0-25</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-6 h-4 rounded-sm bg-amber-100" />
+          <span>26-50</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-6 h-4 rounded-sm bg-emerald-100" />
+          <span>51-65</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-6 h-4 rounded-sm bg-sky-200" />
+          <span>66-75</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-6 h-4 rounded-sm bg-sky-100" />
+          <span>76-100</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-4 text-xs">
       <span className="text-muted-foreground">MSI Scale:</span>
@@ -403,6 +448,7 @@ export function MessageSaturationHeatmap({
   const [selectedRiskLevel, setSelectedRiskLevel] = useState<SaturationRiskLevel | null>(null);
   const [selectedStage, setSelectedStage] = useState<AdoptionStage | null>(null);
   const [visibleRows, setVisibleRows] = useState(ROW_PAGE_SIZE);
+  const [reversed, setReversed] = useState(false);
 
   // Fetch heatmap data
   const { data, isLoading, error } = useQuery<MessageSaturationHeatmapData>({
@@ -416,6 +462,29 @@ export function MessageSaturationHeatmap({
     },
     staleTime: 60000, // 1 minute
   });
+
+  // Fetch HCP profiles for segment display
+  const { data: allHcps = [] } = useQuery<HCPProfile[]>({
+    queryKey: ["/api/hcps"],
+    queryFn: async () => {
+      const res = await fetch("/api/hcps", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 300000, // 5 minutes
+  });
+
+  // Build HCP lookup map: id -> { segment, name }
+  const hcpLookup = useMemo(() => {
+    const map = new Map<string, { segment: string; name: string }>();
+    for (const hcp of allHcps) {
+      map.set(hcp.id, {
+        segment: hcp.segment || "Unknown",
+        name: `${hcp.firstName} ${hcp.lastName}`,
+      });
+    }
+    return map;
+  }, [allHcps]);
 
   // Reset visible rows when audience filter changes
   const hcpIdsKey = hcpIds?.join(",") ?? "";
@@ -443,17 +512,17 @@ export function MessageSaturationHeatmap({
   }, [data]);
 
   // Filter themes based on selected category
-  const filteredThemes = useMemo(() => {
+  const categoryFilteredThemes = useMemo(() => {
     if (!data) return [];
     if (!selectedCategory) return data.themes;
     return data.themes.filter((t) => t.category === selectedCategory);
   }, [data, selectedCategory]);
 
   // Build cell lookup map for efficient rendering
-  type HeatmapCell = MessageSaturationHeatmapData["hcpCells"][0];
+  type HeatmapCellData = MessageSaturationHeatmapData["hcpCells"][0];
   const cellMap = useMemo(() => {
-    if (!data) return new Map<string, HeatmapCell>();
-    const map = new Map<string, HeatmapCell>();
+    if (!data) return new Map<string, HeatmapCellData>();
+    const map = new Map<string, HeatmapCellData>();
     data.hcpCells.forEach((cell) => {
       // Apply filters
       if (selectedRiskLevel && cell.saturationRisk !== selectedRiskLevel) return;
@@ -462,6 +531,19 @@ export function MessageSaturationHeatmap({
     });
     return map;
   }, [data, selectedRiskLevel, selectedStage]);
+
+  // Auto-remove empty columns: only show themes that have at least one cell
+  // with data among the visible HCPs
+  const visibleHcpIds = useMemo(() => {
+    return new Set(hcpIdList.slice(0, Math.min(visibleRows, ROW_MAX)));
+  }, [hcpIdList, visibleRows]);
+
+  const filteredThemes = useMemo(() => {
+    const visibleArr = Array.from(visibleHcpIds);
+    return categoryFilteredThemes.filter((theme) => {
+      return visibleArr.some((hcpId) => cellMap.has(`${hcpId}-${theme.id}`));
+    });
+  }, [categoryFilteredThemes, visibleHcpIds, cellMap]);
 
   // Handle cell click
   const handleCellClick = useCallback(
@@ -504,6 +586,8 @@ export function MessageSaturationHeatmap({
     );
   }
 
+  const columnsHidden = categoryFilteredThemes.length - filteredThemes.length;
+
   return (
     <div className={cn("space-y-6", className)}>
       {/* Summary Statistics */}
@@ -520,21 +604,56 @@ export function MessageSaturationHeatmap({
           selectedStage={selectedStage}
           onStageChange={setSelectedStage}
         />
-        <ColorLegend />
+        <div className="flex items-center gap-4">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-2">
+                <ScanSearch className="w-4 h-4 text-muted-foreground" />
+                <label htmlFor="gap-mode" className="text-xs text-muted-foreground cursor-pointer select-none">
+                  Content Gaps
+                </label>
+                <Switch
+                  id="gap-mode"
+                  checked={reversed}
+                  onCheckedChange={setReversed}
+                  className="scale-75"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs text-left">
+              <p className="text-xs font-semibold mb-1">Content Gap Hotspots</p>
+              <p className="text-xs text-muted-foreground">
+                Reverses the color scale so low-MSI cells appear red, highlighting
+                themes where HCPs are underexposed. Use this to identify messaging
+                opportunities and coverage gaps in your portfolio.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+          <ColorLegend reversed={reversed} />
+        </div>
       </div>
 
       {/* Heatmap Matrix */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">HCP × Message Theme Saturation Matrix</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">
+              HCP × Message Theme Saturation Matrix
+            </CardTitle>
+            {columnsHidden > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {columnsHidden} empty column{columnsHidden !== 1 ? "s" : ""} hidden
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr>
-                  <th className="sticky left-0 bg-background z-10 w-20 text-left text-xs font-medium text-muted-foreground p-2">
-                    HCP
+                  <th className="sticky left-0 bg-background z-10 w-28 text-left text-xs font-medium text-muted-foreground p-2">
+                    Segment
                   </th>
                   {filteredThemes.map((theme) => (
                     <th
@@ -568,44 +687,59 @@ export function MessageSaturationHeatmap({
               </thead>
               <tbody>
                 <AnimatePresence>
-                  {hcpIdList.slice(0, Math.min(visibleRows, ROW_MAX)).map((hcpId) => (
-                    <motion.tr
-                      key={hcpId}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                    >
-                      <td className="sticky left-0 bg-background z-10 p-2">
-                        <button
-                          onClick={() => onHcpClick?.(hcpId)}
-                          className="text-xs font-mono text-left truncate max-w-[80px] hover:text-primary hover:underline"
-                        >
-                          {hcpId.slice(0, 8)}...
-                        </button>
-                      </td>
-                      {filteredThemes.map((theme) => {
-                        const cell = cellMap.get(`${hcpId}-${theme.id}`);
-                        return (
-                          <td key={theme.id} className="p-0.5">
-                            {cell ? (
-                              <HeatmapCell
-                                hcpId={hcpId}
-                                themeId={theme.id}
-                                themeName={theme.name}
-                                msi={cell.msi}
-                                saturationRisk={cell.saturationRisk}
-                                adoptionStage={cell.adoptionStage}
-                                onClick={handleCellClick}
-                              />
-                            ) : (
-                              <EmptyCell />
-                            )}
-                          </td>
-                        );
-                      })}
-                    </motion.tr>
-                  ))}
+                  {hcpIdList.slice(0, Math.min(visibleRows, ROW_MAX)).map((hcpId) => {
+                    const hcpInfo = hcpLookup.get(hcpId);
+                    return (
+                      <motion.tr
+                        key={hcpId}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      >
+                        <td className="sticky left-0 bg-background z-10 p-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => onHcpClick?.(hcpId)}
+                                className="text-xs text-left truncate max-w-[110px] block hover:text-primary hover:underline"
+                              >
+                                {hcpInfo?.segment ?? hcpId.slice(0, 8) + "..."}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                              <div className="space-y-1">
+                                {hcpInfo && (
+                                  <p className="text-xs font-semibold">{hcpInfo.name}</p>
+                                )}
+                                <p className="text-xs font-mono text-muted-foreground">{hcpId}</p>
+                                <p className="text-[10px] text-muted-foreground">Click to view profile</p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </td>
+                        {filteredThemes.map((theme) => {
+                          const cell = cellMap.get(`${hcpId}-${theme.id}`);
+                          return (
+                            <td key={theme.id} className="p-0.5">
+                              {cell ? (
+                                <HeatmapCell
+                                  hcpId={hcpId}
+                                  themeId={theme.id}
+                                  themeName={theme.name}
+                                  msi={cell.msi}
+                                  saturationRisk={cell.saturationRisk}
+                                  adoptionStage={cell.adoptionStage}
+                                  reversed={reversed}
+                                  onClick={handleCellClick}
+                                />
+                              ) : null}
+                            </td>
+                          );
+                        })}
+                      </motion.tr>
+                    );
+                  })}
                 </AnimatePresence>
               </tbody>
             </table>

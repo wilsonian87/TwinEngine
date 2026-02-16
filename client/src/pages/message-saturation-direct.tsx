@@ -260,8 +260,8 @@ export default function MessageSaturationDirect() {
   const [, navigate] = useLocation();
   const [selectedAudienceId, setSelectedAudienceId] = useState<string | null>(null);
 
-  // Fetch audiences for filtering
-  const { data: audiences = [] } = useQuery<SavedAudience[]>({
+  // Fetch audiences for filtering (enriched with validHcpCount)
+  const { data: allAudiences = [] } = useQuery<(SavedAudience & { validHcpCount?: number })[]>({
     queryKey: ["/api/audiences"],
     queryFn: async () => {
       const res = await fetch("/api/audiences", { credentials: "include" });
@@ -269,6 +269,8 @@ export default function MessageSaturationDirect() {
       return res.json();
     },
   });
+  // Filter out stale audiences with 0 valid HCPs
+  const audiences = allAudiences.filter((a) => a.validHcpCount === undefined || a.validHcpCount > 0);
 
   // Fetch heatmap data for digest stats
   const { data: heatmapData, isLoading } = useQuery<HeatmapData>({

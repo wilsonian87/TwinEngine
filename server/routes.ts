@@ -6,8 +6,8 @@ import { competitiveStorage } from "./storage/competitive-storage";
 import { messageSaturationStorage } from "./storage/message-saturation-storage";
 import { hashPassword } from "./auth";
 import { db } from "./db";
-import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { users, hcpProfiles } from "@shared/schema";
+import { eq, inArray } from "drizzle-orm";
 import { requireEnvVar, debugLog } from "./utils/config";
 import { safeParseLimitOffset, safeParseLimit } from "./utils/validation";
 import { authRateLimiter } from "./middleware/rate-limit";
@@ -691,7 +691,25 @@ export async function registerRoutes(
   app.get("/api/audiences", async (req, res) => {
     try {
       const audiences = await storage.listAudiences();
-      res.json(audiences);
+
+      // Collect all unique HCP IDs across audiences and check which still exist
+      const allIds = Array.from(new Set(audiences.flatMap((a) => a.hcpIds)));
+      const validIdSet = new Set<string>();
+      if (allIds.length > 0) {
+        const validRows = await db
+          .select({ id: hcpProfiles.id })
+          .from(hcpProfiles)
+          .where(inArray(hcpProfiles.id, allIds));
+        for (const row of validRows) validIdSet.add(row.id);
+      }
+
+      // Annotate each audience with validHcpCount
+      const enriched = audiences.map((a) => ({
+        ...a,
+        validHcpCount: a.hcpIds.filter((id) => validIdSet.has(id)).length,
+      }));
+
+      res.json(enriched);
     } catch (error) {
       console.error("Error listing audiences:", error);
       res.status(500).json({ error: "Failed to list audiences" });
@@ -1102,7 +1120,13 @@ export async function registerRoutes(
       const cohort = allHcps.filter((h) => hcpIds.includes(h.id));
 
       if (cohort.length === 0) {
-        return res.status(404).json({ error: "No HCPs found for given IDs" });
+        // Audience may reference stale HCP IDs from a previous data seed
+        return res.json({
+          nbas: [],
+          summary: { totalActions: 0, byUrgency: { high: 0, medium: 0, low: 0 }, byActionType: {}, byChannel: {}, avgConfidence: 0 },
+          totalProcessed: 0,
+          staleIds: true,
+        });
       }
 
       // Generate NBAs for all HCPs

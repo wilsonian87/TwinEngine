@@ -29,8 +29,8 @@ export default function MessageSaturationPage() {
   const [isSeeding, setIsSeeding] = useState(false);
   const [selectedAudienceId, setSelectedAudienceId] = useState<string | null>(null);
 
-  // Fetch saved audiences for filtering
-  const { data: audiences = [] } = useQuery<SavedAudience[]>({
+  // Fetch saved audiences for filtering (enriched with validHcpCount)
+  const { data: allAudiences = [] } = useQuery<(SavedAudience & { validHcpCount?: number })[]>({
     queryKey: ["/api/audiences"],
     queryFn: async () => {
       const res = await fetch("/api/audiences", { credentials: "include" });
@@ -38,13 +38,15 @@ export default function MessageSaturationPage() {
       return res.json();
     },
   });
+  // Filter out stale audiences with 0 valid HCPs
+  const audiences = allAudiences.filter((a) => a.validHcpCount === undefined || a.validHcpCount > 0);
 
   const selectedAudience = audiences.find((a) => a.id === selectedAudienceId);
   const audienceHcpIds = selectedAudience?.hcpIds ?? undefined;
 
-  // Handle HCP click - navigate to HCP detail
+  // Handle HCP click - navigate to HCP profile
   const handleHcpClick = (hcpId: string) => {
-    setLocation(`/hcp-explorer?hcpId=${hcpId}`);
+    setLocation(`/?hcp=${hcpId}`);
   };
 
   // Seed demo data
