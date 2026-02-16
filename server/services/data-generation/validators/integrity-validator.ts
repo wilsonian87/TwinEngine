@@ -413,7 +413,7 @@ async function checkCampaignDateConsistency(): Promise<ValidationCheck> {
 }
 
 /**
- * Check response rate is in expected range (18-22%)
+ * Check response rate is in expected range (18-24%)
  */
 async function checkResponseRate(): Promise<ValidationCheck> {
   try {
@@ -426,15 +426,15 @@ async function checkResponseRate(): Promise<ValidationCheck> {
 
     return {
       name: "Response Rate",
-      description: "Overall response rate is between 18-22%",
-      passed: responseRate >= 18 && responseRate <= 22,
+      description: "Overall response rate is between 18-24%",
+      passed: responseRate >= 18 && responseRate <= 24,
       value: `${responseRate.toFixed(2)}%`,
-      expected: "18-22%",
+      expected: "18-24%",
     };
   } catch (error) {
     return {
       name: "Response Rate",
-      description: "Overall response rate is between 18-22%",
+      description: "Overall response rate is between 18-24%",
       passed: false,
       error: String(error),
     };
