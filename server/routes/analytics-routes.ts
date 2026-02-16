@@ -147,6 +147,17 @@ analyticsRouter.get("/cohort-compare", async (req, res) => {
       ? await db.select().from(hcpProfiles).where(inArray(hcpProfiles.id, audienceB.hcpIds))
       : [];
 
+    // Guard: if either audience resolves to 0 HCPs, they reference stale IDs
+    if (hcpsA.length === 0 || hcpsB.length === 0) {
+      return res.json({
+        staleAudiences: true,
+        staleCohorts: [
+          ...(hcpsA.length === 0 ? [{ id: audienceA.id, name: audienceA.name }] : []),
+          ...(hcpsB.length === 0 ? [{ id: audienceB.id, name: audienceB.name }] : []),
+        ],
+      });
+    }
+
     // Calculate overlap
     const setA = new Set(audienceA.hcpIds);
     const overlapCount = audienceB.hcpIds.filter(id => setA.has(id)).length;

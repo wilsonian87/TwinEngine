@@ -312,7 +312,7 @@ export default function DashboardDirect() {
                 count={data.alerts.critical}
               />
             )}
-            {metrics?.pendingNbas && metrics.pendingNbas > 0 && (
+            {(metrics?.pendingNbas ?? 0) > 0 && (
               <DrillDownCard
                 title="Review pending recommendations"
                 description="NBO engine has new actions ready for triage"
@@ -320,7 +320,7 @@ export default function DashboardDirect() {
                 count={metrics.pendingNbas}
               />
             )}
-            {data?.pendingApprovals && data.pendingApprovals > 0 && (
+            {(data?.pendingApprovals ?? 0) > 0 && (
               <DrillDownCard
                 title="Approvals waiting for you"
                 description="Agent actions need your review"

@@ -78,6 +78,7 @@ interface NBAResponse {
     avgConfidence: number;
   };
   totalProcessed: number;
+  staleIds?: boolean;
 }
 
 // Channel icons
@@ -548,6 +549,22 @@ export function ActionQueue({ hcpIds, audienceName, onHcpClick }: ActionQueuePro
             message="Failed to fetch recommendations. Please try again."
             type="server"
             size="sm"
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (nbaData.staleIds) {
+    return (
+      <Card>
+        <CardContent className="py-4">
+          <EmptyState
+            title="Audience out of sync"
+            description="This audience references HCP profiles that no longer exist. Re-save the audience from the Audience Builder to refresh."
+            icon="users"
+            size="sm"
+            showAnimation={false}
           />
         </CardContent>
       </Card>

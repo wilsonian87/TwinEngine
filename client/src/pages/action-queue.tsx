@@ -20,8 +20,8 @@ export default function ActionQueuePage() {
   const [selectedAudienceId, setSelectedAudienceId] = useState<string>("");
   const [selectedHcpId, setSelectedHcpId] = useState<string | null>(null);
 
-  // Fetch saved audiences
-  const { data: audiences = [] } = useQuery<SavedAudience[]>({
+  // Fetch saved audiences (enriched with validHcpCount from server)
+  const { data: allAudiences = [] } = useQuery<(SavedAudience & { validHcpCount?: number })[]>({
     queryKey: ["/api/audiences"],
     queryFn: async () => {
       const response = await fetch("/api/audiences");
@@ -29,6 +29,8 @@ export default function ActionQueuePage() {
       return response.json();
     },
   });
+  // Filter out stale audiences with 0 valid HCPs
+  const audiences = allAudiences.filter((a) => a.validHcpCount === undefined || a.validHcpCount > 0);
 
   // Fetch all HCPs (for "All HCPs" option)
   const { data: allHcps = [] } = useQuery<HCPProfile[]>({

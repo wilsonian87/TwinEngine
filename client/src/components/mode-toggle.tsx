@@ -1,8 +1,8 @@
 /**
  * Mode Toggle — Segmented control for switching between Discover and Direct modes.
  *
- * Clean, minimal design matching brand aesthetics.
- * Shows first-time tooltip explaining the difference.
+ * Brand purple for selected state, clear unselected state.
+ * Thicker buttons, bold icons, no color bleed between segments.
  */
 
 import { useState, useEffect } from 'react';
@@ -41,21 +41,16 @@ export function ModeToggle({ compact = false }: { compact?: boolean }) {
 
   const toggle = (
     <div
-      className="relative flex items-center rounded-lg bg-muted/50 p-0.5 border border-border/50"
+      className="relative flex items-center rounded-lg bg-slate-100 dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700"
       data-testid="mode-toggle"
     >
-      {/* Sliding background indicator */}
+      {/* Sliding background indicator — solid purple for selected */}
       <motion.div
-        className="absolute top-0.5 bottom-0.5 rounded-md"
-        style={{
-          background: mode === 'direct'
-            ? 'var(--consumption-purple, hsl(var(--primary)))'
-            : 'hsl(var(--accent))',
-        }}
+        className="absolute top-1 bottom-1 rounded-md bg-purple-700 dark:bg-purple-600 shadow-sm"
         initial={false}
         animate={{
-          left: mode === 'discover' ? '2px' : '50%',
-          right: mode === 'direct' ? '2px' : '50%',
+          left: mode === 'discover' ? '4px' : '50%',
+          right: mode === 'direct' ? '4px' : '50%',
         }}
         transition={{
           duration: MOTION_DURATION.ui,
@@ -66,28 +61,28 @@ export function ModeToggle({ compact = false }: { compact?: boolean }) {
       {/* Discover button */}
       <button
         onClick={() => handleModeChange('discover')}
-        className={`relative z-10 flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-200 ${
+        className={`relative z-10 flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors duration-200 ${
           mode === 'discover'
-            ? 'text-foreground'
-            : 'text-muted-foreground hover:text-foreground/70'
+            ? 'text-white'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
         }`}
         data-testid="mode-toggle-discover"
       >
-        <Compass className="h-3 w-3" />
+        <Compass className="h-4 w-4" strokeWidth={2.5} />
         {!compact && <span>Discover</span>}
       </button>
 
       {/* Direct button */}
       <button
         onClick={() => handleModeChange('direct')}
-        className={`relative z-10 flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-200 ${
+        className={`relative z-10 flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors duration-200 ${
           mode === 'direct'
             ? 'text-white'
-            : 'text-muted-foreground hover:text-foreground/70'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
         }`}
         data-testid="mode-toggle-direct"
       >
-        <Zap className="h-3 w-3" />
+        <Zap className="h-4 w-4" strokeWidth={2.5} />
         {!compact && <span>Direct</span>}
       </button>
     </div>

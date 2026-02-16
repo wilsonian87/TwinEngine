@@ -40,9 +40,18 @@ import {
   Minus,
   FlaskConical,
   Zap,
+  AlertTriangle,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import type { SavedAudience } from "@shared/schema";
+
+/** Audience with server-computed health check */
+type AudienceWithHealth = SavedAudience & { validHcpCount?: number };
+
+/** Check if an audience has stale (unresolvable) HCP IDs */
+function isStaleAudience(a: AudienceWithHealth): boolean {
+  return a.validHcpCount !== undefined && a.validHcpCount === 0;
+}
 
 /**
  * Enhanced Cohort Comparison Page
@@ -229,8 +238,8 @@ export default function CohortCompare() {
     if (bParam) setCohortB(bParam);
   }, [searchString]);
 
-  // Fetch saved audiences
-  const { data: audiences = [] } = useQuery<SavedAudience[]>({
+  // Fetch saved audiences (enriched with validHcpCount from server)
+  const { data: audiences = [] } = useQuery<AudienceWithHealth[]>({
     queryKey: ["/api/audiences"],
   });
 
@@ -242,10 +251,10 @@ export default function CohortCompare() {
 
   // Fetch comparison data (for saved audiences)
   const {
-    data: comparison,
+    data: comparisonRaw,
     isLoading: comparisonLoading,
     refetch: refetchComparison,
-  } = useQuery<CohortComparisonResponse>({
+  } = useQuery<CohortComparisonResponse & { staleAudiences?: boolean; staleCohorts?: { id: string; name: string }[] }>({
     queryKey: ["/api/analytics/cohort-compare", cohortA, cohortB],
     queryFn: async () => {
       const res = await fetch(`/api/analytics/cohort-compare?cohortA=${cohortA}&cohortB=${cohortB}`);
@@ -254,6 +263,10 @@ export default function CohortCompare() {
     },
     enabled: !!cohortA && !!cohortB && !activePreset,
   });
+
+  // Separate stale response from valid comparison
+  const comparison = comparisonRaw?.staleAudiences ? undefined : comparisonRaw;
+  const staleResponse = comparisonRaw?.staleAudiences ? comparisonRaw : undefined;
 
   // Preset comparison mutation
   const presetComparison = useMutation({
@@ -355,13 +368,13 @@ export default function CohortCompare() {
                   </SelectTrigger>
                   <SelectContent>
                     {audiences
-                      .filter((a) => a.id !== cohortB)
+                      .filter((a) => a.id !== cohortB && !isStaleAudience(a))
                       .map((audience) => (
                         <SelectItem key={audience.id} value={audience.id}>
                           <div className="flex items-center gap-2">
                             {audience.name}
                             <Badge variant="secondary" className="text-xs">
-                              {audience.hcpIds.length}
+                              {audience.validHcpCount ?? audience.hcpIds.length}
                             </Badge>
                           </div>
                         </SelectItem>
@@ -381,13 +394,13 @@ export default function CohortCompare() {
                   </SelectTrigger>
                   <SelectContent>
                     {audiences
-                      .filter((a) => a.id !== cohortA)
+                      .filter((a) => a.id !== cohortA && !isStaleAudience(a))
                       .map((audience) => (
                         <SelectItem key={audience.id} value={audience.id}>
                           <div className="flex items-center gap-2">
                             {audience.name}
                             <Badge variant="secondary" className="text-xs">
-                              {audience.hcpIds.length}
+                              {audience.validHcpCount ?? audience.hcpIds.length}
                             </Badge>
                           </div>
                         </SelectItem>
@@ -437,6 +450,32 @@ export default function CohortCompare() {
               <Skeleton className="h-48" />
             </div>
           </div>
+        )}
+
+        {/* Stale Audience Warning — API returned staleAudiences flag */}
+        {staleResponse && !isLoading && (
+          <Card className="border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20">
+            <CardContent className="py-4 flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Audience out of sync</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {staleResponse.staleCohorts?.map((c) => c.name).join(" and ")}{" "}
+                  {(staleResponse.staleCohorts?.length ?? 0) > 1 ? "reference" : "references"}{" "}
+                  HCP profiles that no longer exist. Re-save from the Audience Builder to refresh.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 h-7 text-xs"
+                  onClick={() => navigate("/audience-builder")}
+                >
+                  <Users className="h-3 w-3 mr-1.5" />
+                  Go to Audience Builder
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Empty State */}
