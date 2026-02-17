@@ -30,6 +30,7 @@ import {
   Bell,
   Shield,
   CheckSquare,
+  UserCog,
 } from "lucide-react";
 import {
   Sidebar,
@@ -156,6 +157,12 @@ const systemItems = [
     description: "Review pending approval requests",
   },
   {
+    title: "User Management",
+    url: "/admin/users",
+    icon: UserCog,
+    description: "Manage user accounts and approvals",
+  },
+  {
     title: "Audit Logs",
     url: "/admin/audit-logs",
     icon: Shield,
@@ -181,6 +188,12 @@ const labsItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+
+  // Read role from cached session query (populated by AuthenticatedApp)
+  const { data: session } = useQuery<{ role?: string }>({
+    queryKey: ["session"],
+  });
+  const isAdmin = session?.role === "admin";
 
   // Fetch unacknowledged alert count for badge
   const { data: alertCountData } = useQuery<{ count: number }>({
@@ -309,7 +322,8 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* SYSTEM - Configuration and advanced features */}
+        {/* SYSTEM - Configuration and advanced features (admin only) */}
+        {isAdmin && (
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider px-4 text-muted-foreground">
             System
@@ -346,6 +360,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        )}
 
         {/* OmniVor Labs Section */}
         <SidebarGroup>

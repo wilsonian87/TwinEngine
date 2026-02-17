@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
@@ -55,6 +55,15 @@ import IntegrationsPage from "@/pages/settings/IntegrationsPage";
 import WebhooksPage from "@/pages/settings/WebhooksPage";
 import ApprovalsPage from "@/pages/ApprovalsPage";
 import AuditLogPage from "@/pages/admin/AuditLogPage";
+import UserManagementPage from "@/pages/admin/UserManagementPage";
+
+function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+  const { data: session } = useQuery<{ role?: string }>({ queryKey: ["session"] });
+  if (session?.role !== "admin") {
+    return <Redirect to="/" />;
+  }
+  return <Component />;
+}
 
 function Router() {
   const [location] = useLocation();
@@ -89,14 +98,27 @@ function Router() {
             {() => <ModePage discover={CohortCompare} direct={CohortCompareDirect} />}
           </Route>
           <Route path="/feature-store" component={FeatureStore} />
-          <Route path="/model-evaluation" component={ModelEvaluationPage} />
+          <Route path="/model-evaluation">
+            {() => <AdminRoute component={ModelEvaluationPage} />}
+          </Route>
           <Route path="/settings" component={Settings} />
           <Route path="/settings/integrations" component={IntegrationsPage} />
           <Route path="/settings/webhooks" component={WebhooksPage} />
-          <Route path="/approvals" component={ApprovalsPage} />
-          <Route path="/admin/audit-logs" component={AuditLogPage} />
-          <Route path="/agents" component={AgentsPage} />
-          <Route path="/constraints" component={ConstraintsPage} />
+          <Route path="/approvals">
+            {() => <AdminRoute component={ApprovalsPage} />}
+          </Route>
+          <Route path="/admin/users">
+            {() => <AdminRoute component={UserManagementPage} />}
+          </Route>
+          <Route path="/admin/audit-logs">
+            {() => <AdminRoute component={AuditLogPage} />}
+          </Route>
+          <Route path="/agents">
+            {() => <AdminRoute component={AgentsPage} />}
+          </Route>
+          <Route path="/constraints">
+            {() => <AdminRoute component={ConstraintsPage} />}
+          </Route>
           <Route path="/allocation-lab" component={AllocationLabPage} />
           <Route path="/message-saturation">
             {() => <ModePage discover={MessageSaturationPage} direct={MessageSaturationDirect} />}
@@ -104,7 +126,9 @@ function Router() {
           <Route path="/next-best-orbit">
             {() => <ModePage discover={NBODashboard} direct={NBODirect} />}
           </Route>
-          <Route path="/alerts" component={AlertsPage} />
+          <Route path="/alerts">
+            {() => <AdminRoute component={AlertsPage} />}
+          </Route>
           <Route component={NotFound} />
         </Switch>
       </PageTransition>
