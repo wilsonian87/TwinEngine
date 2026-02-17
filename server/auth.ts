@@ -15,12 +15,15 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import type { Express, RequestHandler } from "express";
+import type { Express, RequestHandler, Request, Response } from "express";
 import { storage } from "./storage";
 import { pool } from "./db";
+import { db } from "./db";
 import { debugLog } from "./utils/config";
+import { users } from "@shared/schema";
 import type { User } from "@shared/schema";
 import { requireEnvVar } from "./utils/config";
+import { eq } from "drizzle-orm";
 
 // Augment express-session types
 import "express-session";
@@ -35,12 +38,22 @@ declare module "express-session" {
 
 const scryptAsync = promisify(scrypt);
 
+// Dev mock user constant (used in SKIP_AUTH bypass locations)
+const DEV_MOCK_USER = {
+  id: "dev-user-001",
+  username: "dev@example.com",
+  role: "admin" as const,
+  status: "approved" as const,
+};
+
 // Extend Express types for session user
 declare global {
   namespace Express {
     interface User {
       id: string;
       username: string;
+      role: string;
+      status: string;
     }
   }
 }
@@ -80,11 +93,13 @@ function configurePassport(): void {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUserById(id);
-      if (user) {
-        done(null, { id: user.id, username: user.username });
-      } else {
-        done(null, false);
+      if (!user) {
+        return done(null, false);
       }
+      if (user.status !== "approved") {
+        return done(null, false);
+      }
+      done(null, { id: user.id, username: user.username, role: user.role, status: user.status });
     } catch (error) {
       done(error);
     }
@@ -104,7 +119,14 @@ function configurePassport(): void {
           return done(null, false, { message: "Invalid username or password" });
         }
 
-        return done(null, { id: user.id, username: user.username });
+        if (user.status === "pending") {
+          return done(null, false, { message: "Your account is pending admin approval" });
+        }
+        if (user.status === "rejected") {
+          return done(null, false, { message: "Your account has been rejected" });
+        }
+
+        return done(null, { id: user.id, username: user.username, role: user.role, status: user.status });
       } catch (error) {
         return done(error);
       }
@@ -172,11 +194,7 @@ export function setupAuth(app: Express): void {
     debugLog("Auth", "⚠️  SKIP_AUTH enabled - all requests will use mock user (dev-user-001)");
     app.use((req, _res, next) => {
       if (!req.user) {
-        (req as any).user = {
-          id: "dev-user-001",
-          username: "dev@example.com",
-          role: "admin",
-        };
+        (req as any).user = { ...DEV_MOCK_USER };
       }
       next();
     });
@@ -194,11 +212,7 @@ export const requireAuth: RequestHandler = (req, res, next) => {
   // Development bypass - inject mock user when SKIP_AUTH is enabled
   if (process.env.SKIP_AUTH === "true") {
     if (!req.user) {
-      (req as any).user = {
-        id: "dev-user-001",
-        username: "dev@example.com",
-        role: "admin",
-      };
+      (req as any).user = { ...DEV_MOCK_USER };
     }
     return next();
   }
@@ -217,3 +231,34 @@ export const optionalAuth: RequestHandler = (req, res, next) => {
   // passport.session already populates req.user if authenticated
   next();
 };
+
+/**
+ * Middleware to require admin role
+ * Extracts user ID from JWT, API token, or session and verifies admin role.
+ */
+export async function requireAdmin(req: Request, res: Response, next: () => void) {
+  // Development bypass
+  if (process.env.SKIP_AUTH === "true") {
+    if (!req.user) {
+      (req as any).user = { ...DEV_MOCK_USER };
+    }
+    return next();
+  }
+
+  const userId =
+    (req as unknown as { jwtUser?: { sub: string } }).jwtUser?.sub ||
+    (req as unknown as { apiToken?: { userId: string } }).apiToken?.userId ||
+    (req as unknown as { user?: { id: string } }).user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+
+  if (!user || user.role !== "admin") {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+
+  next();
+}

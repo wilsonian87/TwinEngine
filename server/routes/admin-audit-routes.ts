@@ -18,37 +18,9 @@ import {
   exportAuditLogsCsv,
   type AuditLogFilter,
 } from "../services/audit-service";
-import { db } from "../db";
-import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { requireAdmin } from "../auth";
 
 const router = Router();
-
-// ============================================================================
-// MIDDLEWARE
-// ============================================================================
-
-/**
- * Admin role check middleware
- */
-async function requireAdmin(req: Request, res: Response, next: () => void) {
-  const userId =
-    (req as unknown as { jwtUser?: { sub: string } }).jwtUser?.sub ||
-    (req as unknown as { apiToken?: { userId: string } }).apiToken?.userId ||
-    (req as unknown as { user?: { id: string } }).user?.id;
-
-  if (!userId) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  const [user] = await db.select().from(users).where(eq(users.id, userId));
-
-  if (!user || user.role !== "admin") {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-
-  next();
-}
 
 // Apply admin check to all routes
 router.use(requireAdmin);

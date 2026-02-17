@@ -4,7 +4,7 @@ import passport from "passport";
 import { storage } from "./storage";
 import { competitiveStorage } from "./storage/competitive-storage";
 import { messageSaturationStorage } from "./storage/message-saturation-storage";
-import { hashPassword } from "./auth";
+import { hashPassword, requireAuth, requireAdmin } from "./auth";
 import { db } from "./db";
 import { users, hcpProfiles } from "@shared/schema";
 import { eq, inArray } from "drizzle-orm";
@@ -246,8 +246,8 @@ async function ensureAdminUser(): Promise<void> {
 
   const hashedPassword = await hashPassword(password);
   const user = await storage.createUser({ username, password: hashedPassword });
-  await db.update(users).set({ role: "admin" }).where(eq(users.id, user.id));
-  debugLog("STARTUP", `Admin user '${username}' created with role 'admin'`);
+  await db.update(users).set({ role: "admin", status: "approved" }).where(eq(users.id, user.id));
+  debugLog("STARTUP", `Admin user '${username}' created with role 'admin', status 'approved'`);
 }
 
 export async function registerRoutes(
@@ -299,6 +299,41 @@ export async function registerRoutes(
   // ============ JWT Authentication Middleware ============
   // Apply JWT auth middleware globally (works alongside session auth)
   app.use(jwtAuth);
+
+  // ============ Global API Auth Gate ============
+  // Require authentication for all /api/* paths except public endpoints.
+  // Per-route requireAuth calls remain in place as defense-in-depth.
+  const PUBLIC_PATHS = new Set([
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/logout",
+    "/api/auth/user",
+    "/api/auth/token/refresh",
+    "/api/invite/validate",
+    "/api/invite/session",
+    "/api/invite/dev-bypass",
+    "/api/feature-flags/evaluate",
+  ]);
+
+  app.use((req, res, next) => {
+    if (!req.path.startsWith("/api/")) return next();
+    if (PUBLIC_PATHS.has(req.path)) return next();
+
+    // Development bypass
+    if (process.env.SKIP_AUTH === "true") return next();
+
+    // Check session auth, JWT auth, or API key auth
+    const isAuthenticated =
+      req.isAuthenticated?.() ||
+      !!(req as unknown as { jwtUser?: unknown }).jwtUser ||
+      !!(req as unknown as { apiToken?: unknown }).apiToken;
+
+    if (!isAuthenticated) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    next();
+  });
 
   // ============ Token Management Endpoints ============
   // JWT token issuance, refresh, and API key management
@@ -429,31 +464,27 @@ export async function registerRoutes(
         return res.status(409).json({ error: "Username already exists" });
       }
 
-      // Hash password and create user
+      // Hash password and create user with "pending" status
       const hashedPassword = await hashPassword(password);
       const user = await storage.createUser({
         username,
         password: hashedPassword,
       });
 
+      // Explicitly set status to "pending" (new registrations require admin approval)
+      await db.update(users).set({ status: "pending" }).where(eq(users.id, user.id));
+
       // Log registration
       await storage.logAction({
         action: "user_registered",
         entityType: "user",
         entityId: user.id,
-        details: { username },
+        details: { username, status: "pending" },
       });
 
-      // Auto-login after registration
-      req.login({ id: user.id, username: user.username }, (err) => {
-        if (err) {
-          console.error("Error logging in after registration:", err);
-          return res.status(500).json({ error: "Registration succeeded but login failed" });
-        }
-        res.status(201).json({
-          id: user.id,
-          username: user.username,
-        });
+      res.status(201).json({
+        message: "Registration submitted. Pending admin approval.",
+        status: "pending",
       });
     } catch (error) {
       console.error("Error registering user:", error);
@@ -524,6 +555,8 @@ export async function registerRoutes(
       res.json({
         id: req.user.id,
         username: req.user.username,
+        role: req.user.role,
+        status: req.user.status,
       });
     } else {
       res.status(401).json({ error: "Not authenticated" });
@@ -665,6 +698,60 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting invite code:", error);
       res.status(500).json({ error: "Failed to delete invite code" });
+    }
+  });
+
+  // ============ Admin User Management Endpoints ============
+
+  // List all users (admin only)
+  app.get("/api/admin/users", requireAuth, requireAdmin, async (_req, res) => {
+    try {
+      const allUsers = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          role: users.role,
+          status: users.status,
+        })
+        .from(users);
+      res.json(allUsers);
+    } catch (error) {
+      console.error("[ADMIN] Error listing users:", error);
+      res.status(500).json({ error: "Failed to list users" });
+    }
+  });
+
+  // Approve or reject a user (admin only)
+  app.patch("/api/admin/users/:id/status", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      if (!status || !["approved", "rejected"].includes(status)) {
+        return res.status(400).json({ error: "Status must be 'approved' or 'rejected'" });
+      }
+
+      const [target] = await db.select().from(users).where(eq(users.id, id));
+      if (!target) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      await db.update(users).set({ status }).where(eq(users.id, id));
+
+      // Audit log
+      const auditAction = (status === "approved" ? "admin.user.approved" : "admin.user.rejected") as "admin.user.approved" | "admin.user.rejected";
+      await logAudit({
+        action: auditAction,
+        entityType: "user",
+        entityId: id,
+        details: { targetUsername: target.username, newStatus: status },
+        context: { userId: req.user?.id },
+      });
+
+      res.json({ id, status });
+    } catch (error) {
+      console.error("[ADMIN] Error updating user status:", error);
+      res.status(500).json({ error: "Failed to update user status" });
     }
   });
 

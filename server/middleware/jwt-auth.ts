@@ -67,7 +67,7 @@ export const jwtAuth: RequestHandler = async (req, res, next) => {
 
       // Also set user for compatibility with existing code
       if (!req.user) {
-        req.user = { id: apiTokenInfo.userId, username: "api_user" };
+        req.user = { id: apiTokenInfo.userId, username: "api_user", role: "user", status: "approved" };
       }
 
       return next();
@@ -80,7 +80,7 @@ export const jwtAuth: RequestHandler = async (req, res, next) => {
 
     // Also set user for compatibility with existing code
     if (!req.user) {
-      req.user = { id: payload.sub, username: "jwt_user" };
+      req.user = { id: payload.sub, username: "jwt_user", role: "user", status: "approved" };
     }
 
     return next();

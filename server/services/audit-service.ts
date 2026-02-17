@@ -56,6 +56,8 @@ export type AuditAction =
   | "admin.user_created"
   | "admin.user_updated"
   | "admin.user_deleted"
+  | "admin.user.approved"
+  | "admin.user.rejected"
   | "admin.settings_updated"
   // Export actions
   | "export.created"

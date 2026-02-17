@@ -27,6 +27,12 @@ app.use(express.urlencoded({ extended: false }));
 // Set up authentication (session + passport)
 setupAuth(app);
 
+// Prevent search engine indexing (covers both dev and prod)
+app.use((_req, res, next) => {
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  next();
+});
+
 // Initialize GenAI service (Claude-powered NL processing)
 // Will use rule-based fallback if ANTHROPIC_API_KEY is not set
 initializeGenAI();

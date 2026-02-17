@@ -388,11 +388,15 @@ export type AuditLog = z.infer<typeof auditLogSchema>;
 export const userRoles = ["user", "admin", "manager", "compliance"] as const;
 export type UserRole = (typeof userRoles)[number];
 
+export const userStatuses = ["pending", "approved", "rejected"] as const;
+export type UserStatus = (typeof userStatuses)[number];
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   role: varchar("role", { length: 20 }).notNull().default("user"),
+  status: varchar("status", { length: 20 }).notNull().default("approved"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({

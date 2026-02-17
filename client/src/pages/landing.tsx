@@ -24,6 +24,8 @@ export default function Landing() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [taglineVisible, setTaglineVisible] = useState(false);
 
   // Animate tagline on mount
@@ -53,11 +55,48 @@ export default function Landing() {
     },
   });
 
+  const registerMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Registration failed");
+      }
+      return data;
+    },
+    onSuccess: (data) => {
+      setSuccess(data.message);
+      setError(null);
+      setUsername("");
+      setPassword("");
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    loginMutation.mutate();
+    setSuccess(null);
+    if (mode === "login") {
+      loginMutation.mutate();
+    } else {
+      registerMutation.mutate();
+    }
   };
+
+  const toggleMode = () => {
+    setMode(mode === "login" ? "register" : "login");
+    setError(null);
+    setSuccess(null);
+  };
+
+  const isPending = mode === "login" ? loginMutation.isPending : registerMutation.isPending;
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-zinc-950 dark">
@@ -80,50 +119,81 @@ export default function Landing() {
         </div>
       </header>
 
-      {/* Main Content — split layout */}
-      <main className="relative z-10 flex-1 flex px-6 md:px-12 lg:px-20 py-12">
-        {/* Left: Hero wordmark + tagline */}
-        <div className="flex-1 flex flex-col justify-center pr-8">
-          <div className="omnivor-animate-in">
-            <WordmarkDisplay />
-          </div>
+      {/* Main Content — centered layout */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 md:px-12 lg:px-20 py-12">
+        {/* Hero wordmark */}
+        <div className="omnivor-animate-in text-center">
+          <WordmarkDisplay />
+        </div>
 
-          {/* Tagline with fade animation */}
-          <div
-            className={cn(
-              "mt-8 transition-all duration-700 ease-out",
-              taglineVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
-            )}
-          >
-            <p className="text-xl md:text-2xl font-light tracking-wide text-zinc-50/70">
-              {currentTagline}
-            </p>
-          </div>
+        {/* Tagline with fade animation */}
+        <div
+          className={cn(
+            "mt-8 text-center transition-all duration-700 ease-out",
+            taglineVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+          )}
+        >
+          <p className="text-xl md:text-2xl font-light tracking-wide text-zinc-50/70">
+            {currentTagline}
+          </p>
+        </div>
 
-          {/* Subtle divider */}
-          <div className="flex items-center gap-4 mt-8">
-            <div className="h-px w-16 bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
-            <Hexagon className="h-4 w-4 text-primary" />
-            <div className="h-px w-16 bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+        {/* Subtle divider */}
+        <div className="flex items-center justify-center gap-4 mt-8">
+          <div className="h-px w-16 bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+          <Hexagon className="h-4 w-4 text-primary" />
+          <div className="h-px w-16 bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+        </div>
+
+        {/* Capability Hints — centered under wordmark */}
+        <div className="mt-10 w-full max-w-3xl">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <CapabilityHint
+              icon={<Search className="h-6 w-6" />}
+              label="HCP Explorer"
+              description="Convert target lists into interactive experiences"
+            />
+            <CapabilityHint
+              icon={<Users className="h-6 w-6" />}
+              label="Audience Builder"
+              description="Dynamically create & deploy custom audiences"
+            />
+            <CapabilityHint
+              icon={<FlaskConical className="h-6 w-6" />}
+              label="Simulation Studio"
+              description="Predictive modeling & scenario planning, democratized"
+            />
+            <CapabilityHint
+              icon={<Zap className="h-6 w-6" />}
+              label="Action Queue"
+              description="AI-curated insights, better HUMAN decisionmaking"
+            />
           </div>
         </div>
 
-        {/* Right: Login form — positioned upper area */}
-        <div className="w-full max-w-sm flex flex-col justify-start pt-8">
+        {/* Login form — centered below capabilities */}
+        <div className="mt-12 w-full max-w-sm">
           <div className="omnivor-animate-slide-up">
             <div className="p-8 rounded-2xl bg-zinc-950/60 backdrop-blur-xl border border-primary/20 shadow-2xl shadow-primary/5">
               <div className="text-center mb-6">
                 <h2 className="text-xl font-semibold mb-2 text-zinc-50">
-                  Sign In
+                  {mode === "login" ? "Sign In" : "Request Access"}
                 </h2>
                 <p className="text-sm text-zinc-400">
-                  Enter your credentials to continue
+                  {mode === "login"
+                    ? "Enter your credentials to continue"
+                    : "Submit your details for admin approval"}
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 {error && (
                   <InlineError message={error} />
+                )}
+                {success && (
+                  <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-400">
+                    {success}
+                  </div>
                 )}
 
                 <div className="space-y-2">
@@ -168,53 +238,37 @@ export default function Landing() {
                   type="submit"
                   variant="accent"
                   className="w-full h-12 text-base font-semibold rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-                  disabled={loginMutation.isPending}
+                  disabled={isPending}
                 >
-                  {loginMutation.isPending ? (
+                  {isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
+                      {mode === "login" ? "Signing in..." : "Submitting..."}
                     </>
                   ) : (
                     <>
-                      Sign In
+                      {mode === "login" ? "Sign In" : "Request Access"}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </>
                   )}
                 </Button>
               </form>
+
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={toggleMode}
+                  className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  {mode === "login"
+                    ? "Need access? Request an account"
+                    : "Already have an account? Sign in"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </main>
-
-      {/* Capability Hints */}
-      <div className="relative z-10 px-6 md:px-12 lg:px-20 pb-8">
-        <div className="max-w-3xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            <CapabilityHint
-              icon={<Search className="h-5 w-5" />}
-              label="HCP Explorer"
-              description="HCP exploration"
-            />
-            <CapabilityHint
-              icon={<Users className="h-5 w-5" />}
-              label="Audience Builder"
-              description="Audience building"
-            />
-            <CapabilityHint
-              icon={<FlaskConical className="h-5 w-5" />}
-              label="Simulation Studio"
-              description="Campaign simulation"
-            />
-            <CapabilityHint
-              icon={<Zap className="h-5 w-5" />}
-              label="Action Queue"
-              description="Next best actions"
-            />
-          </div>
-        </div>
-      </div>
 
       {/* Footer */}
       <footer className="relative z-10 p-6 text-center">
@@ -237,7 +291,7 @@ function CapabilityHint({
 }) {
   return (
     <div className="space-y-2 opacity-60 hover:opacity-100 transition-opacity duration-200">
-      <div className="mx-auto w-10 h-10 rounded-lg flex items-center justify-center bg-primary/15 text-primary">
+      <div className="mx-auto w-[2.875rem] h-[2.875rem] rounded-lg flex items-center justify-center bg-primary/15 text-primary">
         {icon}
       </div>
       <div>
