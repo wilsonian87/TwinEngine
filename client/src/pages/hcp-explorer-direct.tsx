@@ -18,6 +18,8 @@ import {
   SlidersHorizontal,
   ChevronDown,
   Users,
+  LayoutGrid,
+  CreditCard,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +49,7 @@ import {
   getSparklineData,
   getEngagementTrend,
 } from "@/hooks/use-hcp-data";
+import { HCPProfileCard } from "@/components/viz/hcp-profile-card";
 import type { HCPProfile, HCPFilter } from "@shared/schema";
 import type { SortField } from "@/hooks/use-hcp-data";
 
@@ -177,6 +180,27 @@ function HCPCard({
 }
 
 // ============================================================================
+// DOSSIER VIEW HELPERS
+// ============================================================================
+
+function mapTier(tier: string): "platinum" | "gold" | "silver" | "bronze" {
+  if (tier === "Tier 1") return "platinum";
+  if (tier === "Tier 2") return "gold";
+  return "silver";
+}
+
+function mapAdoptionStage(
+  segment: string | null,
+): "early" | "growing" | "mature" | "advocate" {
+  if (!segment) return "growing";
+  const s = segment.toLowerCase();
+  if (s.includes("champion") || s.includes("advocate")) return "advocate";
+  if (s.includes("rising") || s.includes("growing")) return "growing";
+  if (s.includes("stable") || s.includes("loyal")) return "mature";
+  return "early";
+}
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -185,6 +209,7 @@ export default function HCPExplorerDirect() {
   const [sortField, setSortField] = useState<SortField>("engagement");
   const [selectedHcp, setSelectedHcp] = useState<HCPProfile | null>(null);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [viewMode, setViewMode] = useState<"card" | "dossier">("card");
   const [, navigate] = useLocation();
 
   const { data: hcps = [], isLoading, isError } = useHcpList();
@@ -278,6 +303,25 @@ export default function HCPExplorerDirect() {
               </Select>
             </div>
 
+            <div className="flex items-center border rounded-md">
+              <Button
+                variant={viewMode === "card" ? "default" : "ghost"}
+                size="sm"
+                className="h-8 px-2"
+                onClick={() => setViewMode("card")}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant={viewMode === "dossier" ? "default" : "ghost"}
+                size="sm"
+                className="h-8 px-2"
+                onClick={() => setViewMode("dossier")}
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
             <div className="text-xs text-muted-foreground tabular-nums">
               {filteredHcps.length.toLocaleString()} HCPs
             </div>
@@ -320,13 +364,43 @@ export default function HCPExplorerDirect() {
                 animate="enter"
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
               >
-                {visibleHcps.map((hcp) => (
-                  <HCPCard
-                    key={hcp.id}
-                    hcp={hcp}
-                    onClick={handleCardClick}
-                  />
-                ))}
+                {viewMode === "card"
+                  ? visibleHcps.map((hcp) => (
+                      <HCPCard
+                        key={hcp.id}
+                        hcp={hcp}
+                        onClick={handleCardClick}
+                      />
+                    ))
+                  : visibleHcps.map((hcp) => (
+                      <HCPProfileCard
+                        key={hcp.id}
+                        hcp={{
+                          name: `${hcp.firstName} ${hcp.lastName}`,
+                          specialty: hcp.specialty,
+                          engagementScore: hcp.overallEngagementScore,
+                          tier: mapTier(hcp.tier),
+                          adoptionStage: mapAdoptionStage(hcp.segment),
+                          riskLevel:
+                            hcp.churnRisk > 60
+                              ? "high"
+                              : hcp.churnRisk > 30
+                                ? "medium"
+                                : "low",
+                          channelPreference: hcp.channelPreference as any,
+                          radarAxes: {
+                            engagement: hcp.overallEngagementScore / 100,
+                            recency: Math.max(0, 1 - hcp.churnRisk / 100),
+                            channelDiversity: 0.5,
+                            contentAffinity: hcp.conversionLikelihood / 100,
+                            peerInfluence: (hcp.marketSharePct || 0) / 100,
+                            adoptionProgress:
+                              hcp.overallEngagementScore / 100,
+                          },
+                        }}
+                        onClick={() => handleCardClick(hcp)}
+                      />
+                    ))}
               </motion.div>
 
               {/* Load More */}

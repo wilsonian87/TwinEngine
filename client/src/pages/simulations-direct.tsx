@@ -36,6 +36,8 @@ import {
   MOTION_EASING,
 } from "@/lib/motion-config";
 import { AINarrativeBlock } from "@/components/shared/ai-narrative-block";
+import { SimulationReveal } from "@/components/viz/simulation-reveal";
+import { AnimatedNumber } from "@/components/shared/animated-number";
 import type { SimulationResult } from "@shared/schema";
 
 // ============================================================================
@@ -93,6 +95,20 @@ function PresentView({ result }: { result: SimulationResult }) {
       {/* Headline Finding */}
       <AINarrativeBlock narrative={insight} variant="verdict" />
 
+      {/* Simulation Reveal — confidence fan hero visualization */}
+      <Card className="border border-border/50 overflow-hidden">
+        <CardContent className="p-0">
+          <SimulationReveal
+            baseline={result.predictedResponseRate - result.vsBaseline.engagementDelta}
+            projected={result.predictedResponseRate}
+            confidence={result.efficiencyScore / 100}
+            delta={result.vsBaseline.rxLiftDelta}
+            interventionLabel={result.scenarioName}
+            metricLabel="Engagement Rate"
+          />
+        </CardContent>
+      </Card>
+
       {/* Hero Metrics — 2x2 grid like Stripe */}
       <div className="grid grid-cols-2 gap-4">
         <Card>
@@ -102,11 +118,14 @@ function PresentView({ result }: { result: SimulationResult }) {
             </p>
             <div className="flex items-baseline gap-2 mt-1">
               <span
-                className="text-3xl font-bold tabular-nums"
+                className="text-3xl font-bold"
                 style={{ color: isPositive ? "var(--catalyst-gold, #d97706)" : "var(--destructive)" }}
               >
-                {result.predictedRxLift > 0 ? "+" : ""}
-                {result.predictedRxLift.toFixed(1)}%
+                <AnimatedNumber
+                  value={result.predictedRxLift}
+                  variant="hero"
+                  format={(n) => `${n > 0 ? "+" : ""}${n.toFixed(1)}%`}
+                />
               </span>
               <span className={cn(
                 "text-xs flex items-center gap-0.5",
@@ -126,10 +145,14 @@ function PresentView({ result }: { result: SimulationResult }) {
             </p>
             <div className="flex items-baseline gap-2 mt-1">
               <span
-                className="text-3xl font-bold tabular-nums"
+                className="text-3xl font-bold"
                 style={{ color: "var(--process-violet, #a855f7)" }}
               >
-                {result.predictedResponseRate.toFixed(1)}%
+                <AnimatedNumber
+                  value={result.predictedResponseRate}
+                  variant="hero"
+                  format={(n) => `${n.toFixed(1)}%`}
+                />
               </span>
               <span className={cn(
                 "text-xs flex items-center gap-0.5",
@@ -150,8 +173,12 @@ function PresentView({ result }: { result: SimulationResult }) {
               Response Rate
             </p>
             <div className="mt-1">
-              <span className="text-3xl font-bold tabular-nums">
-                {result.predictedResponseRate.toFixed(1)}%
+              <span className="text-3xl font-bold">
+                <AnimatedNumber
+                  value={result.predictedResponseRate}
+                  variant="supporting"
+                  format={(n) => `${n.toFixed(1)}%`}
+                />
               </span>
             </div>
           </CardContent>
@@ -163,8 +190,12 @@ function PresentView({ result }: { result: SimulationResult }) {
               Predicted Reach
             </p>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-3xl font-bold tabular-nums">
-                {result.predictedReach.toLocaleString()}
+              <span className="text-3xl font-bold">
+                <AnimatedNumber
+                  value={result.predictedReach}
+                  variant="supporting"
+                  format={(n) => n.toLocaleString()}
+                />
               </span>
               <span className="text-xs text-muted-foreground">HCPs</span>
             </div>

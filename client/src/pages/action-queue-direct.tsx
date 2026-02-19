@@ -53,6 +53,7 @@ import { EngagementGrade } from "@/components/shared/engagement-grade";
 import { ProgressCounter } from "@/components/shared/progress-counter";
 import { KeyboardHintBar, ACTION_QUEUE_HINTS } from "@/components/shared/keyboard-hint-bar";
 import { AddToAudienceButton } from "@/components/shared/add-to-audience-button";
+import { CelebrationOverlay } from "@/components/viz/celebration-overlay";
 import {
   useAudiences,
   useAllHcps,
@@ -528,6 +529,7 @@ export default function ActionQueueDirect() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   // Track decisions per item (not just completion)
   const [decisions, setDecisions] = useState<Map<string, DecisionType>>(new Map());
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Fetch simulation context if navigated from Simulation Studio
   const { data: simulationContext } = useQuery<SimulationResult>({
@@ -574,6 +576,11 @@ export default function ActionQueueDirect() {
   const reviewedCount = decisions.size;
   const totalActNow = actNow.length;
   const isQueueClear = reviewedCount >= totalActNow && totalActNow > 0;
+
+  // Trigger celebration when Act Now queue is fully reviewed
+  useEffect(() => {
+    if (isQueueClear) setShowCelebration(true);
+  }, [isQueueClear]);
 
   // Action handlers
   const handleAction = useCallback((id: string, action: DecisionType) => {
@@ -810,6 +817,18 @@ export default function ActionQueueDirect() {
               Back to Simulation
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Celebration overlay when Act Now queue is cleared */}
+      {showCelebration && (
+        <div className="mx-6 mt-4 flex justify-center">
+          <CelebrationOverlay
+            tier={reviewedCount >= 10 ? "triumph" : "accomplish"}
+            message={`${reviewedCount} actions processed`}
+            count={reviewedCount}
+            onComplete={() => {/* keep visible */}}
+          />
         </div>
       )}
 

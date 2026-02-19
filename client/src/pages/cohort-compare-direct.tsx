@@ -38,6 +38,7 @@ import {
 import { cn } from "@/lib/utils";
 import { MOTION_DURATION, MOTION_EASING, staggerContainer, staggerChild } from "@/lib/motion-config";
 import { AINarrativeBlock } from "@/components/shared/ai-narrative-block";
+import { CohortCompareViz } from "@/components/viz/cohort-compare-viz";
 import { apiRequest } from "@/lib/queryClient";
 import {
   useAudiencesForComparison,
@@ -466,6 +467,30 @@ export default function CohortCompareDirect() {
               narrativeLoading={narrativeLoading}
               usedAI={narrativeData?.usedAI}
             />
+
+            {/* Radar Duel — gestalt shape comparison */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Performance Profile</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <CohortCompareViz
+                  cohortA={{
+                    name: comparisonData.cohortA.name,
+                    metrics: Object.fromEntries(
+                      Object.entries(comparisonData.metrics).map(([key, m]) => [key, (m as CohortMetrics).a])
+                    ),
+                  }}
+                  cohortB={{
+                    name: comparisonData.cohortB.name,
+                    metrics: Object.fromEntries(
+                      Object.entries(comparisonData.metrics).map(([key, m]) => [key, (m as CohortMetrics).b])
+                    ),
+                  }}
+                  metricLabels={METRIC_LABELS}
+                />
+              </CardContent>
+            </Card>
 
             {/* Metric Rows — sorted by divergence, impact translations */}
             <div>

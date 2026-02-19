@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { AlertRuleDialog } from "@/components/alerts/AlertRuleDialog";
 import { AlertEventCard } from "@/components/alerts/AlertEventCard";
+import { ThreatIndicator } from "@/components/viz/threat-indicator";
 
 // ============================================================================
 // TYPES
@@ -109,6 +110,14 @@ function formatDate(dateStr: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function mapSeverity(event: AlertEvent): 1 | 2 | 3 | 4 | 5 {
+  if (event.acknowledged) return 1;
+  if (event.hcpCount >= 50) return 5;
+  if (event.hcpCount >= 20) return 4;
+  if (event.hcpCount >= 5) return 3;
+  return 2;
 }
 
 function getRuleDescription(rule: AlertRule): string {
@@ -320,6 +329,18 @@ export default function AlertsPage() {
                     </Button>
                   </div>
                 )}
+                <div className="flex items-center gap-4 mb-4 p-3 rounded-lg border bg-card">
+                  {([5, 4, 3, 2, 1] as const).map((level) => {
+                    const count = events.filter((e) => mapSeverity(e) === level).length;
+                    if (count === 0) return null;
+                    return (
+                      <div key={level} className="flex items-center gap-2">
+                        <ThreatIndicator level={level} compact />
+                        <span className="text-xs tabular-nums">{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
                 <div className="space-y-3">
                   {events.map((event) => (
                     <AlertEventCard
