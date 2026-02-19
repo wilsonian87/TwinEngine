@@ -12,8 +12,6 @@
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import {
-  TrendingUp,
-  TrendingDown,
   AlertTriangle,
   Target,
   Users,
@@ -28,6 +26,8 @@ import { cn } from "@/lib/utils";
 import { MOTION_DURATION, MOTION_EASING, staggerContainer, staggerChild } from "@/lib/motion-config";
 import { AINarrativeBlock } from "@/components/shared/ai-narrative-block";
 import { EngagementGrade } from "@/components/shared/engagement-grade";
+import { AnimatedNumber } from "@/components/shared/animated-number";
+import { MetricDelta } from "@/components/shared/metric-delta";
 import {
   useDashboardData,
   useDashboardNarrative,
@@ -66,27 +66,27 @@ function HeroMetric({
       className="flex flex-col items-center gap-1 py-8"
     >
       <div className="flex items-baseline gap-3">
-        <span className="text-6xl font-bold tabular-nums tracking-tight">
-          {value !== undefined ? `${value}%` : "—"}
-        </span>
+        {value !== undefined ? (
+          <AnimatedNumber
+            value={value}
+            variant="hero"
+            format={(n) => `${Math.round(n)}%`}
+            className="text-6xl font-bold tracking-tight"
+          />
+        ) : (
+          <span className="text-6xl font-bold tabular-nums tracking-tight">—</span>
+        )}
         {value !== undefined && (
           <EngagementGrade score={value} showScore={false} size="lg" />
         )}
       </div>
       <span className="text-sm text-muted-foreground">{label}</span>
       {delta !== undefined && delta !== 0 && (
-        <div
-          className={cn(
-            "flex items-center gap-1 text-sm font-medium mt-1",
-            delta > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-          )}
-        >
-          {delta > 0 ? (
-            <TrendingUp className="h-4 w-4" />
-          ) : (
-            <TrendingDown className="h-4 w-4" />
-          )}
-          <span>{delta > 0 ? "+" : ""}{delta}% vs last period</span>
+        <div className="mt-1">
+          <MetricDelta
+            value={delta}
+            format={(n) => `${n > 0 ? "+" : ""}${n}% vs last period`}
+          />
         </div>
       )}
     </motion.div>
@@ -109,12 +109,10 @@ function SupportingMetric({
   variant?: "default" | "warning";
 }) {
   const [, navigate] = useLocation();
-  const formattedValue =
-    value !== undefined
-      ? format === "percent"
-        ? `${value}%`
-        : value.toLocaleString()
-      : "—";
+  const formatFn =
+    format === "percent"
+      ? (n: number) => `${Math.round(n)}%`
+      : (n: number) => Math.round(n).toLocaleString();
 
   return (
     <motion.div variants={staggerChild}>
@@ -136,8 +134,16 @@ function SupportingMetric({
                 <div className="text-xs text-muted-foreground uppercase tracking-wide">
                   {label}
                 </div>
-                <div className="text-xl font-semibold tabular-nums mt-0.5">
-                  {formattedValue}
+                <div className="text-xl font-semibold mt-0.5">
+                  {value !== undefined ? (
+                    <AnimatedNumber
+                      value={value}
+                      variant="supporting"
+                      format={formatFn}
+                    />
+                  ) : (
+                    "—"
+                  )}
                 </div>
               </div>
             </div>
@@ -317,7 +323,7 @@ export default function DashboardDirect() {
                 title="Review pending recommendations"
                 description="NBO engine has new actions ready for triage"
                 href="/action-queue"
-                count={metrics.pendingNbas}
+                count={metrics?.pendingNbas}
               />
             )}
             {(data?.pendingApprovals ?? 0) > 0 && (
@@ -325,7 +331,7 @@ export default function DashboardDirect() {
                 title="Approvals waiting for you"
                 description="Agent actions need your review"
                 href="/approvals"
-                count={data.pendingApprovals}
+                count={data?.pendingApprovals}
               />
             )}
             <DrillDownCard

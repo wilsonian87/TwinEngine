@@ -5,15 +5,21 @@
  * Validation features are gated by feature flags and return "disabled" results.
  */
 
-export type ValidationStatus = "approved" | "needs_review" | "rejected";
+export type ValidationStatus = "pending" | "approved" | "needs_review" | "rejected";
 export type RuleSeverity = "error" | "warning" | "info";
+export type RuleCategory = "compliance" | "completeness" | "consistency" | "quality";
 
 export interface RuleResult {
   ruleId: string;
   ruleName: string;
+  category: RuleCategory;
   passed: boolean;
   severity: RuleSeverity;
   message: string;
+  location?: {
+    start: number;
+    end: number;
+  };
 }
 
 export interface ValidationResult {
