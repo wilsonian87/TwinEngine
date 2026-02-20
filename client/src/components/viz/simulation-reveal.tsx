@@ -204,7 +204,7 @@ export function SimulationReveal({
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4, ease: EASE_OUT }}
             >
-              {metricLabel}: {baseline}
+              {metricLabel}: {Number(baseline.toFixed(2))}
             </motion.text>
           )}
         </AnimatePresence>

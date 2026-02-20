@@ -190,7 +190,7 @@ function StatusChip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[11px] text-muted-foreground",
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] bg-zinc-600 text-white dark:bg-zinc-700",
         className,
       )}
     >
@@ -256,7 +256,10 @@ export function HCPProfileCard({ hcp, onClick, className }: HCPProfileCardProps)
 
       {/* ---- Middle Zone: Hero Score + Radar ---- */}
       <div className="flex flex-col items-center px-4 pb-2">
-        <span className="text-5xl font-bold leading-none" style={{ color: "#F59E0B" }}>
+        <span
+          className="text-5xl font-bold leading-none"
+          style={{ color: "#A855F7", textShadow: "0 0 16px rgba(168,85,247,0.4)" }}
+        >
           <AnimatedNumber
             value={hcp.engagementScore}
             variant="hero"

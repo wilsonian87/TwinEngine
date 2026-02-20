@@ -228,15 +228,15 @@ export function CohortCompareViz({
       className={cn("w-full rounded-lg border bg-card", className)}
     >
       {/* ===== RADAR CHART SECTION ===== */}
-      <div className="relative mx-auto" style={{ width: 300, height: 300 }}>
+      <div className="relative mx-auto" style={{ width: 420, height: 340 }}>
         {/* Legend — top right */}
-        <div className="absolute right-0 top-2 z-10 flex flex-col gap-1">
+        <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
           <LegendDot color={colorA} label={cohortA.name} />
           <LegendDot color={colorB} label={cohortB.name} />
         </div>
 
         <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
+          <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="55%">
             <PolarGrid
               stroke="currentColor"
               strokeOpacity={0.12}
@@ -244,7 +244,22 @@ export function CohortCompareViz({
             />
             <PolarAngleAxis
               dataKey="metric"
-              tick={{ fill: "currentColor", fillOpacity: 0.5, fontSize: 11 }}
+              tick={({ x, y, payload }: any) => {
+                const label = String(payload.value);
+                const short = label.length > 16 ? label.replace(/^Avg\s+/i, "").slice(0, 14) + "…" : label;
+                return (
+                  <text
+                    x={x}
+                    y={y}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    className="fill-muted-foreground"
+                    fontSize={10}
+                  >
+                    {short}
+                  </text>
+                );
+              }}
               stroke="currentColor"
               strokeOpacity={0.12}
             />
