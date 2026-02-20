@@ -387,7 +387,7 @@ export default function HCPExplorerDirect() {
                               : hcp.churnRisk > 30
                                 ? "medium"
                                 : "low",
-                          channelPreference: hcp.channelPreference as any,
+                          channelPreference: hcp.channelPreference,
                           radarAxes: {
                             engagement: hcp.overallEngagementScore / 100,
                             recency: Math.max(0, 1 - hcp.churnRisk / 100),

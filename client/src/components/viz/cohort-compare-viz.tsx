@@ -44,7 +44,6 @@ const DEFAULT_COLOR_A = "#7C3AED";
 const DEFAULT_COLOR_B = "#F59E0B";
 const COLOR_POSITIVE = "#10B981";
 const COLOR_NEGATIVE = "#EF4444";
-const BG_VOID = "#09090B";
 
 type SortColumn = "label" | "a" | "b" | "delta";
 type SortDir = "asc" | "desc";
@@ -120,7 +119,7 @@ function sortRows(rows: MetricRow[], col: SortColumn, dir: SortDir): MetricRow[]
 
 function LegendDot({ color, label }: { color: string; label: string }) {
   return (
-    <div className="flex items-center gap-1.5 text-xs text-slate-300">
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
       <span
         className="inline-block h-2.5 w-2.5 rounded-full"
         style={{ backgroundColor: color }}
@@ -146,13 +145,13 @@ function SortHeader({ label, column, active, dir, onClick, className }: SortHead
       type="button"
       onClick={() => onClick(column)}
       className={cn(
-        "flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider text-slate-400 hover:text-white transition-colors",
+        "flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors",
         className,
       )}
     >
       {label}
       {isActive && (
-        <span className="text-slate-300">{dir === "desc" ? "\u25BC" : "\u25B2"}</span>
+        <span className="text-foreground/60">{dir === "desc" ? "\u25BC" : "\u25B2"}</span>
       )}
     </button>
   );
@@ -215,10 +214,9 @@ export function CohortCompareViz({
     return (
       <div
         className={cn(
-          "flex h-[500px] items-center justify-center rounded-lg border border-zinc-800 text-sm text-slate-500",
+          "flex h-[500px] items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground",
           className,
         )}
-        style={{ backgroundColor: BG_VOID }}
       >
         No metrics to compare
       </div>
@@ -227,8 +225,7 @@ export function CohortCompareViz({
 
   return (
     <div
-      className={cn("w-full rounded-lg border border-zinc-800", className)}
-      style={{ backgroundColor: BG_VOID }}
+      className={cn("w-full rounded-lg border bg-card", className)}
     >
       {/* ===== RADAR CHART SECTION ===== */}
       <div className="relative mx-auto" style={{ width: 300, height: 300 }}>
@@ -241,13 +238,15 @@ export function CohortCompareViz({
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="75%">
             <PolarGrid
-              stroke="rgba(255,255,255,0.08)"
+              stroke="currentColor"
+              strokeOpacity={0.12}
               gridType="polygon"
             />
             <PolarAngleAxis
               dataKey="metric"
-              tick={{ fill: "#94a3b8", fontSize: 11 }}
-              stroke="rgba(255,255,255,0.08)"
+              tick={{ fill: "currentColor", fillOpacity: 0.5, fontSize: 11 }}
+              stroke="currentColor"
+              strokeOpacity={0.12}
             />
             <PolarRadiusAxis
               domain={[0, 100]}
@@ -260,8 +259,9 @@ export function CohortCompareViz({
               dataKey="a"
               stroke={colorA}
               fill={colorA}
-              strokeOpacity={0.8}
-              fillOpacity={0.25}
+              strokeWidth={2.5}
+              strokeOpacity={0.9}
+              fillOpacity={0.2}
               animationDuration={800}
             />
             <Radar
@@ -269,8 +269,9 @@ export function CohortCompareViz({
               dataKey="b"
               stroke={colorB}
               fill={colorB}
-              strokeOpacity={0.8}
-              fillOpacity={0.25}
+              strokeWidth={2.5}
+              strokeOpacity={0.9}
+              fillOpacity={0.2}
               animationDuration={800}
             />
           </RadarChart>
@@ -280,7 +281,7 @@ export function CohortCompareViz({
       {/* ===== METRIC SCOREBOARD ===== */}
       <div className="px-4 pb-4">
         {/* Header row */}
-        <div className="mb-1 grid grid-cols-[1fr_100px_100px_110px] items-center gap-2 border-b border-zinc-800 pb-2">
+        <div className="mb-1 grid grid-cols-[1fr_100px_100px_110px] items-center gap-2 border-b pb-2">
           <SortHeader label="Metric" column="label" active={sortCol} dir={sortDir} onClick={handleSort} />
           <SortHeader
             label={cohortA.name}
@@ -325,12 +326,12 @@ export function CohortCompareViz({
                 onMouseLeave={() => setHoveredKey(null)}
                 className={cn(
                   "grid grid-cols-[1fr_100px_100px_110px] items-center gap-2 rounded transition-colors",
-                  isHovered && "bg-zinc-800/50",
+                  isHovered && "bg-accent/50",
                 )}
                 style={{ height: 36 }}
               >
                 {/* Metric label */}
-                <span className="truncate text-sm text-slate-300">{row.label}</span>
+                <span className="truncate text-sm text-foreground/80">{row.label}</span>
 
                 {/* Cohort A value cell */}
                 <div
@@ -347,7 +348,7 @@ export function CohortCompareViz({
                       width: `${Math.min(row.a, 100)}%`,
                     }}
                   />
-                  <span className="relative z-10 text-sm font-medium tabular-nums text-white">
+                  <span className="relative z-10 text-sm font-medium tabular-nums text-foreground">
                     {row.a.toFixed(0)}
                   </span>
                 </div>
@@ -367,7 +368,7 @@ export function CohortCompareViz({
                       width: `${Math.min(row.b, 100)}%`,
                     }}
                   />
-                  <span className="relative z-10 text-sm font-medium tabular-nums text-white">
+                  <span className="relative z-10 text-sm font-medium tabular-nums text-foreground">
                     {row.b.toFixed(0)}
                   </span>
                 </div>
@@ -388,7 +389,7 @@ export function CohortCompareViz({
                     </>
                   )}
                   {row.winner === "tie" && (
-                    <span className="text-slate-500">--</span>
+                    <span className="text-muted-foreground">--</span>
                   )}
                 </div>
               </motion.div>

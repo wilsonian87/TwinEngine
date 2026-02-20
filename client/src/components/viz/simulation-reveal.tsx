@@ -197,7 +197,7 @@ export function SimulationReveal({
             <motion.text
               x={startX}
               y={baselineY - 12}
-              fill="white"
+              className="fill-foreground"
               fontSize="12"
               fontFamily="IBM Plex Sans, sans-serif"
               initial={{ opacity: 0 }}
@@ -216,7 +216,7 @@ export function SimulationReveal({
           x2={endX}
           y2={baselineY}
           stroke={CATALYST_GOLD}
-          strokeWidth={2}
+          strokeWidth={3}
           initial={{ pathLength: 0, opacity: 1 }}
           animate={{
             pathLength: 1,
@@ -283,7 +283,7 @@ export function SimulationReveal({
               d={projectedPath}
               fill="none"
               stroke={CONSUMPTION_PURPLE}
-              strokeWidth={2.5}
+              strokeWidth={3}
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
               transition={{
@@ -327,7 +327,7 @@ export function SimulationReveal({
             <motion.circle
               cx={endX}
               cy={projectedY}
-              r={4}
+              r={5}
               fill={CONSUMPTION_PURPLE}
               initial={{ opacity: 0, scale: 0 }}
               animate={{
@@ -342,6 +342,33 @@ export function SimulationReveal({
             />
           )}
         </AnimatePresence>
+
+        {/* X-axis label */}
+        <text
+          x={PAD_LEFT + CHART_W / 2}
+          y={VB_H - 8}
+          textAnchor="middle"
+          className="fill-muted-foreground"
+          fontSize="10"
+          fontFamily="IBM Plex Sans, sans-serif"
+          letterSpacing="0.05em"
+        >
+          Timeline
+        </text>
+
+        {/* Y-axis label */}
+        <text
+          x={12}
+          y={PAD_TOP + CHART_H / 2}
+          textAnchor="middle"
+          className="fill-muted-foreground"
+          fontSize="10"
+          fontFamily="IBM Plex Sans, sans-serif"
+          letterSpacing="0.05em"
+          transform={`rotate(-90, 12, ${PAD_TOP + CHART_H / 2})`}
+        >
+          {metricLabel}
+        </text>
       </svg>
 
       {/* Overlay text: hero number, delta badge, confidence badge, intervention label */}
@@ -354,7 +381,7 @@ export function SimulationReveal({
             transition={{ duration: 0.5, ease: EASE_OUT }}
           >
             {/* Hero projected number */}
-            <div className="text-2xl font-semibold text-white tabular-nums">
+            <div className="text-2xl font-semibold text-foreground tabular-nums">
               <AnimatedNumber
                 value={projected}
                 variant="hero"
@@ -376,7 +403,7 @@ export function SimulationReveal({
                   delay: 0.15,
                 }}
               >
-                +{delta}%
+                +{delta.toFixed(2)}%
               </motion.span>
 
               <motion.span
@@ -392,7 +419,7 @@ export function SimulationReveal({
 
             {/* Intervention label */}
             <motion.p
-              className="text-xs text-white/60 max-w-[220px] text-right"
+              className="text-xs text-muted-foreground max-w-[220px] text-right"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}

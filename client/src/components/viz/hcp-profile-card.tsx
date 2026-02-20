@@ -37,7 +37,7 @@ export interface HCPRadarAxes {
 export type HCPTier = "platinum" | "gold" | "silver" | "bronze";
 export type AdoptionStage = "early" | "growing" | "mature" | "advocate";
 export type RiskLevel = "low" | "medium" | "high";
-export type ChannelPreference = "email" | "rep" | "peer" | "congress" | "digital";
+export type ChannelPreference = string;
 
 export interface HCPDossier {
   name: string;
@@ -80,13 +80,20 @@ const RISK_DOT_COLORS: Record<RiskLevel, string> = {
   high: "#EF4444",
 };
 
-const CHANNEL_META: Record<ChannelPreference, { label: string; Icon: typeof Mail }> = {
+const CHANNEL_META: Record<string, { label: string; Icon: typeof Mail }> = {
   email: { label: "Email", Icon: Mail },
   rep: { label: "Rep", Icon: User },
+  rep_visit: { label: "Rep", Icon: User },
   peer: { label: "Peer", Icon: Users },
   congress: { label: "Congress", Icon: Mic },
+  conference: { label: "Congress", Icon: Mic },
   digital: { label: "Digital", Icon: Monitor },
+  digital_ad: { label: "Digital", Icon: Monitor },
+  webinar: { label: "Digital", Icon: Monitor },
+  phone: { label: "Rep", Icon: User },
 };
+
+const DEFAULT_CHANNEL = { label: "Digital", Icon: Monitor };
 
 const ADOPTION_LABELS: Record<AdoptionStage, string> = {
   early: "Early",
@@ -183,7 +190,7 @@ function StatusChip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full bg-zinc-800/60 px-2 py-0.5 text-[11px] text-slate-300",
+        "inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[11px] text-muted-foreground",
         className,
       )}
     >
@@ -202,13 +209,13 @@ export function HCPProfileCard({ hcp, onClick, className }: HCPProfileCardProps)
 
   const adoptionColor = ADOPTION_COLORS[hcp.adoptionStage];
   const radarData = buildRadarData(hcp.radarAxes);
-  const channel = CHANNEL_META[hcp.channelPreference];
+  const channel = CHANNEL_META[hcp.channelPreference] ?? DEFAULT_CHANNEL;
   const ChannelIcon = channel.Icon;
 
   return (
     <motion.div
       className={cn(
-        "relative w-[280px] cursor-pointer select-none overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/80 backdrop-blur-sm",
+        "relative w-[280px] cursor-pointer select-none overflow-hidden rounded-xl border bg-card backdrop-blur-sm",
         className,
       )}
       style={{ borderLeftWidth: 4, borderLeftColor: adoptionColor }}
@@ -239,10 +246,10 @@ export function HCPProfileCard({ hcp, onClick, className }: HCPProfileCardProps)
       {/* ---- Top Zone: Identity + Tier ---- */}
       <div className="flex items-start justify-between px-4 pt-4 pb-2">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-base font-semibold text-white">
+          <h3 className="truncate text-base font-semibold text-foreground">
             {hcp.name}
           </h3>
-          <p className="truncate text-xs text-slate-400">{hcp.specialty}</p>
+          <p className="truncate text-xs text-muted-foreground">{hcp.specialty}</p>
         </div>
         <TierBadge tier={hcp.tier} />
       </div>
@@ -256,7 +263,7 @@ export function HCPProfileCard({ hcp, onClick, className }: HCPProfileCardProps)
             duration={0.8}
           />
         </span>
-        <span className="mt-0.5 text-[10px] uppercase tracking-widest text-slate-500">
+        <span className="mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
           Engagement Score
         </span>
 
@@ -269,7 +276,7 @@ export function HCPProfileCard({ hcp, onClick, className }: HCPProfileCardProps)
               outerRadius="80%"
               data={radarData}
             >
-              <PolarGrid stroke="rgba(255,255,255,0.1)" />
+              <PolarGrid stroke="currentColor" strokeOpacity={0.12} />
               <PolarAngleAxis
                 dataKey="axis"
                 tick={
@@ -305,7 +312,7 @@ export function HCPProfileCard({ hcp, onClick, className }: HCPProfileCardProps)
       </div>
 
       {/* ---- Bottom Zone: Status Strip ---- */}
-      <div className="flex flex-wrap items-center gap-1.5 border-t border-zinc-800/60 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-1.5 border-t px-4 py-3">
         <StatusChip>
           <ChannelIcon className="h-3 w-3" />
           {channel.label}

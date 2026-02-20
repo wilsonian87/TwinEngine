@@ -41,11 +41,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { HCPProfileDrawer } from "@/components/hcp-profile-drawer";
 import type { HCPDrawerAction } from "@/components/hcp-profile-drawer";
 import { BehavioralBadgeRow, deriveBadges } from "@/components/shared/behavioral-badges";
@@ -157,8 +152,6 @@ function ActionCard({
 
   return (
     <motion.div layout variants={staggerChild}>
-      <Tooltip>
-        <TooltipTrigger asChild>
           <Card
             className={cn(
               "cursor-pointer transition-all duration-200 group",
@@ -283,13 +276,6 @@ function ActionCard({
               </div>
             </CardContent>
           </Card>
-        </TooltipTrigger>
-        <TooltipContent side="left" className="max-w-xs text-xs">
-          <p className="font-medium">{rec.action} via {channelLabels[rec.channel] || rec.channel}</p>
-          <p className="text-muted-foreground mt-1">{rec.rationale}</p>
-          <p className="text-muted-foreground mt-1">Confidence: {Math.round(rec.confidence * 100)}%</p>
-        </TooltipContent>
-      </Tooltip>
     </motion.div>
   );
 }
@@ -322,13 +308,11 @@ function CompactRow({
   const isReviewed = !!decision;
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
         <motion.div
           layout
           variants={staggerChild}
           className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors",
+            "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors group",
             isSelected && !isReviewed ? "bg-accent" : "hover:bg-accent/50",
             isReviewed && "opacity-40"
           )}
@@ -380,12 +364,6 @@ function CompactRow({
             </Button>
           )}
         </motion.div>
-      </TooltipTrigger>
-      <TooltipContent side="left" className="max-w-xs text-xs">
-        <p className="font-medium">{rec.action} via {channelLabels[rec.channel] || rec.channel}</p>
-        <p className="text-muted-foreground mt-1">{rec.rationale}</p>
-      </TooltipContent>
-    </Tooltip>
   );
 }
 
