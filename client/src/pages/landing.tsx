@@ -17,10 +17,12 @@ import { InlineError } from "@/components/ui/error-state";
 import { Loader2, ArrowRight, Hexagon, Search, Users, FlaskConical, Zap } from "lucide-react";
 import { WordmarkDisplay, LogoIcon, useBrand } from "@/components/brand";
 import { cn } from "@/lib/utils";
+import { useContent } from "@/hooks/use-content";
 
 export default function Landing() {
   const queryClient = useQueryClient();
   const { currentTagline, config } = useBrand();
+  const { t } = useContent();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -150,23 +152,23 @@ export default function Landing() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <CapabilityHint
               icon={<Search className="h-6 w-6" />}
-              label="HCP Explorer"
-              description="Convert target lists into interactive experiences"
+              label={t("login.cap.explorer_label", "HCP Explorer")}
+              description={t("login.cap.explorer_desc", "Convert target lists into interactive experiences")}
             />
             <CapabilityHint
               icon={<Users className="h-6 w-6" />}
-              label="Audience Builder"
-              description="Dynamically create & deploy custom audiences"
+              label={t("login.cap.audience_label", "Audience Builder")}
+              description={t("login.cap.audience_desc", "Dynamically create & deploy custom audiences")}
             />
             <CapabilityHint
               icon={<FlaskConical className="h-6 w-6" />}
-              label="Simulation Studio"
-              description="Predictive modeling & scenario planning, democratized"
+              label={t("login.cap.simulation_label", "Simulation Studio")}
+              description={t("login.cap.simulation_desc", "Predictive modeling & scenario planning, democratized")}
             />
             <CapabilityHint
               icon={<Zap className="h-6 w-6" />}
-              label="Action Queue"
-              description="AI-curated insights, better HUMAN decisionmaking"
+              label={t("login.cap.action_label", "Action Queue")}
+              description={t("login.cap.action_desc", "AI-curated insights, better HUMAN decisionmaking")}
             />
           </div>
         </div>
@@ -177,12 +179,14 @@ export default function Landing() {
             <div className="p-8 rounded-2xl bg-zinc-950/60 backdrop-blur-xl border border-primary/20 shadow-2xl shadow-primary/5">
               <div className="text-center mb-6">
                 <h2 className="text-xl font-semibold mb-2 text-zinc-50">
-                  {mode === "login" ? "Sign In" : "Request Access"}
+                  {mode === "login"
+                    ? t("login.sign_in_heading", "Sign In")
+                    : t("login.request_access_heading", "Request Access")}
                 </h2>
                 <p className="text-sm text-zinc-400">
                   {mode === "login"
-                    ? "Enter your credentials to continue"
-                    : "Submit your details for admin approval"}
+                    ? t("login.sign_in_subtitle", "Enter your credentials to continue")
+                    : t("login.request_access_subtitle", "Submit your details for admin approval")}
                 </p>
               </div>
 
