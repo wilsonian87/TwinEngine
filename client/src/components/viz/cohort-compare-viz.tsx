@@ -7,7 +7,7 @@
  * @see OMNIVOR-VIZ-ROADMAP.md
  */
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   RadarChart,
@@ -18,6 +18,17 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import {
+  Mail,
+  Phone,
+  Video,
+  Calendar,
+  Globe,
+  Users,
+  Activity,
+  BarChart3,
+  type LucideIcon,
+} from "lucide-react";
 
 // ============================================================================
 // TYPES
@@ -47,6 +58,31 @@ const COLOR_NEGATIVE = "#EF4444";
 
 type SortColumn = "label" | "a" | "b" | "delta";
 type SortDir = "asc" | "desc";
+
+const METRIC_ICONS: Record<string, LucideIcon> = {
+  email: Mail,
+  mail: Mail,
+  phone: Phone,
+  call: Phone,
+  video: Video,
+  webinar: Video,
+  calendar: Calendar,
+  event: Calendar,
+  web: Globe,
+  digital: Globe,
+  rep: Users,
+  field: Users,
+  engagement: Activity,
+  activity: Activity,
+};
+
+function getMetricIcon(key: string) {
+  const lower = key.toLowerCase();
+  for (const [pattern, Icon] of Object.entries(METRIC_ICONS)) {
+    if (lower.includes(pattern)) return Icon;
+  }
+  return BarChart3;
+}
 
 // ============================================================================
 // HELPERS
@@ -177,6 +213,10 @@ export function CohortCompareViz({
   // Hovered metric key (for radar highlight)
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
+  // Tooltip for radar axis icons
+  const [tickTooltip, setTickTooltip] = useState<{ label: string; clientX: number; clientY: number } | null>(null);
+  const radarWrapperRef = useRef<HTMLDivElement>(null);
+
   const rawRows = useMemo(
     () => buildRows(cohortA, cohortB, metricLabels),
     [cohortA, cohortB, metricLabels],
@@ -228,7 +268,12 @@ export function CohortCompareViz({
       className={cn("w-full rounded-lg border bg-card", className)}
     >
       {/* ===== RADAR CHART SECTION ===== */}
-      <div className="relative mx-auto" style={{ width: 420, height: 340 }}>
+      <div
+        ref={radarWrapperRef}
+        className="relative mx-auto"
+        style={{ width: 420, height: 340 }}
+        onMouseLeave={() => setTickTooltip(null)}
+      >
         {/* Legend — top right */}
         <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
           <LegendDot color={colorA} label={cohortA.name} />
@@ -244,20 +289,20 @@ export function CohortCompareViz({
             />
             <PolarAngleAxis
               dataKey="metric"
-              tick={({ x, y, payload }: any) => {
+              tick={({ x, y, payload, index }: any) => {
+                const entry = radarData[index];
+                const Icon = entry ? getMetricIcon(entry.key) : BarChart3;
                 const label = String(payload.value);
-                const short = label.length > 16 ? label.replace(/^Avg\s+/i, "").slice(0, 14) + "…" : label;
                 return (
-                  <text
-                    x={x}
-                    y={y}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    className="fill-muted-foreground"
-                    fontSize={10}
-                  >
-                    {short}
-                  </text>
+                  <foreignObject x={x - 10} y={y - 10} width={20} height={20}>
+                    <div
+                      className="flex h-full w-full cursor-default items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                      onMouseEnter={(e) => setTickTooltip({ label, clientX: e.clientX, clientY: e.clientY })}
+                      onMouseLeave={() => setTickTooltip(null)}
+                    >
+                      <Icon size={16} />
+                    </div>
+                  </foreignObject>
                 );
               }}
               stroke="currentColor"
@@ -291,6 +336,22 @@ export function CohortCompareViz({
             />
           </RadarChart>
         </ResponsiveContainer>
+
+        {/* Hover tooltip for radar axis icons */}
+        {tickTooltip && radarWrapperRef.current && (() => {
+          const rect = radarWrapperRef.current!.getBoundingClientRect();
+          return (
+            <div
+              className="pointer-events-none absolute z-50 rounded-lg border border-[#27272a] bg-[rgba(10,10,11,0.95)] px-3 py-2 text-xs shadow-lg backdrop-blur-sm"
+              style={{
+                left: tickTooltip.clientX - rect.left + 12,
+                top: tickTooltip.clientY - rect.top - 8,
+              }}
+            >
+              <span className="text-foreground">{tickTooltip.label}</span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ===== METRIC SCOREBOARD ===== */}

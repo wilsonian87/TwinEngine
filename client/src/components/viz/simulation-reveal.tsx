@@ -375,7 +375,7 @@ export function SimulationReveal({
       <AnimatePresence>
         {showResolve && (
           <motion.div
-            className="absolute bottom-2 right-4 flex flex-col items-end gap-1"
+            className="absolute bottom-2 right-3 flex flex-col items-end gap-1.5 rounded-lg border border-border/50 bg-card/80 p-3 backdrop-blur-sm"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE_OUT }}
