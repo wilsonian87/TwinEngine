@@ -517,7 +517,7 @@ export function HCPDetailPanel({ hcp, open, onClose, onSimulate, onSelectHcp }: 
           <div className="flex gap-3 pt-4">
             <Button
               className="flex-1"
-              onClick={() => onSimulate?.(hcp)}
+              onClick={navigateToSimulation}
               data-testid="button-simulate-hcp"
             >
               <ArrowRight className="mr-2 h-4 w-4" />

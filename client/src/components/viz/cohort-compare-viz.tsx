@@ -1,34 +1,15 @@
 /**
- * Cohort Compare Viz — Radar Duel + Metric Scoreboard
+ * Cohort Compare Viz — Metric Scoreboard
  *
- * Overlaid radar chart for gestalt shape comparison of two cohorts,
- * plus a colored metric scoreboard with background bars and winner indicators.
+ * Colored metric scoreboard with background bars and winner indicators
+ * for side-by-side cohort comparison.
  *
  * @see OMNIVOR-VIZ-ROADMAP.md
  */
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
-import {
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  ResponsiveContainer,
-} from "recharts";
 import { cn } from "@/lib/utils";
-import {
-  Mail,
-  Phone,
-  Video,
-  Calendar,
-  Globe,
-  Users,
-  Activity,
-  BarChart3,
-  type LucideIcon,
-} from "lucide-react";
 
 // ============================================================================
 // TYPES
@@ -58,31 +39,6 @@ const COLOR_NEGATIVE = "#EF4444";
 
 type SortColumn = "label" | "a" | "b" | "delta";
 type SortDir = "asc" | "desc";
-
-const METRIC_ICONS: Record<string, LucideIcon> = {
-  email: Mail,
-  mail: Mail,
-  phone: Phone,
-  call: Phone,
-  video: Video,
-  webinar: Video,
-  calendar: Calendar,
-  event: Calendar,
-  web: Globe,
-  digital: Globe,
-  rep: Users,
-  field: Users,
-  engagement: Activity,
-  activity: Activity,
-};
-
-function getMetricIcon(key: string) {
-  const lower = key.toLowerCase();
-  for (const [pattern, Icon] of Object.entries(METRIC_ICONS)) {
-    if (lower.includes(pattern)) return Icon;
-  }
-  return BarChart3;
-}
 
 // ============================================================================
 // HELPERS
@@ -153,18 +109,6 @@ function sortRows(rows: MetricRow[], col: SortColumn, dir: SortDir): MetricRow[]
 // SUB-COMPONENTS
 // ============================================================================
 
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span
-        className="inline-block h-2.5 w-2.5 rounded-full"
-        style={{ backgroundColor: color }}
-      />
-      {label}
-    </div>
-  );
-}
-
 interface SortHeaderProps {
   label: string;
   column: SortColumn;
@@ -210,12 +154,8 @@ export function CohortCompareViz({
   const [sortCol, setSortCol] = useState<SortColumn>("delta");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  // Hovered metric key (for radar highlight)
+  // Hovered metric key
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
-
-  // Tooltip for radar axis icons
-  const [tickTooltip, setTickTooltip] = useState<{ label: string; clientX: number; clientY: number } | null>(null);
-  const radarWrapperRef = useRef<HTMLDivElement>(null);
 
   const rawRows = useMemo(
     () => buildRows(cohortA, cohortB, metricLabels),
@@ -226,16 +166,6 @@ export function CohortCompareViz({
     () => sortRows(rawRows, sortCol, sortDir),
     [rawRows, sortCol, sortDir],
   );
-
-  // Recharts data array
-  const radarData = useMemo(() => {
-    return rawRows.map((r) => ({
-      metric: r.label,
-      key: r.key,
-      a: r.a,
-      b: r.b,
-    }));
-  }, [rawRows]);
 
   const handleSort = useCallback(
     (col: SortColumn) => {
@@ -267,95 +197,8 @@ export function CohortCompareViz({
     <div
       className={cn("w-full rounded-lg border bg-card", className)}
     >
-      {/* ===== RADAR CHART SECTION ===== */}
-      <div
-        ref={radarWrapperRef}
-        className="relative mx-auto"
-        style={{ width: 420, height: 340 }}
-        onMouseLeave={() => setTickTooltip(null)}
-      >
-        {/* Legend — top right */}
-        <div className="absolute right-2 top-2 z-10 flex flex-col gap-1">
-          <LegendDot color={colorA} label={cohortA.name} />
-          <LegendDot color={colorB} label={cohortB.name} />
-        </div>
-
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="55%">
-            <PolarGrid
-              stroke="currentColor"
-              strokeOpacity={0.12}
-              gridType="polygon"
-            />
-            <PolarAngleAxis
-              dataKey="metric"
-              tick={({ x, y, payload, index }: any) => {
-                const entry = radarData[index];
-                const Icon = entry ? getMetricIcon(entry.key) : BarChart3;
-                const label = String(payload.value);
-                return (
-                  <foreignObject x={x - 10} y={y - 10} width={20} height={20}>
-                    <div
-                      className="flex h-full w-full cursor-default items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-                      onMouseEnter={(e) => setTickTooltip({ label, clientX: e.clientX, clientY: e.clientY })}
-                      onMouseLeave={() => setTickTooltip(null)}
-                    >
-                      <Icon size={16} />
-                    </div>
-                  </foreignObject>
-                );
-              }}
-              stroke="currentColor"
-              strokeOpacity={0.12}
-            />
-            <PolarRadiusAxis
-              domain={[0, 100]}
-              tick={false}
-              axisLine={false}
-              tickCount={5}
-            />
-            <Radar
-              name={cohortA.name}
-              dataKey="a"
-              stroke={colorA}
-              fill={colorA}
-              strokeWidth={2.5}
-              strokeOpacity={0.9}
-              fillOpacity={0.2}
-              animationDuration={800}
-            />
-            <Radar
-              name={cohortB.name}
-              dataKey="b"
-              stroke={colorB}
-              fill={colorB}
-              strokeWidth={2.5}
-              strokeOpacity={0.9}
-              fillOpacity={0.2}
-              animationDuration={800}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
-
-        {/* Hover tooltip for radar axis icons */}
-        {tickTooltip && radarWrapperRef.current && (() => {
-          const rect = radarWrapperRef.current!.getBoundingClientRect();
-          return (
-            <div
-              className="pointer-events-none absolute z-50 rounded-lg border border-[#27272a] bg-[rgba(10,10,11,0.95)] px-3 py-2 text-xs shadow-lg backdrop-blur-sm"
-              style={{
-                left: tickTooltip.clientX - rect.left + 12,
-                top: tickTooltip.clientY - rect.top - 8,
-              }}
-            >
-              <span className="text-foreground">{tickTooltip.label}</span>
-            </div>
-          );
-        })()}
-      </div>
-
       {/* ===== METRIC SCOREBOARD ===== */}
-      <div className="px-4 pb-4">
+      <div className="px-4 py-4">
         {/* Header row */}
         <div className="mb-1 grid grid-cols-[1fr_100px_100px_110px] items-center gap-2 border-b pb-2">
           <SortHeader label="Metric" column="label" active={sortCol} dir={sortDir} onClick={handleSort} />
