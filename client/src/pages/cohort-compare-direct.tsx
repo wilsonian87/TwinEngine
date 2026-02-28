@@ -114,16 +114,34 @@ function VerdictBanner({
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-5 space-y-4">
           {/* Grade Scoreline */}
-          <div className="flex items-center justify-center gap-6">
-            <div className="text-center">
-              <div className={cn("text-2xl tabular-nums", aWins ? "font-bold text-primary" : "font-semibold text-muted-foreground")}>{gradeA.grade}</div>
+          <div className="flex items-center justify-center gap-8">
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className={cn(
+                  "flex items-center justify-center w-16 h-16 rounded-full text-2xl font-bold tabular-nums",
+                  aWins
+                    ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.35)]"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {gradeA.grade}
+              </div>
               <div className="text-xs text-muted-foreground truncate max-w-[120px]">
                 {comparison.cohortA.name}
               </div>
             </div>
             <div className="text-xs text-muted-foreground font-medium">vs</div>
-            <div className="text-center">
-              <div className={cn("text-2xl tabular-nums", !aWins ? "font-bold text-primary" : "font-semibold text-muted-foreground")}>{gradeB.grade}</div>
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className={cn(
+                  "flex items-center justify-center w-16 h-16 rounded-full text-2xl font-bold tabular-nums",
+                  !aWins
+                    ? "bg-primary text-primary-foreground shadow-[0_0_12px_hsl(var(--primary)/0.35)]"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {gradeB.grade}
+              </div>
               <div className="text-xs text-muted-foreground truncate max-w-[120px]">
                 {comparison.cohortB.name}
               </div>
