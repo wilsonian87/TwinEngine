@@ -130,6 +130,106 @@ export function findMostDivergent(
     .map(([key]) => key);
 }
 
+// ============================================================================
+// LETTER GRADE SYSTEM
+// ============================================================================
+
+const GRADE_SCALE: [number, string][] = [
+  [97, "A+"],
+  [93, "A"],
+  [90, "A-"],
+  [87, "B+"],
+  [83, "B"],
+  [80, "B-"],
+  [77, "C+"],
+  [73, "C"],
+  [70, "C-"],
+  [67, "D+"],
+  [63, "D"],
+  [60, "D-"],
+  [0, "F"],
+];
+
+const METRIC_WEIGHTS: Record<string, { weight: number; invert: boolean }> = {
+  avgEngagement: { weight: 0.20, invert: false },
+  avgConversionLikelihood: { weight: 0.20, invert: false },
+  totalRxVolume: { weight: 0.20, invert: false },
+  avgChurnRisk: { weight: 0.15, invert: true },
+  avgCPI: { weight: 0.10, invert: true },
+  avgMSI: { weight: 0.10, invert: true },
+  avgMarketShare: { weight: 0.05, invert: false },
+};
+
+/**
+ * Compute raw weighted score for one side (internal helper).
+ * Returns 0–100 based on weighted metric values.
+ */
+function computeRawScore(
+  metrics: CohortComparisonResponse["metrics"],
+  side: "a" | "b"
+): number {
+  let weightedSum = 0;
+
+  for (const [key, config] of Object.entries(METRIC_WEIGHTS)) {
+    const m = metrics[key as keyof typeof metrics];
+    if (!m) continue;
+
+    let value = m[side];
+
+    // Normalize totalRxVolume relative to max of a/b
+    if (key === "totalRxVolume") {
+      const maxVal = Math.max(m.a, m.b);
+      value = maxVal > 0 ? Math.min((value / maxVal) * 100, 100) : 0;
+    }
+
+    // Invert "lower is better" metrics
+    if (config.invert) {
+      value = 100 - value;
+    }
+
+    weightedSum += value * config.weight;
+  }
+
+  return Math.max(0, Math.min(100, weightedSum));
+}
+
+/**
+ * Compute a letter grade for one side of a cohort comparison.
+ *
+ * Head-to-head methodology: the winner's grade reflects dominance
+ * (larger gap → higher grade). The loser's grade is the winner's
+ * score minus the weighted gap, preserving relative distance.
+ *
+ * Gap 0  → both ~B+      (close contest)
+ * Gap 10 → winner A, loser B
+ * Gap 20 → winner A+, loser C+
+ */
+export function computeCohortGrade(
+  metrics: CohortComparisonResponse["metrics"],
+  side: "a" | "b"
+): { grade: string; score: number } {
+  const rawA = computeRawScore(metrics, "a");
+  const rawB = computeRawScore(metrics, "b");
+  const gap = Math.abs(rawA - rawB);
+  const isWinner = side === "a" ? rawA >= rawB : rawB >= rawA;
+
+  // Winner anchors high, scaled by dominance (gap)
+  const winnerScore = Math.min(97, 88 + gap * 0.5);
+
+  let score: number;
+  if (isWinner) {
+    score = winnerScore;
+  } else {
+    // Loser: winner's score minus the gap
+    score = Math.max(40, winnerScore - gap);
+  }
+
+  score = Math.round(score);
+  const grade = GRADE_SCALE.find(([threshold]) => score >= threshold)?.[1] ?? "F";
+
+  return { grade, score };
+}
+
 /**
  * Determine winner per metric.
  */

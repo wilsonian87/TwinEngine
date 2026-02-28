@@ -46,6 +46,7 @@ import {
   useComparisonNarrative,
   findMostDivergent,
   getWinners,
+  computeCohortGrade,
   METRIC_LABELS,
 } from "@/hooks/use-comparison-data";
 import type {
@@ -100,9 +101,9 @@ function VerdictBanner({
   narrativeLoading: boolean;
   usedAI?: boolean;
 }) {
-  const winners = getWinners(comparison.metrics);
-  const aWins = Object.values(winners).filter((w) => w === "a").length;
-  const bWins = Object.values(winners).filter((w) => w === "b").length;
+  const gradeA = computeCohortGrade(comparison.metrics, "a");
+  const gradeB = computeCohortGrade(comparison.metrics, "b");
+  const aWins = gradeA.score >= gradeB.score;
 
   return (
     <motion.div
@@ -112,17 +113,17 @@ function VerdictBanner({
     >
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-5 space-y-4">
-          {/* Scoreline */}
+          {/* Grade Scoreline */}
           <div className="flex items-center justify-center gap-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{aWins}</div>
+              <div className={cn("text-2xl tabular-nums", aWins ? "font-bold text-primary" : "font-semibold text-muted-foreground")}>{gradeA.grade}</div>
               <div className="text-xs text-muted-foreground truncate max-w-[120px]">
                 {comparison.cohortA.name}
               </div>
             </div>
             <div className="text-xs text-muted-foreground font-medium">vs</div>
             <div className="text-center">
-              <div className="text-2xl font-bold">{bWins}</div>
+              <div className={cn("text-2xl tabular-nums", !aWins ? "font-bold text-primary" : "font-semibold text-muted-foreground")}>{gradeB.grade}</div>
               <div className="text-xs text-muted-foreground truncate max-w-[120px]">
                 {comparison.cohortB.name}
               </div>
