@@ -651,6 +651,26 @@ describe('DatabaseStorage', () => {
           }),
         });
 
+        // Mock monthlyStimuli (select → from → where → groupBy → orderBy)
+        db.select.mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              groupBy: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        });
+
+        // Mock monthlyOutcomes (select → from → where → groupBy)
+        db.select.mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              groupBy: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        });
+
         const storage = new DatabaseStorage();
         const metrics = await storage.getDashboardMetrics();
 
@@ -675,6 +695,26 @@ describe('DatabaseStorage', () => {
         db.select.mockReturnValueOnce({
           from: vi.fn().mockReturnValue({
             orderBy: vi.fn().mockResolvedValue([]),
+          }),
+        });
+
+        // Mock monthlyStimuli
+        db.select.mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              groupBy: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        });
+
+        // Mock monthlyOutcomes
+        db.select.mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              groupBy: vi.fn().mockResolvedValue([]),
+            }),
           }),
         });
 
@@ -704,6 +744,26 @@ describe('DatabaseStorage', () => {
           }),
         });
 
+        // Mock monthlyStimuli
+        db.select.mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              groupBy: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        });
+
+        // Mock monthlyOutcomes
+        db.select.mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              groupBy: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        });
+
         const storage = new DatabaseStorage();
         const metrics = await storage.getDashboardMetrics();
 
@@ -727,6 +787,26 @@ describe('DatabaseStorage', () => {
         db.select.mockReturnValueOnce({
           from: vi.fn().mockReturnValue({
             orderBy: vi.fn().mockResolvedValue([]),
+          }),
+        });
+
+        // Mock monthlyStimuli
+        db.select.mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              groupBy: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }),
+        });
+
+        // Mock monthlyOutcomes
+        db.select.mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              groupBy: vi.fn().mockResolvedValue([]),
+            }),
           }),
         });
 

@@ -69,6 +69,7 @@ const { mockHcpProfile, mockSimulationResult, mockDashboardMetrics, mockAudience
     name: 'Test Audience',
     description: 'Test description',
     filter: { specialties: ['Oncology'] },
+    hcpIds: ['hcp-1', 'hcp-2'],
     hcpCount: 25,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -151,12 +152,40 @@ vi.mock('../../server/storage', () => ({
   },
 }));
 
+// Mock database module - needed for direct db calls in routes (e.g., audience HCP validation)
+vi.mock('../../server/db', () => ({
+  db: {
+    select: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn().mockResolvedValue([]),
+        orderBy: vi.fn().mockResolvedValue([]),
+      })),
+    })),
+    insert: vi.fn(() => ({
+      values: vi.fn(() => ({
+        returning: vi.fn().mockResolvedValue([]),
+      })),
+    })),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(() => ({
+          returning: vi.fn().mockResolvedValue([]),
+        })),
+      })),
+    })),
+    delete: vi.fn(() => ({
+      where: vi.fn().mockResolvedValue(undefined),
+    })),
+  },
+}));
+
 // Mock auth module
 vi.mock('../../server/auth', () => ({
   hashPassword: vi.fn().mockResolvedValue('hashed_password'),
   comparePassword: vi.fn().mockResolvedValue(true),
   setupAuth: vi.fn(),
   requireAuth: (req: any, res: any, next: any) => next(),
+  requireAdmin: (req: any, res: any, next: any) => next(),
 }));
 
 // Mock dashboard service - uses direct DB calls that need to be mocked
@@ -330,6 +359,7 @@ vi.mock('../../server/services/execution-planner', () => ({
 // Mock utils - use actual env vars when available
 vi.mock('../../server/utils/config', () => ({
   requireEnvVar: vi.fn().mockImplementation((name, defaultValue) => process.env[name] || defaultValue || 'test-value'),
+  debugLog: vi.fn(),
 }));
 
 vi.mock('../../server/utils/validation', () => ({
@@ -346,6 +376,7 @@ describe('Routes.ts Real Integration Tests', () => {
   let httpServer: Server;
 
   beforeAll(async () => {
+    process.env.SKIP_AUTH = 'true';
     app = express();
     app.use(express.json());
     app.use(session({
@@ -370,6 +401,7 @@ describe('Routes.ts Real Integration Tests', () => {
   });
 
   afterAll(() => {
+    delete process.env.SKIP_AUTH;
     httpServer.close();
   });
 
