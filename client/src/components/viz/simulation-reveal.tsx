@@ -371,62 +371,68 @@ export function SimulationReveal({
         </text>
       </svg>
 
-      {/* Overlay text: hero number, delta badge, confidence badge, intervention label */}
+      {/* Overlay: spread layout — baseline left, projected+delta right, context below */}
       <AnimatePresence>
         {showResolve && (
-          <motion.div
-            className="absolute bottom-2 right-3 flex flex-col items-end gap-1.5 rounded-lg border border-border/50 bg-card/80 p-3 backdrop-blur-sm"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: EASE_OUT }}
-          >
-            {/* Hero projected number */}
-            <div className="text-2xl font-semibold text-foreground tabular-nums">
-              <AnimatedNumber
-                value={projected}
-                variant="hero"
-                duration={0.8}
-              />
-            </div>
+          <>
+            {/* Baseline value — left side */}
+            <motion.div
+              className="absolute top-2 left-3 rounded-md border border-border/50 bg-card/80 px-2.5 py-1.5 backdrop-blur-sm"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, ease: EASE_OUT }}
+            >
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Current</div>
+              <div className="text-lg font-semibold tabular-nums" style={{ color: CATALYST_GOLD }}>
+                {Number(baseline.toFixed(2))}
+              </div>
+            </motion.div>
 
-            {/* Delta + confidence badges */}
-            <div className="flex items-center gap-2">
+            {/* Projected value + delta — right side */}
+            <motion.div
+              className="absolute top-2 right-3 rounded-md border border-border/50 bg-card/80 px-2.5 py-1.5 backdrop-blur-sm text-right"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, ease: EASE_OUT, delay: 0.1 }}
+            >
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Projected</div>
+              <div className="text-lg font-semibold text-foreground tabular-nums">
+                <AnimatedNumber
+                  value={projected}
+                  variant="hero"
+                  duration={0.8}
+                />
+              </div>
               <motion.span
-                className="text-sm font-medium tabular-nums"
+                className="text-xs font-medium tabular-nums"
                 style={{ color: CATALYST_GOLD }}
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  type: "spring",
-                  stiffness: 200,
-                  damping: 14,
-                  delay: 0.15,
-                }}
+                transition={{ type: "spring", stiffness: 200, damping: 14, delay: 0.15 }}
               >
                 +{delta.toFixed(2)}%
               </motion.span>
+            </motion.div>
 
-              <motion.span
-                className="text-xs tabular-nums"
+            {/* Confidence + intervention — centered below chart */}
+            <motion.div
+              className="flex flex-col sm:flex-row items-center justify-center gap-2 mt-1 px-3"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: EASE_OUT, delay: 0.3 }}
+            >
+              <span
+                className="text-xs font-medium tabular-nums"
                 style={{ color: PURPLE_300 }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.4, delay: 0.3 }}
               >
                 {Math.round(confidence * 100)}% confidence
-              </motion.span>
-            </div>
-
-            {/* Intervention label */}
-            <motion.p
-              className="text-xs text-muted-foreground max-w-[220px] text-right"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-            >
-              {interventionLabel}
-            </motion.p>
-          </motion.div>
+              </span>
+              <span className="hidden sm:inline text-muted-foreground">·</span>
+              <p className="text-xs text-muted-foreground text-center">
+                {interventionLabel}
+              </p>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

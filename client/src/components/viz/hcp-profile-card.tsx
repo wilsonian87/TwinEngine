@@ -115,11 +115,27 @@ const RADAR_AXIS_LABELS: Record<keyof HCPRadarAxes, string> = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function buildRadarData(axes: HCPRadarAxes) {
+const DEFAULT_RADAR_AXES: HCPRadarAxes = {
+  engagement: 0,
+  recency: 0,
+  channelDiversity: 0,
+  contentAffinity: 0,
+  peerInfluence: 0,
+  adoptionProgress: 0,
+};
+
+/** Clamp a value between 0 and 1 */
+function clamp01(v: unknown): number {
+  const n = typeof v === "number" && !Number.isNaN(v) ? v : 0;
+  return Math.max(0, Math.min(1, n));
+}
+
+function buildRadarData(axes?: Partial<HCPRadarAxes>) {
+  const safe = { ...DEFAULT_RADAR_AXES, ...axes };
   return (Object.keys(RADAR_AXIS_LABELS) as (keyof HCPRadarAxes)[]).map(
     (key) => ({
       axis: RADAR_AXIS_LABELS[key],
-      value: axes[key],
+      value: clamp01(safe[key]),
       fullMark: 1,
     }),
   );
@@ -207,7 +223,13 @@ export function HCPProfileCard({ hcp, onClick, className }: HCPProfileCardProps)
   const [isHovered, setIsHovered] = useState(false);
   const prefersReduced = useReducedMotion();
 
-  const adoptionColor = ADOPTION_COLORS[hcp.adoptionStage];
+  // Defensive defaults — prevent crashes on incomplete data
+  const safeTier: HCPTier = TIER_STYLES[hcp.tier] ? hcp.tier : "bronze";
+  const safeAdoption: AdoptionStage = ADOPTION_COLORS[hcp.adoptionStage] ? hcp.adoptionStage : "early";
+  const safeRisk: RiskLevel = RISK_DOT_COLORS[hcp.riskLevel] ? hcp.riskLevel : "low";
+  const safeScore = typeof hcp.engagementScore === "number" && !Number.isNaN(hcp.engagementScore) ? hcp.engagementScore : 0;
+
+  const adoptionColor = ADOPTION_COLORS[safeAdoption];
   const radarData = buildRadarData(hcp.radarAxes);
   const channel = CHANNEL_META[hcp.channelPreference] ?? DEFAULT_CHANNEL;
   const ChannelIcon = channel.Icon;
@@ -251,7 +273,7 @@ export function HCPProfileCard({ hcp, onClick, className }: HCPProfileCardProps)
           </h3>
           <p className="truncate text-xs text-muted-foreground">{hcp.specialty}</p>
         </div>
-        <TierBadge tier={hcp.tier} />
+        <TierBadge tier={safeTier} />
       </div>
 
       {/* ---- Middle Zone: Hero Score + Radar ---- */}
@@ -261,7 +283,7 @@ export function HCPProfileCard({ hcp, onClick, className }: HCPProfileCardProps)
           style={{ color: "#A855F7", textShadow: "0 0 16px rgba(168,85,247,0.4)" }}
         >
           <AnimatedNumber
-            value={hcp.engagementScore}
+            value={safeScore}
             variant="hero"
             duration={0.8}
           />
@@ -322,11 +344,11 @@ export function HCPProfileCard({ hcp, onClick, className }: HCPProfileCardProps)
         </StatusChip>
 
         <StatusChip>
-          <RiskDot level={hcp.riskLevel} />
-          {hcp.riskLevel.charAt(0).toUpperCase() + hcp.riskLevel.slice(1)}
+          <RiskDot level={safeRisk} />
+          {safeRisk.charAt(0).toUpperCase() + safeRisk.slice(1)}
         </StatusChip>
 
-        <StatusChip>{ADOPTION_LABELS[hcp.adoptionStage]}</StatusChip>
+        <StatusChip>{ADOPTION_LABELS[safeAdoption]}</StatusChip>
       </div>
 
       {/* Shimmer keyframes for platinum badge (injected once via style tag) */}

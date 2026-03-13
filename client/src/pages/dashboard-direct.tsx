@@ -18,8 +18,9 @@ import {
   Activity,
   ChevronRight,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -28,11 +29,72 @@ import { AINarrativeBlock } from "@/components/shared/ai-narrative-block";
 import { EngagementGrade } from "@/components/shared/engagement-grade";
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import { MetricDelta } from "@/components/shared/metric-delta";
+import { SimulationReveal } from "@/components/viz/simulation-reveal";
+import { HCPProfileCard } from "@/components/viz/hcp-profile-card";
+import type { HCPDossier } from "@/components/viz/hcp-profile-card";
 import {
   useDashboardData,
   useDashboardNarrative,
 } from "@/hooks/use-dashboard-data";
 import type { OperationalMetrics } from "@/hooks/use-dashboard-data";
+
+// ============================================================================
+// MOCK DATA — Priority HCPs for Dashboard preview
+// ============================================================================
+
+const PRIORITY_HCPS: HCPDossier[] = [
+  {
+    name: "Dr. Sarah Chen",
+    specialty: "Pulmonology",
+    engagementScore: 92,
+    tier: "gold",
+    adoptionStage: "advocate",
+    riskLevel: "low",
+    channelPreference: "peer",
+    radarAxes: {
+      engagement: 0.92,
+      recency: 0.88,
+      channelDiversity: 0.75,
+      contentAffinity: 0.83,
+      peerInfluence: 0.91,
+      adoptionProgress: 0.95,
+    },
+  },
+  {
+    name: "Dr. James Rivera",
+    specialty: "Oncology",
+    engagementScore: 78,
+    tier: "silver",
+    adoptionStage: "growing",
+    riskLevel: "medium",
+    channelPreference: "email",
+    radarAxes: {
+      engagement: 0.78,
+      recency: 0.65,
+      channelDiversity: 0.52,
+      contentAffinity: 0.88,
+      peerInfluence: 0.43,
+      adoptionProgress: 0.61,
+    },
+  },
+  {
+    name: "Dr. Priya Kapoor",
+    specialty: "Cardiology",
+    engagementScore: 65,
+    tier: "bronze",
+    adoptionStage: "early",
+    riskLevel: "high",
+    channelPreference: "rep",
+    radarAxes: {
+      engagement: 0.65,
+      recency: 0.38,
+      channelDiversity: 0.42,
+      contentAffinity: 0.71,
+      peerInfluence: 0.55,
+      adoptionProgress: 0.3,
+    },
+  },
+];
 
 // ============================================================================
 // SUB-COMPONENTS
@@ -204,6 +266,7 @@ function DrillDownCard({
 // ============================================================================
 
 export default function DashboardDirect() {
+  const [, navigate] = useLocation();
   const { data, isLoading, refetch, isRefetching } = useDashboardData();
   const { data: narrativeData, isLoading: narrativeLoading } =
     useDashboardNarrative(data?.metrics);
@@ -298,6 +361,72 @@ export default function DashboardDirect() {
             href="/action-queue"
           />
         </motion.div>
+
+        {/* What-If Preview — SimulationReveal */}
+        {metrics?.avgEngagementScore && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: MOTION_DURATION.data, ease: MOTION_EASING.out, delay: 0.2 }}
+          >
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    What-If Preview
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => navigate("/simulations")}
+                  >
+                    Run full simulation
+                    <ChevronRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <SimulationReveal
+                  baseline={metrics.avgEngagementScore}
+                  projected={Number((metrics.avgEngagementScore * 1.12).toFixed(2))}
+                  confidence={0.85}
+                  delta={12.0}
+                  interventionLabel="Shift 15% email budget → peer-to-peer"
+                  metricLabel="Engagement Score"
+                />
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Priority HCPs — dossier cards */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Priority HCPs
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              onClick={() => navigate("/")}
+            >
+              View all
+              <ChevronRight className="h-3 w-3 ml-1" />
+            </Button>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {PRIORITY_HCPS.map((hcp) => (
+              <HCPProfileCard
+                key={hcp.name}
+                hcp={hcp}
+                onClick={() => navigate("/")}
+              />
+            ))}
+          </div>
+        </div>
 
         {/* Contextual Drill-Downs — smart recommendations */}
         <div>
