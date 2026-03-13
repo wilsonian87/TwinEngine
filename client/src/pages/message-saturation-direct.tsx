@@ -87,11 +87,11 @@ function generateDigest(data: HeatmapData | null): string {
     return "No saturation data available. Seed demo data to get started.";
   }
 
-  const { totalHcps, oversaturatedCount, avgMsi, topTheme } = data.summary;
+  const { totalHcps = 0, oversaturatedCount = 0, avgMsi = 0, topTheme } = data.summary;
 
   let digest = `${totalHcps} HCPs analyzed.`;
 
-  if (oversaturatedCount > 0) {
+  if (oversaturatedCount > 0 && totalHcps > 0) {
     const pct = Math.round((oversaturatedCount / totalHcps) * 100);
     digest += ` ${oversaturatedCount} (${pct}%) have crossed saturation thresholds.`;
   } else {
@@ -102,10 +102,11 @@ function generateDigest(data: HeatmapData | null): string {
     digest += ` Top theme: "${topTheme}."`;
   }
 
-  if (avgMsi > 50) {
-    digest += ` Portfolio average MSI is ${avgMsi.toFixed(0)} — consider reducing frequency on high-exposure themes.`;
+  const safeAvgMsi = typeof avgMsi === "number" && !Number.isNaN(avgMsi) ? avgMsi : 0;
+  if (safeAvgMsi > 50) {
+    digest += ` Portfolio average MSI is ${safeAvgMsi.toFixed(0)} — consider reducing frequency on high-exposure themes.`;
   } else {
-    digest += ` Portfolio average MSI is ${avgMsi.toFixed(0)} — within healthy range.`;
+    digest += ` Portfolio average MSI is ${safeAvgMsi.toFixed(0)} — within healthy range.`;
   }
 
   return digest;
@@ -124,8 +125,9 @@ function getCoolingRecommendations(data: HeatmapData | null): {
     .sort((a, b) => b.avgMsi - a.avgMsi)
     .slice(0, 5)
     .map((row) => {
-      const topTheme = row.themes.length > 0
-        ? [...row.themes].sort((a, b) => b.msi - a.msi)[0]
+      const themes = Array.isArray(row.themes) ? row.themes : [];
+      const topTheme = themes.length > 0
+        ? [...themes].sort((a, b) => b.msi - a.msi)[0]
         : null;
       return {
         hcpName: row.hcpName,

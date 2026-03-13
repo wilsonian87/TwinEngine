@@ -187,12 +187,15 @@ interface EngagementHistogramProps {
 }
 
 function EngagementHistogram({ binsA, binsB, nameA, nameB }: EngagementHistogramProps) {
-  const chartData = binsA.map((binA, i) => {
-    const binB = binsB[i] || { count: 0 };
+  const safeBinsA = Array.isArray(binsA) ? binsA : [];
+  const safeBinsB = Array.isArray(binsB) ? binsB : [];
+
+  const chartData = safeBinsA.map((binA, i) => {
+    const binB = safeBinsB[i];
     return {
       range: `${binA.min}-${binA.max}`,
       [nameA]: binA.count,
-      [nameB]: binB.count,
+      [nameB]: binB?.count ?? 0,
     };
   });
 
@@ -597,38 +600,50 @@ export default function CohortCompare() {
             </Card>
 
             {/* Distribution Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <DistributionChart
-                title="Tier Distribution"
-                dataA={comparisonData.distributions.tier.a}
-                dataB={comparisonData.distributions.tier.b}
-                nameA={comparisonData.cohortA.name}
-                nameB={comparisonData.cohortB.name}
-              />
-              <DistributionChart
-                title="Channel Preference"
-                dataA={comparisonData.distributions.channelPreference.a}
-                dataB={comparisonData.distributions.channelPreference.b}
-                nameA={comparisonData.cohortA.name}
-                nameB={comparisonData.cohortB.name}
-              />
-            </div>
+            {comparisonData.distributions && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {comparisonData.distributions.tier && (
+                    <DistributionChart
+                      title="Tier Distribution"
+                      dataA={comparisonData.distributions.tier.a ?? []}
+                      dataB={comparisonData.distributions.tier.b ?? []}
+                      nameA={comparisonData.cohortA.name}
+                      nameB={comparisonData.cohortB.name}
+                    />
+                  )}
+                  {comparisonData.distributions.channelPreference && (
+                    <DistributionChart
+                      title="Channel Preference"
+                      dataA={comparisonData.distributions.channelPreference.a ?? []}
+                      dataB={comparisonData.distributions.channelPreference.b ?? []}
+                      nameA={comparisonData.cohortA.name}
+                      nameB={comparisonData.cohortB.name}
+                    />
+                  )}
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <EngagementHistogram
-                binsA={comparisonData.distributions.engagement.a}
-                binsB={comparisonData.distributions.engagement.b}
-                nameA={comparisonData.cohortA.name}
-                nameB={comparisonData.cohortB.name}
-              />
-              <DistributionChart
-                title="Segment Distribution"
-                dataA={comparisonData.distributions.segment.a}
-                dataB={comparisonData.distributions.segment.b}
-                nameA={comparisonData.cohortA.name}
-                nameB={comparisonData.cohortB.name}
-              />
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {comparisonData.distributions.engagement && (
+                    <EngagementHistogram
+                      binsA={comparisonData.distributions.engagement.a}
+                      binsB={comparisonData.distributions.engagement.b}
+                      nameA={comparisonData.cohortA.name}
+                      nameB={comparisonData.cohortB.name}
+                    />
+                  )}
+                  {comparisonData.distributions.segment && (
+                    <DistributionChart
+                      title="Segment Distribution"
+                      dataA={comparisonData.distributions.segment.a ?? []}
+                      dataB={comparisonData.distributions.segment.b ?? []}
+                      nameA={comparisonData.cohortA.name}
+                      nameB={comparisonData.cohortB.name}
+                    />
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Actions */}
             <div className="flex gap-2">

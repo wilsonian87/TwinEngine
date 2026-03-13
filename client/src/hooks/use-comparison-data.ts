@@ -174,11 +174,13 @@ function computeRawScore(
     const m = metrics[key as keyof typeof metrics];
     if (!m) continue;
 
-    let value = m[side];
+    let value = typeof m[side] === "number" && !Number.isNaN(m[side]) ? m[side] : 0;
 
     // Normalize totalRxVolume relative to max of a/b
     if (key === "totalRxVolume") {
-      const maxVal = Math.max(m.a, m.b);
+      const a = typeof m.a === "number" ? m.a : 0;
+      const b = typeof m.b === "number" ? m.b : 0;
+      const maxVal = Math.max(a, b);
       value = maxVal > 0 ? Math.min((value / maxVal) * 100, 100) : 0;
     }
 

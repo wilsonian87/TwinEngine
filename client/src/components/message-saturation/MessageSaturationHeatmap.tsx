@@ -699,7 +699,7 @@ export function MessageSaturationHeatmap({
                               </p>
                             )}
                             <p className="text-xs mt-1">
-                              Avg MSI: {theme.avgMsi.toFixed(1)} | {theme.affectedHcpCount} HCPs
+                              Avg MSI: {(theme.avgMsi ?? 0).toFixed(1)} | {theme.affectedHcpCount ?? 0} HCPs
                             </p>
                           </div>
                         </TooltipContent>

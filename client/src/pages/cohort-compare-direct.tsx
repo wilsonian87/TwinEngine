@@ -321,19 +321,19 @@ export default function CohortCompareDirect() {
     useComparisonNarrative(comparisonData);
 
   // Analysis helpers
-  const mostDivergent = comparisonData
+  const mostDivergent = comparisonData?.metrics
     ? findMostDivergent(comparisonData.metrics)
     : [];
-  const winners = comparisonData ? getWinners(comparisonData.metrics) : {};
+  const winners = comparisonData?.metrics ? getWinners(comparisonData.metrics) : {};
 
   // Show top 4 metrics by default; expand for all 7
-  const metricEntries = comparisonData
+  const metricEntries = comparisonData?.metrics
     ? (Object.entries(comparisonData.metrics) as [string, CohortMetrics][])
     : [];
   const sortedMetrics = [...metricEntries].sort(
     (a, b) =>
-      Math.abs(b[1].percentDelta || b[1].delta) -
-      Math.abs(a[1].percentDelta || a[1].delta)
+      Math.abs(b[1].percentDelta ?? b[1].delta ?? 0) -
+      Math.abs(a[1].percentDelta ?? a[1].delta ?? 0)
   );
   const visibleMetrics = showAllMetrics
     ? sortedMetrics
@@ -495,16 +495,20 @@ export default function CohortCompareDirect() {
               <CardContent className="p-0">
                 <CohortCompareViz
                   cohortA={{
-                    name: comparisonData.cohortA.name,
-                    metrics: Object.fromEntries(
-                      Object.entries(comparisonData.metrics).map(([key, m]) => [key, (m as CohortMetrics).a])
-                    ),
+                    name: comparisonData.cohortA?.name ?? "Cohort A",
+                    metrics: comparisonData.metrics
+                      ? Object.fromEntries(
+                          Object.entries(comparisonData.metrics).map(([key, m]) => [key, (m as CohortMetrics).a ?? 0])
+                        )
+                      : {},
                   }}
                   cohortB={{
-                    name: comparisonData.cohortB.name,
-                    metrics: Object.fromEntries(
-                      Object.entries(comparisonData.metrics).map(([key, m]) => [key, (m as CohortMetrics).b])
-                    ),
+                    name: comparisonData.cohortB?.name ?? "Cohort B",
+                    metrics: comparisonData.metrics
+                      ? Object.fromEntries(
+                          Object.entries(comparisonData.metrics).map(([key, m]) => [key, (m as CohortMetrics).b ?? 0])
+                        )
+                      : {},
                   }}
                   metricLabels={METRIC_LABELS}
                 />
