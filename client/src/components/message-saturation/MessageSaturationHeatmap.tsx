@@ -26,7 +26,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus, Filter, BarChart3, ScanSearch } from "lucide-react";
+import {
+  Loader2, AlertTriangle, TrendingUp, TrendingDown, Minus, Filter, BarChart3, ScanSearch,
+  Heart, Brain, Bone, Pill, Stethoscope, Activity, Eye, Syringe, Microscope, Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   MessageSaturationHeatmapData,
@@ -34,7 +37,27 @@ import type {
   AdoptionStage,
   MessageThemeCategory,
   HCPProfile,
+  Specialty,
 } from "@shared/schema";
+
+// ============================================================================
+// Specialty icon config (lifted from hcp-profile-card design)
+// ============================================================================
+
+const specialtyConfig: Record<Specialty, { icon: typeof Heart; color: string; bgColor: string }> = {
+  "Oncology": { icon: Activity, color: "text-rose-400", bgColor: "bg-rose-500/15" },
+  "Cardiology": { icon: Heart, color: "text-red-400", bgColor: "bg-red-500/15" },
+  "Neurology": { icon: Brain, color: "text-purple-400", bgColor: "bg-purple-500/15" },
+  "Endocrinology": { icon: Pill, color: "text-amber-400", bgColor: "bg-amber-500/15" },
+  "Rheumatology": { icon: Bone, color: "text-orange-400", bgColor: "bg-orange-500/15" },
+  "Pulmonology": { icon: Stethoscope, color: "text-sky-400", bgColor: "bg-sky-500/15" },
+  "Gastroenterology": { icon: Microscope, color: "text-emerald-400", bgColor: "bg-emerald-500/15" },
+  "Nephrology": { icon: Syringe, color: "text-blue-400", bgColor: "bg-blue-500/15" },
+  "Dermatology": { icon: Sparkles, color: "text-pink-400", bgColor: "bg-pink-500/15" },
+  "Psychiatry": { icon: Eye, color: "text-indigo-400", bgColor: "bg-indigo-500/15" },
+};
+
+const defaultSpecialtyConfig = { icon: Activity, color: "text-slate-400", bgColor: "bg-slate-500/15" };
 
 // ============================================================================
 // Color scales for MSI visualization
@@ -474,13 +497,13 @@ export function MessageSaturationHeatmap({
     staleTime: 300000, // 5 minutes
   });
 
-  // Build HCP lookup map: id -> { segment, name }
+  // Build HCP lookup map: id -> { name, specialty }
   const hcpLookup = useMemo(() => {
-    const map = new Map<string, { segment: string; name: string }>();
+    const map = new Map<string, { name: string; specialty: string }>();
     for (const hcp of allHcps) {
       map.set(hcp.id, {
-        segment: hcp.segment || "Unknown",
-        name: `${hcp.firstName} ${hcp.lastName}`,
+        name: `${hcp.lastName}, ${hcp.firstName}`,
+        specialty: hcp.specialty || "",
       });
     }
     return map;
@@ -652,8 +675,8 @@ export function MessageSaturationHeatmap({
             <table className="min-w-full">
               <thead>
                 <tr>
-                  <th className="sticky left-0 bg-background z-10 w-28 text-left text-xs font-medium text-muted-foreground p-2">
-                    Segment
+                  <th className="sticky left-0 bg-background z-10 w-44 text-left text-xs font-medium text-muted-foreground p-2">
+                    HCP
                   </th>
                   {filteredThemes.map((theme) => (
                     <th
@@ -698,25 +721,42 @@ export function MessageSaturationHeatmap({
                         className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
                       >
                         <td className="sticky left-0 bg-background z-10 p-2">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={() => onHcpClick?.(hcpId)}
-                                className="text-xs text-left truncate max-w-[110px] block hover:text-primary hover:underline"
-                              >
-                                {hcpInfo?.segment ?? hcpId.slice(0, 8) + "..."}
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right">
-                              <div className="space-y-1">
-                                {hcpInfo && (
-                                  <p className="text-xs font-semibold">{hcpInfo.name}</p>
-                                )}
-                                <p className="text-xs font-mono text-muted-foreground">{hcpId}</p>
-                                <p className="text-[10px] text-muted-foreground">Click to view profile</p>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
+                          {(() => {
+                            const specConfig = specialtyConfig[hcpInfo?.specialty as Specialty] ?? defaultSpecialtyConfig;
+                            const SpecIcon = specConfig.icon;
+                            return (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => onHcpClick?.(hcpId)}
+                                    className="flex items-center gap-2 hover:text-primary group max-w-[170px]"
+                                  >
+                                    <div className={cn(
+                                      "flex-shrink-0 flex items-center justify-center w-6 h-6 rounded",
+                                      specConfig.bgColor,
+                                    )}>
+                                      <SpecIcon className={cn("w-3.5 h-3.5", specConfig.color)} />
+                                    </div>
+                                    <span className="text-xs text-left truncate group-hover:underline">
+                                      {hcpInfo?.name ?? hcpId.slice(0, 8) + "..."}
+                                    </span>
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">
+                                  <div className="space-y-1">
+                                    {hcpInfo && (
+                                      <>
+                                        <p className="text-xs font-semibold">{hcpInfo.name}</p>
+                                        <p className="text-xs text-muted-foreground">{hcpInfo.specialty}</p>
+                                      </>
+                                    )}
+                                    <p className="text-xs font-mono text-muted-foreground">{hcpId}</p>
+                                    <p className="text-[10px] text-muted-foreground">Click to view profile</p>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })()}
                         </td>
                         {filteredThemes.map((theme) => {
                           const cell = cellMap.get(`${hcpId}-${theme.id}`);
