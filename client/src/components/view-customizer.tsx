@@ -55,7 +55,7 @@ interface ViewCustomizerProps {
 // ============================================================================
 
 const sortOptions: { value: SortField; label: string }[] = [
-  { value: "engagement", label: "Signal Score" },
+  { value: "engagement", label: "Eng. Score" },
   { value: "name", label: "Name" },
   { value: "rxVolume", label: "Rx Volume" },
   { value: "marketShare", label: "Market Share" },

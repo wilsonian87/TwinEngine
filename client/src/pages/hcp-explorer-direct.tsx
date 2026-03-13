@@ -209,7 +209,7 @@ export default function HCPExplorerDirect() {
   const [sortField, setSortField] = useState<SortField>("engagement");
   const [selectedHcp, setSelectedHcp] = useState<HCPProfile | null>(null);
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
-  const [viewMode, setViewMode] = useState<"card" | "dossier">("card");
+  const [viewMode, setViewMode] = useState<"card" | "dossier">("dossier");
   const [, navigate] = useLocation();
 
   const { data: hcps = [], isLoading, isError } = useHcpList();

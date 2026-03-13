@@ -160,10 +160,10 @@ export function HCPProfileCard({
             </p>
           </div>
           <div className="text-right">
-            <span className={cn("font-mono text-lg font-semibold", getEngagementColor(hcp.overallEngagementScore))}>
+            <span className="font-mono text-lg font-semibold text-purple-500" style={{ textShadow: "0 0 12px rgba(168,85,247,0.3)" }}>
               {hcp.overallEngagementScore}
             </span>
-            <p className="text-xs text-muted-foreground">Signal</p>
+            <p className="text-[10px] leading-tight text-muted-foreground">Eng.<br/>Score</p>
           </div>
         </div>
         </SignalCard>
@@ -228,12 +228,13 @@ export function HCPProfileCard({
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="text-center">
             <span
-              className={cn("block font-mono text-xl font-bold", getEngagementColor(hcp.overallEngagementScore))}
+              className="block font-mono text-xl font-bold text-purple-500"
+              style={{ textShadow: "0 0 12px rgba(168,85,247,0.3)" }}
               data-testid={`text-engagement-${hcp.npi}`}
             >
               {hcp.overallEngagementScore}
             </span>
-            <span className="text-xs text-muted-foreground">Signal</span>
+            <span className="text-[10px] leading-tight text-muted-foreground">Eng.<br/>Score</span>
           </div>
           <div className="text-center">
             <span
@@ -258,7 +259,7 @@ export function HCPProfileCard({
         {/* Channel engagement bars */}
         <div className="mb-4">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Channel Signals</span>
+            <span className="text-xs font-medium text-muted-foreground">Channel Eng.</span>
             <div className="flex items-center gap-1.5">
               <PreferredIcon
                 className="h-3.5 w-3.5"
