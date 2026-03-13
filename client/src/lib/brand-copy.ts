@@ -68,8 +68,8 @@ export const BRAND_COPY = {
 
   // Labels
   labels: {
-    engagement: "Signal Score",
-    engagementShort: "Signal",
+    engagement: "Eng. Score",
+    engagementShort: "Eng. Score",
     hcp: "HCP",
     hcps: "HCPs",
     audience: "Cohort",

@@ -352,7 +352,7 @@ export default function Simulations() {
                         <SignalCardContent>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Signal</span>
+                              <span className="text-xs font-medium uppercase tracking-wider" style={{ color: "var(--muted-gray, #52525b)" }}>Eng. Score</span>
                               <p className="font-mono text-lg font-bold" style={{ color: "var(--process-violet, #a855f7)" }} data-testid={`text-sim-engagement-${result.id}`}>
                                 {result.predictedEngagementRate.toFixed(1)}%
                               </p>
