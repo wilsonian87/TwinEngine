@@ -11,7 +11,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearch, useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeftRight,
@@ -259,6 +259,7 @@ export default function CohortCompareDirect() {
   const [showAllMetrics, setShowAllMetrics] = useState(false);
   const searchString = useSearch();
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const params = new URLSearchParams(searchString);
@@ -297,9 +298,13 @@ export default function CohortCompareDirect() {
       });
       return res.json();
     },
+    onError: () => {
+      setActivePreset(null);
+    },
   });
 
   const handleApplyPreset = (preset: ComparisonPreset) => {
+    queryClient.cancelQueries({ queryKey: ["/api/analytics/cohort-compare"] });
     setCohortA("");
     setCohortB("");
     setActivePreset(preset);

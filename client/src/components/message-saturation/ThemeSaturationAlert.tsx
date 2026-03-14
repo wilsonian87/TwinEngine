@@ -5,7 +5,7 @@
  * Shows contextual alerts when themes are saturated or approaching fatigue.
  */
 
-import { memo } from "react";
+import React, { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
@@ -371,9 +371,9 @@ export const SaturationIndicator = memo(function SaturationIndicator({
                 {React.createElement(getWarningIcon(w.type), {
                   className: cn("w-3 h-3", getWarningColors(w.type).icon),
                 })}
-                <span>{w.themeName}</span>
+                <span>{w.themeName ?? "Unknown"}</span>
                 <span className="text-muted-foreground">
-                  (MSI {Math.round(w.currentMsi)})
+                  (MSI {Math.round(w.currentMsi ?? 0)})
                 </span>
               </li>
             ))}
@@ -452,8 +452,5 @@ export const InlineSaturationWarning = memo(function InlineSaturationWarning({
     </Tooltip>
   );
 });
-
-// Need to import React for createElement in SaturationIndicator
-import React from "react";
 
 export default ThemeSaturationAlert;

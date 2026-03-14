@@ -160,6 +160,19 @@ export function calculateMsi(components: MsiComponents): number {
 }
 
 // ============================================================================
+// VALIDATION
+// ============================================================================
+
+const VALID_SATURATION_RISK_LEVELS = new Set<string>(["low", "medium", "high", "critical"]);
+
+function toSaturationRiskLevel(value: string | null | undefined): SaturationRiskLevel {
+  if (value && VALID_SATURATION_RISK_LEVELS.has(value)) {
+    return value as SaturationRiskLevel;
+  }
+  return "low";
+}
+
+// ============================================================================
 // STORAGE CLASS
 // ============================================================================
 
@@ -462,7 +475,7 @@ class MessageSaturationStorage {
         hcpId: e.hcpId,
         themeId: e.messageThemeId,
         msi: e.msi!,
-        saturationRisk: (e.saturationRisk || "low") as SaturationRiskLevel,
+        saturationRisk: toSaturationRiskLevel(e.saturationRisk),
         adoptionStage: e.adoptionStage as AdoptionStage | null,
       }));
 
@@ -624,7 +637,7 @@ class MessageSaturationStorage {
       msi: row.msi,
       msiDirection: row.msiDirection as MsiDirection | null,
       msiComponents,
-      saturationRisk: row.saturationRisk as SaturationRiskLevel | null,
+      saturationRisk: row.saturationRisk != null ? toSaturationRiskLevel(row.saturationRisk) : null,
       adoptionStage: row.adoptionStage as AdoptionStage | null,
       measurementPeriod: row.measurementPeriod,
       createdAt: row.createdAt.toISOString(),

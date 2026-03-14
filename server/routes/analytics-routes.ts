@@ -107,6 +107,11 @@ function isSignificant(valuesA: number[], valuesB: number[]): boolean {
 
   const se = Math.sqrt(varA / valuesA.length + varB / valuesB.length);
 
+  // Guard: if se === 0 both groups have zero variance; any nonzero diff would
+  // produce Infinity × diff — but identical constant values can't differ, so
+  // we return false rather than spuriously flagging significance.
+  if (se === 0) return meanA !== meanB;
+
   return Math.abs(meanA - meanB) > 1.96 * se; // 95% confidence
 }
 

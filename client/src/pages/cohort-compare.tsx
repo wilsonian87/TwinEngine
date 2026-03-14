@@ -280,6 +280,9 @@ export default function CohortCompare() {
       });
       return res.json();
     },
+    onError: () => {
+      setActivePreset(null);
+    },
   });
 
   const handleApplyPreset = (preset: Preset) => {
@@ -463,9 +466,15 @@ export default function CohortCompare() {
               <div>
                 <p className="text-sm font-medium">Audience out of sync</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {staleResponse.staleCohorts?.map((c) => c.name).join(" and ")}{" "}
-                  {(staleResponse.staleCohorts?.length ?? 0) > 1 ? "reference" : "references"}{" "}
-                  HCP profiles that no longer exist. Re-save from the Audience Builder to refresh.
+                  {staleResponse.staleCohorts && staleResponse.staleCohorts.length > 0
+                    ? <>
+                        {staleResponse.staleCohorts.map((c) => c.name).join(" and ")}{" "}
+                        {staleResponse.staleCohorts.length > 1 ? "reference" : "references"}{" "}
+                        HCP profiles that no longer exist.
+                      </>
+                    : "One or more selected audiences reference HCP profiles that no longer exist."
+                  }{" "}
+                  Re-save from the Audience Builder to refresh.
                 </p>
                 <Button
                   variant="outline"
