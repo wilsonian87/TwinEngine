@@ -35,7 +35,6 @@ import ChannelHealthDirect from "@/pages/channel-health-direct";
 import ActionQueuePage from "@/pages/action-queue";
 import ActionQueueDirect from "@/pages/action-queue-direct";
 import { ModePage } from "@/components/mode-page";
-import DashboardDirect from "@/pages/dashboard-direct";
 import CohortCompare from "@/pages/cohort-compare";
 import CohortCompareDirect from "@/pages/cohort-compare-direct";
 import { AmbientAlertBar } from "@/components/shared/ambient-alert-bar";
@@ -82,9 +81,7 @@ function Router() {
             {() => <ModePage discover={Simulations} direct={SimulationsDirect} />}
           </Route>
           <Route path="/simulations/compare" component={SimulationComparePage} />
-          <Route path="/dashboard">
-            {() => <ModePage discover={Dashboard} direct={DashboardDirect} />}
-          </Route>
+          <Route path="/dashboard" component={Dashboard} />
           <Route path="/audience-builder">
             {() => <ModePage discover={AudienceBuilder} direct={AudienceBuilderDirect} />}
           </Route>

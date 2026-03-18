@@ -46,7 +46,7 @@ npm run dev
 
 2. **Check .env exists**: `ls .env` — if missing, `cp .env.example .env`
 
-3. **Export env vars**: `export $(cat .env | xargs)` — REQUIRED before npm run dev
+3. **Export env vars**: `set -a && source .env && set +a` — REQUIRED before npm run dev (handles values with spaces)
 
 4. **Start server**: `npm run dev`
 
@@ -55,6 +55,8 @@ npm run dev
 6. **Tell user**: "Server running at http://localhost:3000"
 
 The user is non-technical and won't remember prerequisites. Always check everything.
+
+**Dev Auth Bypass:** Set `SKIP_AUTH=true` in `.env` to skip login entirely. Injects a mock admin user (`dev-user-001`) for all requests. Already enabled in local `.env`.
 
 ## Architecture
 
